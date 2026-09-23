@@ -1,0 +1,14 @@
+services:
+  dm-command-table:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DM_COMMAND_TABLE_DB_PATH: /data/dm-command-table.sqlite
+      DM_COMMAND_TABLE_ALLOW_LOCAL_USER: "true"
+    volumes:
+      - dm-command-table-data:/data
+    restart: unless-stopped
+
+volumes:
+  dm-command-table-data:

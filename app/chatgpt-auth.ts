@@ -22,7 +22,25 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const requestHeaders = await headers();
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
-  if (!userId || !email) return null;
+  if (!userId || !email) {
+    if (
+      process.env.NODE_ENV !== "production" ||
+      process.env.DM_COMMAND_TABLE_ALLOW_LOCAL_USER === "true"
+    ) {
+      const localEmail =
+        process.env.DM_COMMAND_TABLE_LOCAL_USER_EMAIL || "dm@localhost";
+      return {
+        userId:
+          process.env.DM_COMMAND_TABLE_LOCAL_USER_ID || "local-development-user",
+        displayName:
+          process.env.DM_COMMAND_TABLE_LOCAL_USER_NAME || "Local Dungeon Master",
+        email: localEmail,
+        fullName:
+          process.env.DM_COMMAND_TABLE_LOCAL_USER_NAME || "Local Dungeon Master",
+      };
+    }
+    return null;
+  }
 
   const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
   const fullName =

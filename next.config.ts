@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /* Standard Node.js server deployment with persistent local storage. */
 };
 
 export default nextConfig;
