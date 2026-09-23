@@ -14,7 +14,11 @@ The hosted application is available at [dm-command-table.lamalyon.chatgpt.site](
 - Reusable bestiary with stat blocks, actions, abilities, spells, and spell slots
 - Session preparation and recap notes
 - Story beats with Planned, Active, and Happened states
-- Automatic saving to persistent campaign storage
+- Multiple campaigns with automatic account synchronization
+- IndexedDB offline cache for reliable device-local access
+- Private campaigns and explicit Viewer or Editor sharing
+- JSON export and import for portable backups
+- Managed Sign in with ChatGPT authentication
 - Responsive desktop and mobile layouts
 
 ## Technology
@@ -52,19 +56,19 @@ The local development environment provides a simulated ChatGPT sign-in route at:
 
 ## Database
 
-Campaign state is stored in the `campaign_states` D1 table. Apply the included migration to a local D1 database after the first build:
+Campaigns are cached in browser IndexedDB and synchronized to Cloudflare D1 when the user is signed in. The server stores campaign ownership and explicit Viewer or Editor memberships. Apply the included migrations to a local D1 database after the first build:
 
 ```bash
 pnpm build
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_misty_blindfold.sql
 ```
 
-The API is exposed through `app/api/state/route.ts`:
+The API is exposed through `app/api/campaigns/route.ts`:
 
-- `GET /api/state` loads the saved campaign state.
-- `PUT /api/state` validates and saves the complete campaign state.
-
-The current implementation uses one persistent campaign record identified as `main-campaign`.
+- `GET /api/campaigns` loads campaigns available to the signed-in user.
+- `POST /api/campaigns` creates or shares a campaign.
+- `PUT /api/campaigns` saves an owned or editable campaign.
+- `DELETE /api/campaigns?id=...` deletes an owned campaign.
 
 ## Build
 
@@ -94,13 +98,15 @@ scripts/              Cross-platform build and runtime helpers
 
 ## Data and privacy
 
-- The hosted site is private and requires authorized access.
-- Campaign data is stored in the hosted D1 database, not in browser local storage.
+- Authentication is provided by managed Sign in with ChatGPT.
+- Campaigns are private by default and shared only with explicitly invited email addresses.
+- Campaign data is stored centrally in D1 and cached locally in IndexedDB.
+- Viewers cannot save campaign changes; Editors can collaborate; Owners can share or delete.
 - `.env` files, local database state, build output, and execution-profile files are excluded from version control.
 
 ## Current scope
 
-This is the first functional release. It currently maintains one campaign workspace. Potential future additions include multiple campaigns, reusable encounters, editable spell-slot expenditure, creature imports, and richer condition controls.
+The authentication boundary is isolated behind `app/chatgpt-auth.ts` so it can be replaced by a self-hosted username/password provider later. Potential additions include reusable encounters, editable spell-slot expenditure, creature imports, richer condition controls, and revision history.
 
 ## License
 

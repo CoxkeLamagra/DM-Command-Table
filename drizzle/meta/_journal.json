@@ -8,6 +8,13 @@
       "when": 1790156798753,
       "tag": "0000_misty_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790162827208,
+      "tag": "0001_volatile_patriot",
+      "breakpoints": true
     }
   ]
 }
