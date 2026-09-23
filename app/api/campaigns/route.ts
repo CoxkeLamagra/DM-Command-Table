@@ -26,6 +26,18 @@ async function access(campaignId: string, userId: string): Promise<Role | null> 
 export async function GET() {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
+  const owned = await env.DB.prepare("SELECT COUNT(*) AS count FROM campaigns WHERE owner_id = ?").bind(user.userId).first<{ count: number }>();
+  const knownUsers = await env.DB.prepare("SELECT COUNT(*) AS count FROM users").first<{ count: number }>();
+  if ((owned?.count ?? 0) === 0 && knownUsers?.count === 1) {
+    const legacy = await env.DB.prepare("SELECT payload, updated_at AS updatedAt FROM campaign_states WHERE id = 'main-campaign' LIMIT 1").first<{ payload: string; updatedAt: number }>();
+    if (legacy) {
+      const parsed = JSON.parse(legacy.payload) as { campaignName?: string };
+      const now = legacy.updatedAt || Date.now();
+      await env.DB.prepare(
+        "INSERT INTO campaigns (id, owner_id, name, payload, updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).bind(crypto.randomUUID(), user.userId, parsed.campaignName ?? "Imported campaign", legacy.payload, now, now).run();
+    }
+  }
   const rows = await env.DB.prepare(
     `SELECT c.id, c.name, c.payload, c.updated_at AS updatedAt,
       CASE WHEN c.owner_id = ? THEN 'owner' ELSE m.role END AS role,
