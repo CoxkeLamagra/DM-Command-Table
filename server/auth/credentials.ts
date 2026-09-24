@@ -7,6 +7,7 @@ export type LocalUser = {
   userId: string;
   username: string;
   displayName: string;
+  isAdmin: boolean;
 };
 
 type UserRow = LocalUser & { passwordHash: string };
@@ -56,7 +57,8 @@ export function findLocalUser(username: string): UserRow | null {
   return (
     (getDatabase()
       .prepare(
-        `SELECT id AS userId, username, display_name AS displayName, password_hash AS passwordHash
+        `SELECT id AS userId, username, display_name AS displayName, password_hash AS passwordHash,
+                is_admin AS isAdmin
          FROM users WHERE username = ? AND password_hash IS NOT NULL LIMIT 1`,
       )
       .get(normaliseUsername(username)) as UserRow | undefined) ?? null

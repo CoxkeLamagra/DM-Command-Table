@@ -4,6 +4,14 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+### Administration
+
+- Added a local user-administration interface for changing usernames and display names, resetting passwords, deleting accounts, and managing administrator permissions.
+- Made the first registered local account the default administrator.
+- Added automatic administrator assignment for existing installations that do not yet have an administrator.
+- Added server-side authorization and final-administrator safeguards to every user-management operation.
+- Made password resets revoke the affected account's active sessions.
+
 ### Internal architecture
 
 - Split the application into feature-focused Auth, Campaign, Combat, Bestiary, Session, and Story modules.

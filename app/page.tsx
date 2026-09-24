@@ -11,6 +11,7 @@ import {
   Plus,
   Save,
   ScrollText,
+  Settings,
   Share2,
   Swords,
   Upload,
@@ -37,6 +38,7 @@ import { Sessions } from "@/features/sessions/sessions-screen";
 import { Story } from "@/features/story/story-screen";
 import { Combat } from "@/features/combat/combat-screen";
 import { Bestiary } from "@/features/bestiary/bestiary-screen";
+import { AdminScreen } from "@/features/admin/admin-screen";
 
 const uid = createId;
 export default function Home() {
@@ -351,6 +353,11 @@ export default function Home() {
             <NavigationItem value="story" icon={<ScrollText />}>
               Story
             </NavigationItem>
+            {user?.isAdmin && (
+              <NavigationItem value="admin" icon={<Settings />}>
+                Administration
+              </NavigationItem>
+            )}
           </TabsList>
           <div className="mt-auto hidden rounded-xl border border-white/10 bg-black/20 p-3 md:block">
             <p className="text-xs font-medium text-stone-300">
@@ -403,6 +410,11 @@ export default function Home() {
           <TabsContent value="story">
             <Story data={data} patch={patch} />
           </TabsContent>
+          {user?.isAdmin && (
+            <TabsContent value="admin">
+              <AdminScreen currentUsername={user.username} />
+            </TabsContent>
+          )}
         </section>
       </Tabs>
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>

@@ -17,6 +17,7 @@ export const RUNTIME_SCHEMA = `
     display_name TEXT NOT NULL,
     username TEXT,
     password_hash TEXT,
+    is_admin INTEGER NOT NULL DEFAULT 0,
     updated_at INTEGER NOT NULL
   );
 
@@ -68,7 +69,28 @@ export function applyRuntimeMigrations(database: DatabaseSync): void {
   if (!names.has("password_hash")) {
     database.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
   }
+  if (!names.has("is_admin")) {
+    database.exec(
+      "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
+    );
+  }
   database.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)",
   );
+  const admins = database
+    .prepare(
+      "SELECT COUNT(*) AS count FROM users WHERE password_hash IS NOT NULL AND is_admin = 1",
+    )
+    .get() as { count: number };
+  if (admins.count === 0) {
+    database.exec(`
+      UPDATE users SET is_admin = 1
+      WHERE id = (
+        SELECT id FROM users
+        WHERE password_hash IS NOT NULL
+        ORDER BY updated_at ASC, rowid ASC
+        LIMIT 1
+      )
+    `);
+  }
 }

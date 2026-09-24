@@ -14,7 +14,8 @@ export async function getLocalUser(): Promise<LocalUser | null> {
   db.prepare("DELETE FROM local_sessions WHERE expires_at <= ?").run(now);
   const row = db
     .prepare(
-      `SELECT u.id AS userId, u.username, u.display_name AS displayName
+      `SELECT u.id AS userId, u.username, u.display_name AS displayName,
+              u.is_admin AS isAdmin
        FROM local_sessions s JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > ? AND u.username IS NOT NULL
        LIMIT 1`,

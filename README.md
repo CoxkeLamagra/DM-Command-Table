@@ -23,6 +23,17 @@ The current stable release is **v2.3.0**.
 
 Campaigns are private by default. Only the owner can share or delete a campaign. Owners and editors can save changes; viewers cannot modify campaign data.
 
+### Local user administration
+
+- The first locally registered account automatically becomes an administrator.
+- Administrators can open **Administration** to review all registered accounts.
+- Change usernames and display names, reset passwords, or delete accounts.
+- Grant or remove administrator access for other users.
+- Password resets invalidate all active sessions for the affected account.
+- Deleting an account also permanently deletes campaigns owned by that account.
+
+An administrator cannot delete their own account or remove their own administrator access. These safeguards ensure that the server always retains at least one administrator.
+
 ### Combat tracker
 
 - Give each encounter its own editable name.

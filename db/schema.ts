@@ -12,6 +12,7 @@ export const users = sqliteTable("users", {
   displayName: text("display_name").notNull(),
   username: text("username"),
   passwordHash: text("password_hash"),
+  isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 }, (table) => [
   uniqueIndex("idx_users_email").on(table.email),

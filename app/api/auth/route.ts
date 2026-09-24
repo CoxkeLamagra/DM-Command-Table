@@ -63,17 +63,19 @@ export async function POST(request: Request) {
     try {
       if (legacyUser) {
         db.prepare(
-          "UPDATE users SET display_name = ?, username = ?, password_hash = ?, updated_at = ? WHERE id = ?",
+          "UPDATE users SET display_name = ?, username = ?, password_hash = ?, is_admin = 1, updated_at = ? WHERE id = ?",
         ).run(displayName, username, passwordHash, now, id);
       } else {
+        const isAdmin = localAccounts.count === 0 ? 1 : 0;
         db.prepare(
-          "INSERT INTO users (id, email, display_name, username, password_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO users (id, email, display_name, username, password_hash, is_admin, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
         ).run(
           id,
           `${username}@local.dm-command-table`,
           displayName,
           username,
           passwordHash,
+          isAdmin,
           now,
         );
       }
@@ -111,7 +113,10 @@ export async function POST(request: Request) {
       );
     }
     await createSession(id);
-    return Response.json({ user: { username, displayName } }, { status: 201 });
+    return Response.json(
+      { user: { username, displayName, isAdmin: localAccounts.count === 0 } },
+      { status: 201 },
+    );
   }
 
   if (action === "login") {
@@ -124,7 +129,11 @@ export async function POST(request: Request) {
     }
     await createSession(user.userId);
     return Response.json({
-      user: { username: user.username, displayName: user.displayName },
+      user: {
+        username: user.username,
+        displayName: user.displayName,
+        isAdmin: Boolean(user.isAdmin),
+      },
     });
   }
 

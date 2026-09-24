@@ -29,7 +29,11 @@ export async function GET() {
   if (!user) return authenticationRequired();
   migrateSoleLegacyCampaign(user);
   return Response.json({
-    user: { username: user.username, displayName: user.displayName },
+    user: {
+      username: user.username,
+      displayName: user.displayName,
+      isAdmin: Boolean(user.isAdmin),
+    },
     campaigns: listCampaigns(user.userId),
   });
 }

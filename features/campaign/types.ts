@@ -84,7 +84,11 @@ export type CampaignState = {
 
 export type Campaign = CachedCampaign<CampaignState>;
 export type CampaignRole = Campaign["role"];
-export type CampaignUser = { username: string; displayName: string };
+export type CampaignUser = {
+  username: string;
+  displayName: string;
+  isAdmin: boolean;
+};
 
 export type CampaignPatch = <T extends keyof CampaignState>(
   key: T,
