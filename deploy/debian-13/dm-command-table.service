@@ -10,6 +10,7 @@ User=dmct
 Group=dmct
 WorkingDirectory=/opt/dm-command-table/app
 EnvironmentFile=/etc/dm-command-table.env
+Environment=HOME=/opt/dm-command-table
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStartPre=/usr/bin/test -f /opt/dm-command-table/app/.next/BUILD_ID
 ExecStart=/usr/bin/env pnpm exec next start -H 127.0.0.1 -p 3000

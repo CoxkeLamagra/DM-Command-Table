@@ -110,8 +110,8 @@ runuser -u dmct -- git clone --branch main --single-branch \
 Install exactly the dependencies recorded in the lockfile and create the production build:
 
 ```bash
-runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
-runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app build
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --dir /opt/dm-command-table/app build
 test -f /opt/dm-command-table/app/.next/BUILD_ID
 ```
 
@@ -229,8 +229,8 @@ The same update can be performed manually:
 ```bash
 systemctl stop dm-command-table.service
 runuser -u dmct -- git -C /opt/dm-command-table/app pull --ff-only
-runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
-runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app build
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --dir /opt/dm-command-table/app build
 systemctl start dm-command-table.service
 systemctl status dm-command-table.service --no-pager
 ```
@@ -274,19 +274,21 @@ Verify that pnpm can be resolved and that a production build exists:
 
 ```bash
 command -v pnpm
-runuser -u dmct -- /usr/bin/env pnpm --version
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --version
 test -f /opt/dm-command-table/app/.next/BUILD_ID
 ```
 
 If the build check fails, recreate it before restarting the service:
 
 ```bash
-runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
-runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app build
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --dir /opt/dm-command-table/app build
 systemctl restart dm-command-table.service
 ```
 
 If the journal mentions `Failed to set up mount namespacing` for `.next`, update the repository and reinstall the latest service template. Older templates incorrectly listed `.next` under `ReadWritePaths`, which made systemd require that directory before starting the process.
+
+If an update reports `EACCES: permission denied, open '/root/.corepack.env'`, reinstall the latest updater. Older versions allowed the `dmct` process to inherit root's home directory. The current updater explicitly sets `HOME=/opt/dm-command-table` for pnpm and Corepack.
 
 ### Nginx reports `502 Bad Gateway`
 
