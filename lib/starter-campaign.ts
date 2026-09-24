@@ -6,8 +6,8 @@ const STARTER_CAMPAIGN = {
   turn: 0,
   combatants: [
     { id: "c1", name: "Lamfurion", kind: "player", initiative: 18, hp: 47, maxHp: 52, ac: 19, conditions: [] },
-    { id: "c2", name: "Goblin Hexer", kind: "monster", initiative: 15, hp: 21, maxHp: 32, ac: 14, conditions: ["Concentrating"], monsterId: "m1" },
-    { id: "c3", name: "Ridgeback Drake", kind: "monster", initiative: 11, hp: 44, maxHp: 58, ac: 16, conditions: [], monsterId: "m2" },
+    { id: "c2", name: "Goblin Hexer", number: 1, kind: "monster", initiative: 15, hp: 21, maxHp: 32, ac: 14, conditions: ["Concentrating"], monsterId: "m1" },
+    { id: "c3", name: "Ridgeback Drake", number: 1, kind: "monster", initiative: 11, hp: 44, maxHp: 58, ac: 16, conditions: [], monsterId: "m2" },
   ],
   players: [
     { id: "p1", name: "Lamfurion", race: "Golden Dragonborn", className: "Paladin / Warlock", level: 8, hp: 52, ac: 19, notes: "The green scale is the only clue left by the attackers who destroyed his order." },
@@ -20,9 +20,9 @@ const STARTER_CAMPAIGN = {
   sessions: [
     { id: "n1", title: "Session 12 — The Ashen Crossing", date: "2026-09-28", body: "Open on the bridge at dawn. The green scale reacts to the old ward-stone.\n\nRemember: Captain Vael knows more than she admitted.", done: false, encounters: [
       { id: "e1", name: "Ambush at the ward-stone", monsters: [
-        { id: "em1", monsterId: "m1" },
-        { id: "em2", monsterId: "m1" },
-        { id: "em3", monsterId: "m2" },
+        { id: "em1", monsterId: "m1", number: 1 },
+        { id: "em2", monsterId: "m1", number: 2 },
+        { id: "em3", monsterId: "m2", number: 1 },
       ] },
     ] },
   ],
