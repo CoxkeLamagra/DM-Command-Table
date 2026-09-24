@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current stable release is **v2.0.0**.
+The current stable release is **v2.1.0**.
 
 ## Features
 
@@ -17,6 +17,9 @@ The current stable release is **v2.0.0**.
 - Share campaigns with another registered DM Command Table user by username.
 - Assign **Editor** access for collaboration or **Viewer** access for read-only use.
 - Poll for server changes every five seconds while the application is open.
+- Manage the campaign name and general campaign notes from a dedicated **Campaign** screen.
+- Review a chronological campaign timeline generated automatically from session entries.
+- Select a timeline entry to open and focus its corresponding session note.
 
 Campaigns are private by default. Only the owner can share or delete a campaign. Owners and editors can save changes; viewers cannot modify campaign data.
 
@@ -33,13 +36,15 @@ Campaigns are private by default. Only the owner can share or delete a campaign.
 - Clear the entire encounter to start with an empty combat tracker.
 - View race, class, and level information for linked campaign players.
 
-### Campaign player roster
+### Players
 
 - Save reusable player records per campaign.
 - Record name, race, class, level, optional HP, optional AC, and notes.
 - Use card or compact list views.
 - Delete individual players or select several players for bulk deletion.
 - Add saved players to an encounter without entering their information again.
+
+Player-character management is available from the dedicated **Players** navigation entry.
 
 If HP or AC is not set, the combat tracker uses `10` when that player is added to an encounter.
 
@@ -60,6 +65,7 @@ Imported monster data belongs to the current campaign and remains editable after
 
 - Create dated session preparation and recap notes.
 - Mark session notes as completed.
+- Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
 
 ## Storage architecture
@@ -200,7 +206,7 @@ The application does not automatically copy data from Cloudflare D1 into SQLite.
 
 Campaign sharing permissions must be granted again after import because exports contain campaign content, not server-side membership records.
 
-## Upgrading from v1 to v2
+## Upgrading from v1 to v2.1
 
 Back up the SQLite database before upgrading. On the supplied Debian 13 LXC deployment:
 
@@ -214,6 +220,8 @@ update-dm-command-table
 Open the site after the update and register the intended owner account first. When the old database contains one legacy user, this account adopts that user record and its campaigns. The application adds the account and session columns automatically; no manual SQL migration is required.
 
 Newly registered accounts receive the editable example campaign. Existing users with campaign data do not receive a duplicate example.
+
+Updating from v2.0 to v2.1 requires no database migration. Existing campaigns receive an empty general-notes field automatically when opened.
 
 ## Campaign API
 
@@ -264,8 +272,8 @@ compose.yaml           Local container deployment with persistent storage
 
 ## Release
 
-- Latest stable release: [DM Command Table 2.0](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.0.0)
-- Release tag: `v2.0.0`
+- Latest stable release: [DM Command Table 2.1](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.1.0)
+- Release tag: `v2.1.0`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
