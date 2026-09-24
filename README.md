@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current stable release is **v2.1.0**.
+The current stable release is **v2.2.0**.
 
 ## Features
 
@@ -29,6 +29,7 @@ Campaigns are private by default. Only the owner can share or delete a campaign.
 - Add ad-hoc players, monsters, or NPCs.
 - Add reusable players from the campaign roster.
 - Add monsters from the campaign bestiary with their linked stat blocks.
+- Assign optional numbers to Monsters and NPCs so identically named combatants remain easy to distinguish.
 - Track initiative, turn order, rounds, armor class, current and maximum HP, and conditions.
 - Highlight combatants at `0 HP` as downed and automatically skip them when advancing to the next turn.
 - Reset the round counter without removing combatants.
@@ -65,6 +66,11 @@ Imported monster data belongs to the current campaign and remains editable after
 
 - Create dated session preparation and recap notes.
 - Mark session notes as completed.
+- Prepare multiple named encounters inside each session.
+- Add one or more instances of Bestiary monsters to every prepared encounter.
+- Assign automatic or custom monster numbers such as **Goblin #1** and **Goblin #2**.
+- Collapse prepared encounters to keep sessions with extensive preparation manageable.
+- Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
 
@@ -206,7 +212,7 @@ The application does not automatically copy data from Cloudflare D1 into SQLite.
 
 Campaign sharing permissions must be granted again after import because exports contain campaign content, not server-side membership records.
 
-## Upgrading from v1 to v2.1
+## Upgrading from v1 to v2.2
 
 Back up the SQLite database before upgrading. On the supplied Debian 13 LXC deployment:
 
@@ -222,6 +228,8 @@ Open the site after the update and register the intended owner account first. Wh
 Newly registered accounts receive the editable example campaign. Existing users with campaign data do not receive a duplicate example.
 
 Updating from v2.0 to v2.1 requires no database migration. Existing campaigns receive an empty general-notes field automatically when opened.
+
+Updating from v2.1 to v2.2 also requires no database migration. Existing sessions receive an empty prepared-encounters list, while existing combatants and prepared monsters receive blank optional number fields.
 
 ## Campaign API
 
@@ -272,8 +280,8 @@ compose.yaml           Local container deployment with persistent storage
 
 ## Release
 
-- Latest stable release: [DM Command Table 2.1](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.1.0)
-- Release tag: `v2.1.0`
+- Latest stable release: [DM Command Table 2.2](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.2.0)
+- Release tag: `v2.2.0`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
