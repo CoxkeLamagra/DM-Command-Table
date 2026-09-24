@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current stable release is **v2.4.0**.
+The current stable release is **v3.0.0**.
 
 ## Features
 
@@ -220,6 +220,12 @@ Alternatively, stop the application before copying the database file and its com
 
 Back up the adjacent `uploads` directory as well to preserve screenshots embedded in notes. A JSON campaign export contains screenshot references but does not include the binary image files.
 
+## Upgrading to v3.0
+
+Back up the SQLite database and the adjacent `uploads` directory before upgrading a hosted installation. Version 3.0 requires no manual database migration: the application applies the compatible local schema updates when it starts.
+
+Version 3.0 consolidates the administrator and screenshot capabilities introduced in v2.4 and completes the internal architecture refactor. Existing accounts, permissions, campaigns, sessions, prepared encounters, Bestiary entries, embedded screenshot references, and uploaded image files remain compatible.
+
 ## Campaign API
 
 The API is implemented in `app/api/campaigns/route.ts`:
@@ -275,8 +281,8 @@ Feature modules keep rendering separate from testable domain operations. Combat 
 
 ## Release
 
-- Latest stable release: [DM Command Table 2.4](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.4.0)
-- Release tag: `v2.4.0`
+- Latest stable release: [DM Command Table 3.0](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v3.0.0)
+- Release tag: `v3.0.0`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
