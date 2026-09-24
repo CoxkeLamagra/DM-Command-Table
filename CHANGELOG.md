@@ -4,6 +4,8 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 3.0.0 — 2026-09-24
+
 ### Internal architecture
 
 - Centralized local API request, JSON error, authentication, administrator, and same-origin handling.
