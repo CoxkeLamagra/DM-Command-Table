@@ -2,6 +2,25 @@
 
 All notable DM Command Table releases are documented here.
 
+## 2.2.0 — 2026-09-24
+
+### Prepared encounters
+
+- Added multiple prepared encounters to every session.
+- Added editable encounter names and reusable Bestiary monster selection.
+- Allowed multiple instances of the same monster in one prepared encounter.
+- Added loading from a prepared encounter into Combat while preserving players and NPCs, replacing existing monsters, applying the prepared name, and resetting combat to round 1.
+- Made the Prepared Encounters section collapsible and added an encounter-count indicator.
+- Added backward-compatible defaults so existing sessions receive an empty encounter list without a database migration.
+
+### Combatant numbering
+
+- Added optional numeric identifiers for Monster and NPC combatants.
+- Displayed numbers beside combatant names in the initiative list and current-turn banner.
+- Added editable numbers to Combat details and prepared-monster entries.
+- Added automatic per-monster numbering when monsters are added to a prepared encounter.
+- Preserved prepared monster numbers when loading encounters into Combat.
+
 ## 2.1.0 — 2026-09-24
 
 ### Campaign overview
