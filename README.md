@@ -27,6 +27,7 @@ Campaigns are private by default. Only the owner can share or delete a campaign.
 - Track initiative, turn order, rounds, armor class, current and maximum HP, and conditions.
 - Highlight combatants at `0 HP` as downed and automatically skip them when advancing to the next turn.
 - Reset the round counter without removing combatants.
+- Remove all monster combatants while keeping players and NPCs ready for the next encounter.
 - Clear the entire encounter to start with an empty combat tracker.
 - View race, class, and level information for linked campaign players.
 
