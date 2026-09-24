@@ -149,7 +149,7 @@ Each new account receives an editable example campaign. It can be renamed, chang
 
 When upgrading an existing single-user installation, the first registered local account automatically adopts the existing user record and its campaigns. Use the intended owner account for this first registration.
 
-Passwords are salted and hashed with `scrypt`. Login sessions and password hashes remain in `/var/lib/dm-command-table/dm-command-table.sqlite`; no external authentication or database service is used.
+Passwords are salted and hashed with `scrypt`. Login sessions and password hashes remain in `/var/lib/dm-command-table/dm-command-table.sqlite`; uploaded screenshots are stored in `/var/lib/dm-command-table/uploads`. No external authentication, media, or database service is used.
 
 When the site is later served exclusively over HTTPS, change the setting to `DM_COMMAND_TABLE_SECURE_COOKIES=true` and restart the service.
 
@@ -262,6 +262,7 @@ The old `DM_COMMAND_TABLE_ALLOW_LOCAL_USER` and `DM_COMMAND_TABLE_LOCAL_USER_*` 
 
 ```text
 DM_COMMAND_TABLE_DB_PATH=/var/lib/dm-command-table/dm-command-table.sqlite
+DM_COMMAND_TABLE_UPLOAD_PATH=/var/lib/dm-command-table/uploads
 DM_COMMAND_TABLE_SECURE_COOKIES=false
 NODE_ENV=production
 PORT=3000
@@ -269,7 +270,7 @@ PORT=3000
 
 Use `DM_COMMAND_TABLE_SECURE_COOKIES=true` only after HTTPS is active.
 
-## 11. Back up and restore SQLite
+## 11. Back up and restore server data
 
 Create a consistent live backup:
 
@@ -277,6 +278,8 @@ Create a consistent live backup:
 mkdir -p /var/backups/dm-command-table
 sqlite3 /var/lib/dm-command-table/dm-command-table.sqlite \
   ".backup '/var/backups/dm-command-table/dm-command-table-$(date +%F).sqlite'"
+tar -C /var/lib/dm-command-table -czf \
+  "/var/backups/dm-command-table/uploads-$(date +%F).tar.gz" uploads
 ```
 
 List available backups:
@@ -291,7 +294,9 @@ To restore a backup, stop the service first:
 systemctl stop dm-command-table.service
 cp /var/backups/dm-command-table/dm-command-table-YYYY-MM-DD.sqlite \
   /var/lib/dm-command-table/dm-command-table.sqlite
-chown dmct:dmct /var/lib/dm-command-table/dm-command-table.sqlite
+tar -C /var/lib/dm-command-table -xzf \
+  /var/backups/dm-command-table/uploads-YYYY-MM-DD.tar.gz
+chown -R dmct:dmct /var/lib/dm-command-table
 systemctl start dm-command-table.service
 ```
 

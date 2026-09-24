@@ -3,8 +3,9 @@
 import { Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ScreenTitle } from "@/features/shared/ui";
+import { ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
+import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import { createId } from "@/features/campaign/id";
 import type {
   CampaignPatch,
@@ -21,6 +22,7 @@ export function Story({
   data: CampaignState;
   patch: CampaignPatch;
 }) {
+  const { screenshots, upload } = useScreenshotLibrary();
   const update = (id: string, p: Partial<StoryBeat>) =>
     patch(
       "story",
@@ -90,11 +92,15 @@ export function Story({
                   <option value="happened">Happened</option>
                 </select>
               </div>
-              <Textarea
-                className="mt-4 min-h-24 border-white/10 bg-black/20"
+              <div className="mt-4">
+              <ScreenshotNotes
+                className="min-h-24"
                 value={s.details}
-                onChange={(e) => update(s.id, { details: e.target.value })}
+                onChange={(details) => update(s.id, { details })}
+                screenshots={screenshots}
+                upload={upload}
               />
+              </div>
             </div>
           </article>
         ))}

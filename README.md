@@ -86,6 +86,8 @@ Imported monster data belongs to the current campaign and remains editable after
 - Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
+- Upload screenshots and embed them directly in Campaign, Session, and Story notes.
+- Reuse uploaded screenshots from the local library; images scale automatically to the available browser width.
 
 ## Storage architecture
 
@@ -95,7 +97,8 @@ DM Command Table uses a local-first model with no external database service:
 2. The Node.js application stores central campaign data in a server-local SQLite file.
 3. SQLite runs in WAL mode with foreign-key checks and a five-second busy timeout.
 4. If the server is temporarily unavailable, an existing browser cache remains available.
-5. JSON export provides portable backups and file-based campaign sharing.
+5. Uploaded screenshots are stored in an `uploads` directory beside the SQLite database.
+6. JSON export provides portable campaign data, while server backups preserve uploaded screenshots.
 
 The SQLite database contains local accounts, password hashes, login sessions, campaign ownership, campaign payloads, and Viewer or Editor memberships. The default location is:
 
@@ -104,6 +107,8 @@ The SQLite database contains local accounts, password hashes, login sessions, ca
 ```
 
 Set `DM_COMMAND_TABLE_DB_PATH` to use a different location. The directory is created automatically, and the schema is initialized when the database is first opened.
+
+By default, screenshots are written to an `uploads` directory beside the database. Set `DM_COMMAND_TABLE_UPLOAD_PATH` to override that location. Screenshot references are stored in campaign notes, while the image files remain in the server-side screenshot library.
 
 > The remote monster catalogue is an import source, not a campaign database. Imported monsters are copied into the local campaign data.
 
@@ -193,7 +198,7 @@ The included Docker configuration stores SQLite data in a persistent named volum
 docker compose up --build -d
 ```
 
-The application is then available at [http://localhost:3000](http://localhost:3000). Register the first local account from the sign-in screen. Accounts and campaign data persist in the SQLite volume.
+The application is then available at [http://localhost:3000](http://localhost:3000). Register the first local account from the sign-in screen. Accounts, campaign data, and uploaded screenshots persist in the same Docker volume.
 
 ## Debian 13 LXC deployment
 
@@ -203,7 +208,7 @@ For a complete bare-metal-style LXC installation with Node.js 22, systemd, Nginx
 
 Reusable configuration templates are available under `deploy/debian-13/`.
 
-## Database backup
+## Server data backup
 
 The live database can have `-wal` and `-shm` companion files. For a consistent backup, use SQLite's backup command rather than copying only the main file while the application is running:
 
@@ -212,6 +217,8 @@ sqlite3 ./data/dm-command-table.sqlite ".backup './data/dm-command-table-backup.
 ```
 
 Alternatively, stop the application before copying the database file and its companion files.
+
+Back up the adjacent `uploads` directory as well to preserve screenshots embedded in notes. A JSON campaign export contains screenshot references but does not include the binary image files.
 
 ## Campaign API
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { applyRuntimeMigrations } from "../db/runtime-schema.ts";
+import { applyRuntimeMigrations, RUNTIME_SCHEMA } from "../db/runtime-schema.ts";
 
 test("existing local installations promote the earliest account to administrator", () => {
   const database = new DatabaseSync(":memory:");
@@ -29,5 +29,18 @@ test("existing local installations promote the earliest account to administrator
     { id: "first", isAdmin: 1 },
     { id: "second", isAdmin: 0 },
   ]);
+  database.close();
+});
+
+test("runtime schema includes persistent screenshot metadata", () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec(RUNTIME_SCHEMA);
+  const columns = database.prepare("PRAGMA table_info(screenshots)").all() as Array<{
+    name: string;
+  }>;
+  assert.deepEqual(
+    columns.map((column) => column.name),
+    ["id", "filename", "original_name", "mime_type", "size", "uploaded_by", "created_at"],
+  );
   database.close();
 });

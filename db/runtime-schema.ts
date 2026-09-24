@@ -57,6 +57,18 @@ export const RUNTIME_SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_local_sessions_user_id ON local_sessions (user_id);
   CREATE INDEX IF NOT EXISTS idx_local_sessions_expires_at ON local_sessions (expires_at);
+
+  CREATE TABLE IF NOT EXISTS screenshots (
+    id TEXT PRIMARY KEY NOT NULL,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    uploaded_by TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_screenshots_created_at ON screenshots (created_at);
 `;
 
 export function applyRuntimeMigrations(database: DatabaseSync): void {

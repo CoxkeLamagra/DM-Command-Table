@@ -20,6 +20,7 @@ import {
   updateManagedUser,
   type ManagedUser,
 } from "@/lib/api/admin-client";
+import { ScreenshotAdmin } from "./screenshot-admin";
 
 type DialogMode = "edit" | "password" | null;
 
@@ -208,6 +209,7 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
           </Button>
         </DialogContent>
       </Dialog>
+      <ScreenshotAdmin />
     </>
   );
 }

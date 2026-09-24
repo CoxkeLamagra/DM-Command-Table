@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import { Check, ChevronRight, Feather } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ScreenTitle } from "@/features/shared/ui";
+import { NoteContent, ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
+import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import type { CampaignPatch, CampaignState } from "./types";
 
 export function CampaignOverview({
@@ -17,6 +18,7 @@ export function CampaignOverview({
   patch: CampaignPatch;
   openSession: (id: string) => void;
 }) {
+  const { screenshots, upload } = useScreenshotLibrary();
   const sessions = useMemo(
     () =>
       [...data.sessions].sort((a, b) => {
@@ -60,15 +62,19 @@ export function CampaignOverview({
                 maxLength={120}
               />
             </label>
-            <label className="mt-4 block text-xs text-stone-500">
+            <div className="mt-4 text-xs text-stone-500">
               General campaign notes
-              <Textarea
-                className="mt-1 min-h-72 resize-y border-white/10 bg-black/20 leading-7"
+              <div className="mt-1">
+              <ScreenshotNotes
+                className="min-h-72"
                 value={data.campaignNotes}
-                onChange={(e) => patch("campaignNotes", e.target.value)}
+                onChange={(value) => patch("campaignNotes", value)}
+                screenshots={screenshots}
+                upload={upload}
                 placeholder="Campaign premise, locations, factions, house rules, long-term reminders…"
               />
-            </label>
+              </div>
+            </div>
           </article>
         </section>
         <section>
@@ -124,9 +130,11 @@ export function CampaignOverview({
                       </div>
                     </div>
                     {session.body ? (
-                      <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-400">
-                        {session.body}
-                      </p>
+                      <NoteContent
+                        value={session.body}
+                        screenshots={screenshots}
+                        className="mt-4 text-stone-400"
+                      />
                     ) : (
                       <p className="mt-4 text-sm italic text-stone-600">
                         No session notes yet.

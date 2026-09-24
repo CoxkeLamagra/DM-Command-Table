@@ -12,8 +12,9 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ScreenTitle } from "@/features/shared/ui";
+import { ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
+import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import { createId } from "@/features/campaign/id";
 import type {
   CampaignPatch,
@@ -34,6 +35,7 @@ export function Sessions({
   patch: CampaignPatch;
   loadEncounter: (encounter: PreparedEncounter) => void;
 }) {
+  const { screenshots, upload } = useScreenshotLibrary();
   const update = (id: string, part: Partial<SessionNote>) =>
     patch(
       "sessions",
@@ -182,12 +184,16 @@ export function Sessions({
                 <Trash2 />
               </Button>
             </div>
-            <Textarea
-              className="mt-4 min-h-40 resize-y border-white/10 bg-black/20 leading-7"
+            <div className="mt-4">
+            <ScreenshotNotes
+              className="min-h-40"
               placeholder="Scenes, NPC motivations, clues, treasure, reminders…"
               value={session.body}
-              onChange={(e) => update(session.id, { body: e.target.value })}
+              onChange={(body) => update(session.id, { body })}
+              screenshots={screenshots}
+              upload={upload}
             />
+            </div>
             <details className="group mt-5 border-t border-white/10 pt-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 py-1 transition hover:bg-white/[.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60">
                 <div>

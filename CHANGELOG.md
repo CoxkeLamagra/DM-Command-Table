@@ -4,6 +4,14 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+### Screenshot notes
+
+- Added local screenshot uploads and reusable inline screenshot references to Campaign, Session, and Story notes.
+- Added responsive in-browser rendering that scales screenshots to the available layout.
+- Added an administrator screenshot library for uploading and deleting stored images.
+- Kept uploads in persistent server-local storage beside the SQLite database by default.
+- Added authenticated screenshot delivery, file-type validation, and an 8 MB upload limit.
+
 ### Administration
 
 - Added a local user-administration interface for changing usernames and display names, resetting passwords, deleting accounts, and managing administrator permissions.

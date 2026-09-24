@@ -51,3 +51,15 @@ export const campaignMembers = sqliteTable("campaign_members", {
   index("idx_campaign_members_user_id").on(table.userId),
   index("idx_campaign_members_invite_email").on(table.inviteEmail),
 ]);
+
+export const screenshots = sqliteTable("screenshots", {
+  id: text("id").primaryKey(),
+  filename: text("filename").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  uploadedBy: text("uploaded_by").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+}, (table) => [
+  index("idx_screenshots_created_at").on(table.createdAt),
+]);
