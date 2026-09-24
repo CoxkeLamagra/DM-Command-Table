@@ -2,6 +2,31 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+### Internal architecture
+
+- Split the application into feature-focused Auth, Campaign, Combat, Bestiary, Session, and Story modules.
+- Centralized the campaign domain model and backward-compatible payload normalization.
+- Added typed local API clients and a dedicated campaign workspace synchronization hook.
+- Separated local authentication, session, campaign repository, and validation concerns from the API route adapters.
+- Added compatibility tests for legacy campaigns, prepared encounters, Bestiary conversion, duplicate detection, and campaign payload validation.
+- Preserved the local-only SQLite, IndexedDB, local-account, Docker, and Debian LXC architecture.
+
+## 2.3.0 — 2026-09-24
+
+### Encounter selection
+
+- Added typeahead search to the Combat Bestiary picker.
+- Added multi-select support when adding Bestiary monsters or campaign players to Combat.
+
+### Bestiary importing
+
+- Added typeahead search and multi-select importing to the external monster catalogue dialog.
+- Positioned the **Import selected** action directly below **Select all visible**.
+- Added duplicate detection by monster name and source.
+- Added explicit **Replace existing** and **Discard import** actions while preserving linked monster IDs on replacement.
+
 ## 2.2.0 — 2026-09-24
 
 ### Prepared encounters

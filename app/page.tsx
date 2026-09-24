@@ -1,193 +1,451 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Check, ChevronRight, CircleDot, Download, Feather, Library, LogOut, Menu, Minus, Pencil, Play, Plus, RotateCcw, Save, ScrollText, Share2, Swords, Trash2, Upload, Users, X } from "lucide-react";
+import {
+  BookOpen,
+  Download,
+  Feather,
+  Library,
+  LogOut,
+  Menu,
+  Plus,
+  Save,
+  ScrollText,
+  Share2,
+  Swords,
+  Upload,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { toast, Toaster } from "sonner";
-import { cacheCampaign, removeCachedCampaign, type CachedCampaign } from "@/lib/local-campaigns";
-import { createStarterCampaign } from "@/lib/starter-campaign";
+import type { Combatant, PreparedEncounter } from "@/features/campaign/types";
+import { useCampaignWorkspace } from "@/features/campaign/use-campaign-workspace";
+import { AuthScreen } from "@/features/auth/auth-screen";
+import { NavigationItem } from "@/features/shared/ui";
+import { createId } from "@/features/campaign/id";
+import { CampaignOverview } from "@/features/campaign/campaign-overview";
+import { CampaignPlayers } from "@/features/campaign/campaign-players";
+import { Sessions } from "@/features/sessions/sessions-screen";
+import { Story } from "@/features/story/story-screen";
+import { Combat } from "@/features/combat/combat-screen";
+import { Bestiary } from "@/features/bestiary/bestiary-screen";
 
-type Combatant = { id:string; name:string; number?:number|null; kind:"player"|"monster"|"npc"; initiative:number; hp:number; maxHp:number; ac:number; conditions:string[]; monsterId?:string; campaignPlayerId?:string };
-type CampaignPlayer = { id:string; name:string; race:string; className:string; level:number|null; hp:number|null; ac:number|null; notes:string };
-type Monster = { id:string; name:string; type:string; cr:string; ac:number; hp:number; speed:string; stats:string; abilities:string; spells:string; slots:number[]; source?:string };
-type RemoteMonsterRef = { name:string; source:string; file:string };
-type FiveEToolsMonster = { name:string; source:string; size?:string[]; type?:string|{type?:string;tags?:unknown[]}; ac?:Array<number|{ac?:number}>; hp?:{average?:number;formula?:string}; speed?:Record<string,number|boolean|{number?:number}>; str?:number; dex?:number; con?:number; int?:number; wis?:number; cha?:number; cr?:string|number|{cr?:string|number}; trait?:unknown[]; action?:unknown[]; bonus?:unknown[]; reaction?:unknown[]; legendary?:unknown[]; mythic?:unknown[]; spellcasting?:unknown[] };
-type PreparedEncounterMonster = { id:string; monsterId:string; number?:number|null };
-type PreparedEncounter = { id:string; name:string; monsters:PreparedEncounterMonster[] };
-type SessionNote = { id:string; title:string; date:string; body:string; done:boolean; encounters:PreparedEncounter[] };
-type StoryBeat = { id:string; title:string; chapter:string; details:string; status:"planned"|"active"|"happened" };
-type CampaignState = { campaignName:string; campaignNotes:string; encounterName:string; round:number; turn:number; combatants:Combatant[]; players:CampaignPlayer[]; monsters:Monster[]; sessions:SessionNote[]; story:StoryBeat[] };
-type Campaign = CachedCampaign<CampaignState>;
-
-const uid = () => Math.random().toString(36).slice(2,10);
-const BESTIARY_BASE = "https://dnd5e.lamagra.link";
-const seed = createStarterCampaign<CampaignState>();
-
-export default function Home(){
-  const [data,setData]=useState<CampaignState>(seed); const [campaigns,setCampaigns]=useState<Campaign[]>([]); const [currentId,setCurrentId]=useState(""); const [loaded,setLoaded]=useState(false); const [saving,setSaving]=useState(false); const [saved,setSaved]=useState("Loading…"); const [mobile,setMobile]=useState(false); const [activeTab,setActiveTab]=useState("combat"); const [targetSessionId,setTargetSessionId]=useState(""); const [authRequired,setAuthRequired]=useState(false); const [user,setUser]=useState<{username:string;displayName:string}|null>(null); const [shareOpen,setShareOpen]=useState(false); const [shareUsername,setShareUsername]=useState(""); const [shareRole,setShareRole]=useState<"viewer"|"editor">("editor"); const timer=useRef<ReturnType<typeof setTimeout>|null>(null); const fileInput=useRef<HTMLInputElement|null>(null);
-  const current=campaigns.find(c=>c.id===currentId); const canEdit=current?.role!=="viewer";
-  const ordered=useMemo(()=>[...data.combatants].sort((a,b)=>b.initiative-a.initiative),[data.combatants]);
-  useEffect(()=>{void initialise()},[]);
-  useEffect(()=>{if(!loaded||!currentId||!canEdit)return;if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>save(data),700);return()=>{if(timer.current)clearTimeout(timer.current)}},[data,loaded,currentId,canEdit]);
-  useEffect(()=>{if(!loaded||authRequired)return;const poll=setInterval(()=>void refresh(false),5000);return()=>clearInterval(poll)},[loaded,authRequired,currentId,campaigns]);
-  useEffect(()=>{const context=(document as Document & {modelContext?:{registerTool:(tool:unknown,options?:unknown)=>unknown}}).modelContext;if(!context?.registerTool)return;const lifecycle=new AbortController();void Promise.resolve(context.registerTool({name:"advance_combat_turn",title:"Advance combat turn",description:"Move the visible initiative tracker to the next combatant and advance the round when needed.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:()=>{advance();return {advanced:true}}},{signal:lifecycle.signal}));return()=>lifecycle.abort()},[data.turn,ordered.length]);
-  useEffect(()=>{if(activeTab!=="sessions"||!targetSessionId)return;const frame=requestAnimationFrame(()=>{const entry=document.getElementById(`session-${targetSessionId}`);entry?.scrollIntoView({behavior:"smooth",block:"center"});entry?.focus({preventScroll:true});setTargetSessionId("")});return()=>cancelAnimationFrame(frame)},[activeTab,targetSessionId]);
-  async function initialise(){await refresh(true)}
-  function normalise(value:CampaignState){return {...value,campaignNotes:value.campaignNotes??"",encounterName:value.encounterName??"The Ashen Crossing",combatants:(value.combatants??[]).map((c:Omit<Combatant,"kind"> & {kind?:Combatant["kind"]|"hero";condition?:string})=>({...c,number:c.number??null,kind:c.kind==="hero"?"player":c.kind||"monster",conditions:c.conditions??(c.condition?[c.condition]:[])})),players:(value.players??[]).map(player=>({...player,race:player.race??"",className:player.className??"",level:player.level??1,notes:player.notes??""})),monsters:value.monsters??[],sessions:(value.sessions??[]).map(session=>({...session,encounters:(session.encounters??[]).map(encounter=>({...encounter,monsters:(encounter.monsters??[]).map(monster=>({...monster,number:monster.number??null}))}))})),story:value.story??[]}}
-  async function refresh(initial:boolean){try{const r=await fetch("/api/campaigns",{cache:"no-store"});if(r.status===401){setAuthRequired(true);setLoaded(true);return}if(!r.ok)throw new Error();const response=await r.json() as {user:{username:string;displayName:string};campaigns:Campaign[]};setUser(response.user);setAuthRequired(false);let incoming=response.campaigns;if(!incoming.length){const created=await createRemote(seed);incoming=[created]}for(const campaign of incoming)await cacheCampaign(campaign);setCampaigns(incoming);const selected=incoming.find(c=>c.id===(currentId||incoming[0]?.id))??incoming[0];if(selected&&(initial||!currentId||new Date(selected.updatedAt)>new Date(campaigns.find(c=>c.id===selected.id)?.updatedAt??0))){setCurrentId(selected.id);setData(normalise(selected.payload))}setSaved("Synced");setLoaded(true)}catch{setLoaded(true);setSaved("Connection unavailable")}}
-  async function createRemote(payload:CampaignState,name=payload.campaignName){const r=await fetch("/api/campaigns",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,payload})});if(!r.ok)throw new Error("Campaign could not be created");return await r.json() as Campaign}
-  async function save(next=data){if(!current)return;const now=new Date().toISOString();const local={...current,name:next.campaignName,payload:next,updatedAt:now};setCampaigns(list=>list.map(c=>c.id===current.id?local:c));await cacheCampaign(local);if(authRequired){setSaved("Saved on this device");return}setSaving(true);try{const r=await fetch("/api/campaigns",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({id:current.id,name:next.campaignName,payload:next})});if(!r.ok)throw new Error();const x=await r.json();const synced={...local,updatedAt:x.updatedAt};setCampaigns(list=>list.map(c=>c.id===current.id?synced:c));await cacheCampaign(synced);setSaved("Synced just now")}catch{setSaved("Offline — saved locally")}finally{setSaving(false)}}
-  async function addCampaign(){try{const payload={...seed,campaignName:"New campaign",campaignNotes:"",encounterName:"New encounter",round:1,turn:0,combatants:[],players:[],sessions:[],story:[]};const created=await createRemote(payload);await cacheCampaign(created);setCampaigns(list=>[created,...list]);setCurrentId(created.id);setData(payload);toast.success("Campaign created")}catch{toast.error("Campaign could not be created")}}
-  function selectCampaign(id:string){const selected=campaigns.find(c=>c.id===id);if(selected){setCurrentId(id);setData(normalise(selected.payload))}}
-  async function deleteCampaign(){if(!current||current.role!=="owner"||!confirm(`Delete "${current.name}"? This cannot be undone.`))return;const r=await fetch(`/api/campaigns?id=${encodeURIComponent(current.id)}`,{method:"DELETE"});if(!r.ok){toast.error("Campaign could not be deleted");return}await removeCachedCampaign(current.id);const remaining=campaigns.filter(c=>c.id!==current.id);setCampaigns(remaining);if(remaining[0]){setCurrentId(remaining[0].id);setData(remaining[0].payload)}else await addCampaign()}
-  function exportCampaign(){if(!current)return;const blob=new Blob([JSON.stringify({format:"dm-command-table",version:1,name:current.name,payload:data},null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${current.name.replace(/[^a-z0-9]+/gi,"-").toLowerCase()||"campaign"}.json`;a.click();URL.revokeObjectURL(url)}
-  async function importCampaign(file:File){try{const parsed=JSON.parse(await file.text()) as {name?:string;payload?:CampaignState};if(!parsed.payload?.campaignName)throw new Error();const created=await createRemote(normalise(parsed.payload),parsed.name??parsed.payload.campaignName);await cacheCampaign(created);setCampaigns(list=>[created,...list]);setCurrentId(created.id);setData(created.payload);toast.success("Campaign imported")}catch{toast.error("That file is not a valid DM Command Table campaign")}}
-  async function share(){if(!current||!shareUsername.trim())return;const r=await fetch("/api/campaigns",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"share",id:current.id,username:shareUsername,role:shareRole})});if(!r.ok){const body=await r.json().catch(()=>({})) as {error?:string};toast.error(body.error??"Campaign access could not be granted");return}setCampaigns(list=>list.map(c=>c.id===current.id?{...c,shared:true}:c));setShareUsername("");setShareOpen(false);toast.success("Campaign access granted")}
-  async function logout(){await fetch("/api/auth",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"logout"})});setUser(null);setCampaigns([]);setCurrentId("");setAuthRequired(true)}
-  function openSession(id:string){setTargetSessionId(id);setActiveTab("sessions");setMobile(false)}
-  function loadPreparedEncounter(encounter:PreparedEncounter){const currentMonsters=data.combatants.filter(combatant=>combatant.kind==="monster");if(currentMonsters.length&&!window.confirm(`Replace ${currentMonsters.length===1?"the current monster combatant":`all ${currentMonsters.length} current monster combatants`} with "${encounter.name||"Prepared encounter"}"? Players and NPCs will remain.`))return;const prepared=encounter.monsters.flatMap(reference=>{const monster=data.monsters.find(entry=>entry.id===reference.monsterId);return monster?[{id:uid(),name:monster.name,number:reference.number??null,kind:"monster" as const,initiative:10,hp:monster.hp,maxHp:monster.hp,ac:monster.ac,conditions:[],monsterId:monster.id}]:[]});const survivors=data.combatants.filter(combatant=>combatant.kind!=="monster");setData(currentData=>({...currentData,encounterName:encounter.name.trim()||"Prepared encounter",combatants:[...survivors,...prepared],round:1,turn:0}));setActiveTab("combat");setMobile(false);toast.success(`Loaded ${encounter.name||"prepared encounter"} with ${prepared.length} ${prepared.length===1?"monster":"monsters"}`)}
-  function patch<T extends keyof CampaignState>(key:T,value:CampaignState[T]){if(canEdit)setData(d=>({...d,[key]:value}))}
-  function updateCombat(id:string,part:Partial<Combatant>){if(canEdit)patch("combatants",data.combatants.map(c=>c.id===id?{...c,...part}:c))}
-  function advance(){
-    if(!canEdit||!ordered.length)return;
-    let next=-1;
-    for(let step=1;step<=ordered.length;step++){
-      const candidate=(data.turn+step)%ordered.length;
-      if(ordered[candidate].hp>0){next=candidate;break}
+const uid = createId;
+export default function Home() {
+  const {
+    data,
+    setData,
+    campaigns,
+    currentId,
+    current,
+    loaded,
+    saving,
+    saved,
+    authRequired,
+    user,
+    canEdit,
+    refresh,
+    save,
+    addCampaign,
+    selectCampaign,
+    deleteCampaign,
+    exportCampaign,
+    importCampaign,
+    shareCampaign,
+    logout,
+    patch,
+  } = useCampaignWorkspace();
+  const [mobile, setMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState("combat");
+  const [targetSessionId, setTargetSessionId] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUsername, setShareUsername] = useState("");
+  const [shareRole, setShareRole] = useState<"viewer" | "editor">("editor");
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const ordered = useMemo(
+    () => [...data.combatants].sort((a, b) => b.initiative - a.initiative),
+    [data.combatants],
+  );
+  const advance = useCallback(() => {
+    if (!canEdit || !ordered.length) return;
+    let next = -1;
+    for (let step = 1; step <= ordered.length; step++) {
+      const candidate = (data.turn + step) % ordered.length;
+      if (ordered[candidate].hp > 0) {
+        next = candidate;
+        break;
+      }
     }
-    if(next<0)return;
-    setData(d=>({...d,turn:next,round:next<=d.turn?d.round+1:d.round}))
+    if (next < 0) return;
+    setData((currentData) => ({
+      ...currentData,
+      turn: next,
+      round:
+        next <= currentData.turn ? currentData.round + 1 : currentData.round,
+    }));
+  }, [canEdit, ordered, data.turn, setData]);
+  useEffect(() => {
+    const context = (
+      document as Document & {
+        modelContext?: {
+          registerTool: (tool: unknown, options?: unknown) => unknown;
+        };
+      }
+    ).modelContext;
+    if (!context?.registerTool) return;
+    const lifecycle = new AbortController();
+    void Promise.resolve(
+      context.registerTool(
+        {
+          name: "advance_combat_turn",
+          title: "Advance combat turn",
+          description:
+            "Move the visible initiative tracker to the next combatant and advance the round when needed.",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: false,
+          },
+          annotations: { readOnlyHint: false, untrustedContentHint: false },
+          execute: () => {
+            advance();
+            return { advanced: true };
+          },
+        },
+        { signal: lifecycle.signal },
+      ),
+    );
+    return () => lifecycle.abort();
+  }, [advance]);
+  useEffect(() => {
+    if (activeTab !== "sessions" || !targetSessionId) return;
+    const frame = requestAnimationFrame(() => {
+      const entry = document.getElementById(`session-${targetSessionId}`);
+      entry?.scrollIntoView({ behavior: "smooth", block: "center" });
+      entry?.focus({ preventScroll: true });
+      setTargetSessionId("");
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, targetSessionId]);
+  async function share() {
+    if (await shareCampaign(shareUsername, shareRole)) {
+      setShareUsername("");
+      setShareOpen(false);
+    }
   }
-  if(!loaded)return <main className="grid min-h-screen place-items-center bg-[#0b0d12] text-stone-400"><div className="text-center"><Swords className="mx-auto mb-3 text-amber-300"/><p>Opening the campaign desk…</p></div></main>;
-  if(authRequired)return <AuthScreen onAuthenticated={()=>{setLoaded(false);void refresh(true)}}/>;
-  return <main className="min-h-screen bg-[#0b0d12] text-[#f5f0e5]">
-    <Toaster theme="dark" position="bottom-right" />
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-[#0b0d12]/95 px-4 backdrop-blur md:px-7">
-      <div className="flex min-w-0 items-center gap-3"><button className="md:hidden" onClick={()=>setMobile(!mobile)} aria-label="Open navigation"><Menu/></button><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-amber-400/30 bg-amber-300/10 text-amber-300"><Swords size={20}/></span><div className="min-w-0"><p className="font-serif text-lg font-semibold leading-none">DM Command Table</p><select aria-label="Current campaign" className="mt-1 max-w-56 bg-transparent text-xs text-stone-400 outline-none" value={currentId} onChange={e=>selectCampaign(e.target.value)}>{campaigns.map(c=><option className="bg-[#12161e]" key={c.id} value={c.id}>{c.name}{c.role!=="owner"?` · ${c.role}`:""}</option>)}</select></div></div>
-      <div className="flex items-center gap-2 text-xs text-stone-400"><span className="hidden lg:inline">{saving?"Saving…":saved}</span><Button size="sm" variant="outline" className="hidden border-white/15 bg-transparent hover:bg-white/5 sm:inline-flex" onClick={addCampaign}><Plus/> Campaign</Button><Button size="icon" variant="outline" className="border-white/15 bg-transparent" onClick={exportCampaign} title="Export campaign"><Download/></Button><Button size="icon" variant="outline" className="border-white/15 bg-transparent" onClick={()=>fileInput.current?.click()} title="Import campaign"><Upload/></Button>{current?.role==="owner"&&<Button size="icon" variant="outline" className="border-white/15 bg-transparent" onClick={()=>setShareOpen(true)} title="Share campaign"><Share2/></Button>}<Button size="sm" variant="outline" className="border-white/15 bg-transparent hover:bg-white/5" disabled={!canEdit} onClick={()=>save()}><Save size={15}/> Save</Button><button onClick={()=>void logout()} title={`Sign out ${user?.username??""}`} className="rounded-md p-2 hover:bg-white/5 hover:text-stone-200"><LogOut size={17}/></button><input ref={fileInput} type="file" accept="application/json,.json" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)void importCampaign(f);e.currentTarget.value=""}}/></div>
-    </header>
-    <Tabs value={activeTab} onValueChange={value=>{setActiveTab(value);setMobile(false)}} orientation="vertical" className="flex min-h-[calc(100vh-4rem)] gap-0">
-      <aside className={`${mobile?"fixed inset-x-0 top-16 z-20 flex":"hidden"} max-h-[calc(100vh-4rem)] w-full flex-col overflow-y-auto border-b border-white/10 bg-[#11141b] p-3 md:static md:flex md:min-h-[calc(100vh-4rem)] md:w-56 md:shrink-0 md:border-b-0 md:border-r`}>
-        <p className="mb-2 px-3 pt-2 text-[11px] font-semibold uppercase tracking-[.18em] text-amber-300/70">Campaign desk</p>
-        <TabsList variant="line" className="h-auto w-full shrink-0 flex-col items-stretch gap-1 bg-transparent p-0">
-          <Nav value="combat" icon={<Swords/>}>Combat</Nav><Nav value="bestiary" icon={<Library/>}>Bestiary</Nav><Nav value="players" icon={<Users/>}>Players</Nav><Nav value="campaign" icon={<BookOpen/>}>Campaign</Nav><Nav value="sessions" icon={<Feather/>}>Sessions</Nav><Nav value="story" icon={<ScrollText/>}>Story</Nav>
-        </TabsList>
-        <div className="mt-auto hidden rounded-xl border border-white/10 bg-black/20 p-3 md:block"><p className="text-xs font-medium text-stone-300">{current?.shared?"Shared campaign":"Private campaign"} · {current?.role??"owner"}</p><p className="mt-1 text-xs leading-relaxed text-stone-500">Saved locally and synced to your account.</p>{current?.role==="owner"&&<button onClick={deleteCampaign} className="mt-3 text-xs text-red-300/70 hover:text-red-300">Delete campaign</button>}</div>
-      </aside>
-      <section className="min-w-0 flex-1 p-4 md:p-7">
-        <TabsContent value="combat"><Combat data={data} ordered={ordered} update={updateCombat} patch={patch} advance={advance}/></TabsContent>
-        <TabsContent value="bestiary"><Bestiary data={data} patch={patch}/></TabsContent>
-        <TabsContent value="players"><CampaignPlayers data={data} patch={patch}/></TabsContent>
-        <TabsContent value="campaign"><CampaignOverview data={data} patch={patch} openSession={openSession}/></TabsContent>
-        <TabsContent value="sessions"><Sessions data={data} patch={patch} loadEncounter={loadPreparedEncounter}/></TabsContent>
-        <TabsContent value="story"><Story data={data} patch={patch}/></TabsContent>
-      </section>
-    </Tabs>
-    <Dialog open={shareOpen} onOpenChange={setShareOpen}><DialogContent className="border-amber-300/20 bg-[#12161e] text-stone-100"><DialogHeader><DialogTitle className="font-serif text-2xl text-amber-100">Share campaign</DialogTitle></DialogHeader><p className="text-sm leading-relaxed text-stone-400">Grant access to another registered account on this DM Command Table server.</p><label className="text-sm text-stone-300">Username<Input className="mt-2 border-white/10 bg-black/20" value={shareUsername} onChange={e=>setShareUsername(e.target.value)} placeholder="player_name"/></label><label className="text-sm text-stone-300">Permission<select className="mt-2 h-10 w-full rounded-md border border-white/10 bg-black/25 px-3" value={shareRole} onChange={e=>setShareRole(e.target.value as "viewer"|"editor")}><option value="editor">Editor — can change campaign data</option><option value="viewer">Viewer — read only</option></select></label><Button onClick={share} className="bg-amber-300 text-black hover:bg-amber-200"><Share2/> Grant access</Button></DialogContent></Dialog>
-  </main>
+  function openSession(id: string) {
+    setTargetSessionId(id);
+    setActiveTab("sessions");
+    setMobile(false);
+  }
+  function loadPreparedEncounter(encounter: PreparedEncounter) {
+    const currentMonsters = data.combatants.filter(
+      (combatant) => combatant.kind === "monster",
+    );
+    if (
+      currentMonsters.length &&
+      !window.confirm(
+        `Replace ${currentMonsters.length === 1 ? "the current monster combatant" : `all ${currentMonsters.length} current monster combatants`} with "${encounter.name || "Prepared encounter"}"? Players and NPCs will remain.`,
+      )
+    )
+      return;
+    const prepared = encounter.monsters.flatMap((reference) => {
+      const monster = data.monsters.find(
+        (entry) => entry.id === reference.monsterId,
+      );
+      return monster
+        ? [
+            {
+              id: uid(),
+              name: monster.name,
+              number: reference.number ?? null,
+              kind: "monster" as const,
+              initiative: 10,
+              hp: monster.hp,
+              maxHp: monster.hp,
+              ac: monster.ac,
+              conditions: [],
+              monsterId: monster.id,
+            },
+          ]
+        : [];
+    });
+    const survivors = data.combatants.filter(
+      (combatant) => combatant.kind !== "monster",
+    );
+    setData((currentData) => ({
+      ...currentData,
+      encounterName: encounter.name.trim() || "Prepared encounter",
+      combatants: [...survivors, ...prepared],
+      round: 1,
+      turn: 0,
+    }));
+    setActiveTab("combat");
+    setMobile(false);
+    toast.success(
+      `Loaded ${encounter.name || "prepared encounter"} with ${prepared.length} ${prepared.length === 1 ? "monster" : "monsters"}`,
+    );
+  }
+  function updateCombat(id: string, part: Partial<Combatant>) {
+    if (canEdit)
+      patch(
+        "combatants",
+        data.combatants.map((c) => (c.id === id ? { ...c, ...part } : c)),
+      );
+  }
+  if (!loaded)
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#0b0d12] text-stone-400">
+        <div className="text-center">
+          <Swords className="mx-auto mb-3 text-amber-300" />
+          <p>Opening the campaign desk…</p>
+        </div>
+      </main>
+    );
+  if (authRequired)
+    return <AuthScreen onAuthenticated={() => void refresh(true)} />;
+  return (
+    <main className="min-h-screen bg-[#0b0d12] text-[#f5f0e5]">
+      <Toaster theme="dark" position="bottom-right" />
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-[#0b0d12]/95 px-4 backdrop-blur md:px-7">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            className="md:hidden"
+            onClick={() => setMobile(!mobile)}
+            aria-label="Open navigation"
+          >
+            <Menu />
+          </button>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-amber-400/30 bg-amber-300/10 text-amber-300">
+            <Swords size={20} />
+          </span>
+          <div className="min-w-0">
+            <p className="font-serif text-lg font-semibold leading-none">
+              DM Command Table
+            </p>
+            <select
+              aria-label="Current campaign"
+              className="mt-1 max-w-56 bg-transparent text-xs text-stone-400 outline-none"
+              value={currentId}
+              onChange={(e) => selectCampaign(e.target.value)}
+            >
+              {campaigns.map((c) => (
+                <option className="bg-[#12161e]" key={c.id} value={c.id}>
+                  {c.name}
+                  {c.role !== "owner" ? ` · ${c.role}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-stone-400">
+          <span className="hidden lg:inline">{saving ? "Saving…" : saved}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="hidden border-white/15 bg-transparent hover:bg-white/5 sm:inline-flex"
+            onClick={addCampaign}
+          >
+            <Plus /> Campaign
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="border-white/15 bg-transparent"
+            onClick={exportCampaign}
+            title="Export campaign"
+          >
+            <Download />
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="border-white/15 bg-transparent"
+            onClick={() => fileInput.current?.click()}
+            title="Import campaign"
+          >
+            <Upload />
+          </Button>
+          {current?.role === "owner" && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="border-white/15 bg-transparent"
+              onClick={() => setShareOpen(true)}
+              title="Share campaign"
+            >
+              <Share2 />
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/15 bg-transparent hover:bg-white/5"
+            disabled={!canEdit}
+            onClick={() => save()}
+          >
+            <Save size={15} /> Save
+          </Button>
+          <button
+            onClick={() => void logout()}
+            title={`Sign out ${user?.username ?? ""}`}
+            className="rounded-md p-2 hover:bg-white/5 hover:text-stone-200"
+          >
+            <LogOut size={17} />
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void importCampaign(f);
+              e.currentTarget.value = "";
+            }}
+          />
+        </div>
+      </header>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value);
+          setMobile(false);
+        }}
+        orientation="vertical"
+        className="flex min-h-[calc(100vh-4rem)] gap-0"
+      >
+        <aside
+          className={`${mobile ? "fixed inset-x-0 top-16 z-20 flex" : "hidden"} max-h-[calc(100vh-4rem)] w-full flex-col overflow-y-auto border-b border-white/10 bg-[#11141b] p-3 md:static md:flex md:min-h-[calc(100vh-4rem)] md:w-56 md:shrink-0 md:border-b-0 md:border-r`}
+        >
+          <p className="mb-2 px-3 pt-2 text-[11px] font-semibold uppercase tracking-[.18em] text-amber-300/70">
+            Campaign desk
+          </p>
+          <TabsList
+            variant="line"
+            className="h-auto w-full shrink-0 flex-col items-stretch gap-1 bg-transparent p-0"
+          >
+            <NavigationItem value="combat" icon={<Swords />}>
+              Combat
+            </NavigationItem>
+            <NavigationItem value="bestiary" icon={<Library />}>
+              Bestiary
+            </NavigationItem>
+            <NavigationItem value="players" icon={<Users />}>
+              Players
+            </NavigationItem>
+            <NavigationItem value="campaign" icon={<BookOpen />}>
+              Campaign
+            </NavigationItem>
+            <NavigationItem value="sessions" icon={<Feather />}>
+              Sessions
+            </NavigationItem>
+            <NavigationItem value="story" icon={<ScrollText />}>
+              Story
+            </NavigationItem>
+          </TabsList>
+          <div className="mt-auto hidden rounded-xl border border-white/10 bg-black/20 p-3 md:block">
+            <p className="text-xs font-medium text-stone-300">
+              {current?.shared ? "Shared campaign" : "Private campaign"} ·{" "}
+              {current?.role ?? "owner"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-stone-500">
+              Saved locally and synced to your account.
+            </p>
+            {current?.role === "owner" && (
+              <button
+                onClick={deleteCampaign}
+                className="mt-3 text-xs text-red-300/70 hover:text-red-300"
+              >
+                Delete campaign
+              </button>
+            )}
+          </div>
+        </aside>
+        <section className="min-w-0 flex-1 p-4 md:p-7">
+          <TabsContent value="combat">
+            <Combat
+              data={data}
+              ordered={ordered}
+              update={updateCombat}
+              patch={patch}
+              advance={advance}
+            />
+          </TabsContent>
+          <TabsContent value="bestiary">
+            <Bestiary data={data} patch={patch} />
+          </TabsContent>
+          <TabsContent value="players">
+            <CampaignPlayers data={data} patch={patch} />
+          </TabsContent>
+          <TabsContent value="campaign">
+            <CampaignOverview
+              data={data}
+              patch={patch}
+              openSession={openSession}
+            />
+          </TabsContent>
+          <TabsContent value="sessions">
+            <Sessions
+              data={data}
+              patch={patch}
+              loadEncounter={loadPreparedEncounter}
+            />
+          </TabsContent>
+          <TabsContent value="story">
+            <Story data={data} patch={patch} />
+          </TabsContent>
+        </section>
+      </Tabs>
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="border-amber-300/20 bg-[#12161e] text-stone-100">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl text-amber-100">
+              Share campaign
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm leading-relaxed text-stone-400">
+            Grant access to another registered account on this DM Command Table
+            server.
+          </p>
+          <label className="text-sm text-stone-300">
+            Username
+            <Input
+              className="mt-2 border-white/10 bg-black/20"
+              value={shareUsername}
+              onChange={(e) => setShareUsername(e.target.value)}
+              placeholder="player_name"
+            />
+          </label>
+          <label className="text-sm text-stone-300">
+            Permission
+            <select
+              className="mt-2 h-10 w-full rounded-md border border-white/10 bg-black/25 px-3"
+              value={shareRole}
+              onChange={(e) =>
+                setShareRole(e.target.value as "viewer" | "editor")
+              }
+            >
+              <option value="editor">Editor — can change campaign data</option>
+              <option value="viewer">Viewer — read only</option>
+            </select>
+          </label>
+          <Button
+            onClick={share}
+            className="bg-amber-300 text-black hover:bg-amber-200"
+          >
+            <Share2 /> Grant access
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </main>
+  );
 }
-
-function AuthScreen({onAuthenticated}:{onAuthenticated:()=>void}){
- const [mode,setMode]=useState<"login"|"register">("login"); const [username,setUsername]=useState(""); const [displayName,setDisplayName]=useState(""); const [password,setPassword]=useState(""); const [error,setError]=useState(""); const [submitting,setSubmitting]=useState(false);
- async function submit(event:React.FormEvent){event.preventDefault();setSubmitting(true);setError("");try{const response=await fetch("/api/auth",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:mode,username,password,displayName})});const body=await response.json() as {error?:string};if(!response.ok){setError(body.error??"Authentication failed.");return}onAuthenticated()}catch{setError("The local server could not be reached.")}finally{setSubmitting(false)}}
- return <main className="grid min-h-screen place-items-center bg-[#0b0d12] p-6 text-[#f5f0e5]"><div className="w-full max-w-md rounded-2xl border border-amber-300/20 bg-[#12161e] p-8"><span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-amber-300/10 text-amber-300"><Swords/></span><h1 className="mt-5 text-center font-serif text-3xl">DM Command Table</h1><p className="mt-3 text-center leading-relaxed text-stone-400">{mode==="login"?"Sign in with your local account.":"Create an account stored only on this server."}</p><div className="mt-6 grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1"><button type="button" onClick={()=>{setMode("login");setError("")}} className={`rounded-md px-3 py-2 text-sm ${mode==="login"?"bg-amber-300 text-black":"text-stone-400"}`}>Sign in</button><button type="button" onClick={()=>{setMode("register");setError("")}} className={`rounded-md px-3 py-2 text-sm ${mode==="register"?"bg-amber-300 text-black":"text-stone-400"}`}>Register</button></div><form onSubmit={submit} className="mt-5 space-y-4">{mode==="register"&&<label className="block text-sm text-stone-300">Display name<Input autoComplete="name" className="mt-2 border-white/10 bg-black/20" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Dungeon Master" maxLength={80}/></label>}<label className="block text-sm text-stone-300">Username<Input autoFocus autoComplete="username" className="mt-2 border-white/10 bg-black/20" value={username} onChange={e=>setUsername(e.target.value)} placeholder="dungeon_master" minLength={3} maxLength={32} required/></label><label className="block text-sm text-stone-300">Password<Input autoComplete={mode==="login"?"current-password":"new-password"} className="mt-2 border-white/10 bg-black/20" type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={8} maxLength={128} required/></label>{error&&<p className="rounded-lg border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">{error}</p>}<Button type="submit" disabled={submitting} className="w-full bg-amber-300 text-black hover:bg-amber-200">{submitting?"Please wait…":mode==="login"?"Sign in":"Create local account"}</Button></form><p className="mt-5 text-center text-xs leading-relaxed text-stone-500">Accounts, passwords, sessions, and campaign data remain on this server.</p></div></main>
-}
-
-function Nav({value,icon,children}:{value:string;icon:React.ReactNode;children:React.ReactNode}){return <TabsTrigger value={value} className="h-11 flex-none justify-start gap-3 rounded-lg px-3 py-2 text-stone-400 after:hidden data-[state=active]:bg-amber-300/10 data-[state=active]:text-amber-200 [&_svg]:size-4">{icon}{children}</TabsTrigger>}
-function Title({eyebrow,title,action}:{eyebrow:string;title:string;action?:React.ReactNode}){return <div className="mb-6 flex items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-300/70">{eyebrow}</p><h1 className="mt-1 font-serif text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1></div>{action}</div>}
-
-function Combat({data,ordered,update,patch,advance}:{data:CampaignState;ordered:Combatant[];update:(id:string,p:Partial<Combatant>)=>void;patch:<T extends keyof CampaignState>(k:T,v:CampaignState[T])=>void;advance:()=>void}){
- const [selectedId,setSelectedId]=useState(ordered[0]?.id??""); const [newCondition,setNewCondition]=useState(""); const [playerPickerOpen,setPlayerPickerOpen]=useState(false); const [selectedPlayerIds,setSelectedPlayerIds]=useState<string[]>([]); const [bestiaryPickerOpen,setBestiaryPickerOpen]=useState(false); const [bestiarySearch,setBestiarySearch]=useState(""); const [selectedMonsterIds,setSelectedMonsterIds]=useState<string[]>([]);
- const active=ordered[data.turn]; const selected=ordered.find(c=>c.id===selectedId)??ordered[0]; const monster=data.monsters.find(m=>m.id===selected?.monsterId); const selectedPlayer=data.players.find(player=>player.id===selected?.campaignPlayerId); const hasStandingCombatant=ordered.some(c=>c.hp>0); const filteredMonsters=useMemo(()=>{const query=bestiarySearch.trim().toLowerCase();return query?data.monsters.filter(entry=>[entry.name,entry.type,entry.source??"",entry.cr].some(value=>String(value).toLowerCase().includes(query))):data.monsters},[bestiarySearch,data.monsters]);
- const add=()=>{const id=uid();patch("combatants",[...data.combatants,{id,name:"New combatant",kind:"monster",initiative:10,hp:10,maxHp:10,ac:10,conditions:[]}]);setSelectedId(id)};
- const addCampaignPlayers=()=>{const players=data.players.filter(player=>selectedPlayerIds.includes(player.id));if(!players.length)return;const additions=players.map(player=>{const hp=player.hp??10;return {id:uid(),name:player.name,kind:"player" as const,initiative:10,hp,maxHp:hp,ac:player.ac??10,conditions:[],campaignPlayerId:player.id}});patch("combatants",[...data.combatants,...additions]);setSelectedId(additions.at(-1)?.id??"");setSelectedPlayerIds([]);setPlayerPickerOpen(false);toast.success(`${additions.length} ${additions.length===1?"player":"players"} added to combat`)};
- const addBestiaryMonsters=()=>{const entries=data.monsters.filter(entry=>selectedMonsterIds.includes(entry.id));if(!entries.length)return;const nextNumbers=new Map<string,number>();for(const entry of entries){const existing=data.combatants.filter(combatant=>combatant.kind==="monster"&&combatant.monsterId===entry.id).map(combatant=>combatant.number??0);nextNumbers.set(entry.id,Math.max(0,...existing)+1)}const additions=entries.map(entry=>{const number=nextNumbers.get(entry.id)??1;nextNumbers.set(entry.id,number+1);return {id:uid(),name:entry.name,number,kind:"monster" as const,initiative:10,hp:entry.hp,maxHp:entry.hp,ac:entry.ac,conditions:[],monsterId:entry.id}});patch("combatants",[...data.combatants,...additions]);setSelectedId(additions.at(-1)?.id??"");setSelectedMonsterIds([]);setBestiarySearch("");setBestiaryPickerOpen(false);toast.success(`${additions.length} ${additions.length===1?"monster":"monsters"} added to combat`)};
- const resetRounds=()=>{patch("round",1);patch("turn",Math.max(0,ordered.findIndex(combatant=>combatant.hp>0)));toast.success("Rounds reset")};
- const clearMonsters=()=>{const monsters=ordered.filter(combatant=>combatant.kind==="monster");if(!monsters.length)return;if(!window.confirm(`Remove ${monsters.length===1?"the monster combatant":`all ${monsters.length} monster combatants`} from the tracker? Players and NPCs will remain.`))return;const survivors=ordered.filter(combatant=>combatant.kind!=="monster");const currentActive=ordered[data.turn];let nextTurn=currentActive?.kind!=="monster"?survivors.findIndex(combatant=>combatant.id===currentActive.id):survivors.findIndex(combatant=>combatant.hp>0);if(nextTurn<0)nextTurn=0;patch("combatants",data.combatants.filter(combatant=>combatant.kind!=="monster"));patch("turn",nextTurn);if(selected?.kind==="monster")setSelectedId(survivors[0]?.id??"");toast.success(monsters.length===1?"Monster removed":"Monster combatants removed")};
- const clearCombat=()=>{if(!window.confirm("Clear every combatant from the tracker? This cannot be undone."))return;patch("combatants",[]);patch("round",1);patch("turn",0);setSelectedId("");toast.success("Combat tracker cleared")};
- const renameEncounter=()=>{const name=window.prompt("Enter a name for this encounter:",data.encounterName)?.trim();if(name&&name!==data.encounterName){patch("encounterName",name);toast.success("Encounter renamed")}};
- const colors={monster:{dot:"bg-red-400",border:"border-red-400/45",bg:"bg-red-400/[.07]",text:"text-red-300"},player:{dot:"bg-emerald-400",border:"border-emerald-400/45",bg:"bg-emerald-400/[.07]",text:"text-emerald-300"},npc:{dot:"bg-sky-400",border:"border-sky-400/45",bg:"bg-sky-400/[.07]",text:"text-sky-300"}};
- const addCondition=()=>{const value=newCondition.trim();if(value&&selected&&!selected.conditions.includes(value))update(selected.id,{conditions:[...selected.conditions,value]});setNewCondition("")};
- return <><Title eyebrow="Live encounter" title={data.encounterName} action={<div className="flex flex-wrap justify-end gap-2"><Button variant="outline" className="border-white/15 bg-transparent hover:bg-white/5" onClick={renameEncounter}><Pencil/> Rename encounter</Button><Dialog open={playerPickerOpen} onOpenChange={open=>{setPlayerPickerOpen(open);if(!open)setSelectedPlayerIds([])}}><DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-amber-300 px-3 py-2 text-sm font-medium whitespace-nowrap text-black transition-all hover:bg-amber-200 [&_svg]:size-4"><Users/> Add campaign player</DialogTrigger><DialogContent className="max-h-[80vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100"><DialogHeader><DialogTitle className="font-serif text-2xl text-amber-100">Add campaign players</DialogTitle></DialogHeader>{data.players.length?<><label className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-stone-400"><input type="checkbox" className="size-4 accent-amber-300" checked={selectedPlayerIds.length===data.players.length} onChange={e=>setSelectedPlayerIds(e.target.checked?data.players.map(player=>player.id):[])}/> Select all players</label><div className="space-y-2">{data.players.map(player=><label key={player.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selectedPlayerIds.includes(player.id)?"border-amber-300/30 bg-amber-300/[.05]":"border-white/10 bg-black/20 hover:border-white/20"}`}><input type="checkbox" className="size-4 shrink-0 accent-amber-300" checked={selectedPlayerIds.includes(player.id)} onChange={()=>setSelectedPlayerIds(current=>current.includes(player.id)?current.filter(id=>id!==player.id):[...current,player.id])}/><div className="min-w-0 flex-1"><p className="truncate font-medium text-stone-200">{player.name||"Unnamed player"}</p><p className="mt-1 text-xs text-stone-500">{[player.race,player.className].filter(Boolean).join(" · ")||"Race and class not set"} · HP {player.hp??"Not set"} · AC {player.ac??"Not set"}</p></div></label>)}</div><Button disabled={!selectedPlayerIds.length} onClick={addCampaignPlayers} className="w-full bg-amber-300 text-black hover:bg-amber-200"><Plus/> Add selected ({selectedPlayerIds.length})</Button></>:<div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">No saved players yet. Add them from the Players menu first.</div>}</DialogContent></Dialog><Dialog open={bestiaryPickerOpen} onOpenChange={open=>{setBestiaryPickerOpen(open);if(!open){setBestiarySearch("");setSelectedMonsterIds([])}}}><DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-amber-300 px-3 py-2 text-sm font-medium whitespace-nowrap text-black transition-all hover:bg-amber-200 [&_svg]:size-4"><Library/> Add bestiary monster</DialogTrigger><DialogContent className="max-h-[80vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100"><DialogHeader><DialogTitle className="font-serif text-2xl text-amber-100">Add bestiary monsters</DialogTitle></DialogHeader>{data.monsters.length?<><Input autoFocus aria-label="Search bestiary monsters" className="border-white/10 bg-black/20" placeholder="Search by name, type, source, or CR…" value={bestiarySearch} onChange={e=>setBestiarySearch(e.target.value)}/><div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 p-3"><label className="flex items-center gap-2 text-sm text-stone-400"><input type="checkbox" className="size-4 accent-amber-300" checked={filteredMonsters.length>0&&filteredMonsters.every(entry=>selectedMonsterIds.includes(entry.id))} onChange={e=>setSelectedMonsterIds(current=>e.target.checked?[...new Set([...current,...filteredMonsters.map(entry=>entry.id)])]:current.filter(id=>!filteredMonsters.some(entry=>entry.id===id)))}/> Select all visible</label><span className="text-xs text-stone-500">{filteredMonsters.length} results</span></div>{filteredMonsters.length?<div className="space-y-2">{filteredMonsters.map(entry=><label key={entry.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selectedMonsterIds.includes(entry.id)?"border-amber-300/30 bg-amber-300/[.05]":"border-white/10 bg-black/20 hover:border-white/20"}`}><input type="checkbox" className="size-4 shrink-0 accent-amber-300" checked={selectedMonsterIds.includes(entry.id)} onChange={()=>setSelectedMonsterIds(current=>current.includes(entry.id)?current.filter(id=>id!==entry.id):[...current,entry.id])}/><div className="min-w-0 flex-1"><p className="truncate font-medium text-stone-200">{entry.name}</p><p className="mt-1 text-xs text-stone-500">{entry.type} · CR {entry.cr} · HP {entry.hp} · AC {entry.ac}{entry.source?` · ${entry.source}`:""}</p></div></label>)}</div>:<div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">No monsters match “{bestiarySearch}”.</div>}<Button disabled={!selectedMonsterIds.length} onClick={addBestiaryMonsters} className="w-full bg-amber-300 text-black hover:bg-amber-200"><Plus/> Add selected ({selectedMonsterIds.length})</Button></>:<div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">No monsters in the Bestiary yet.</div>}</DialogContent></Dialog><Button onClick={add} className="bg-amber-300 text-black hover:bg-amber-200"><Plus/> Add combatant</Button></div>}/>
- <div className="mb-5 flex flex-wrap items-center gap-4 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4"><div><p className="text-xs uppercase tracking-wider text-stone-500">Round</p><p className="font-serif text-2xl text-amber-200">{data.round}</p></div><div className="h-9 w-px bg-white/10"/><div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-wider text-stone-500">Current turn</p><p className={`truncate font-medium ${active?.hp===0?"text-red-300":""}`}>{active?`${active.name}${active.kind!=="player"&&active.number!=null?` #${active.number}`:""}`:"No combatants"}{active?.hp===0?" — Down":""}</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" className="border-white/10 bg-transparent text-stone-300 hover:bg-white/5" onClick={resetRounds}><RotateCcw/> Reset rounds</Button><Button variant="outline" className="border-white/10 bg-transparent text-stone-300 hover:bg-white/5" disabled={!ordered.some(combatant=>combatant.kind==="monster")} onClick={clearMonsters}><Trash2/> Clear monsters</Button><Button variant="outline" className="border-red-400/20 bg-red-400/5 text-red-200 hover:bg-red-400/10" onClick={clearCombat}><Trash2/> Clear combat</Button><Button disabled={!hasStandingCombatant} onClick={advance} className="bg-[#d75b42] hover:bg-[#ec6b50] disabled:bg-stone-700">Next turn <ChevronRight/></Button></div></div>
- <div className="grid gap-5 xl:grid-cols-[minmax(360px,0.9fr)_minmax(420px,1.1fr)]">
-  <section className="space-y-2" aria-label="Initiative tracker">{ordered.map((c,i)=>{const tone=colors[c.kind];const down=c.hp<=0;const campaignPlayer=data.players.find(player=>player.id===c.campaignPlayerId);const playerDetails=[campaignPlayer?.race,campaignPlayer?.className].filter(Boolean).join(" · ");return <button key={c.id} onClick={()=>setSelectedId(c.id)} className={`grid w-full grid-cols-[44px_1fr_auto] items-center gap-3 rounded-xl border p-3 text-left transition ${down?"border-red-500/50 bg-red-950/20":selected?.id===c.id?`${tone.border} ${tone.bg}`:"border-white/10 bg-[#12161e] hover:border-white/20"} ${selected?.id===c.id&&down?"ring-1 ring-red-400/40":""}`}>
-   <span className={`grid h-10 w-10 place-items-center rounded-full bg-black/25 font-serif text-lg ${down?"text-red-300":tone.text}`}>{c.initiative}</span><span className="min-w-0"><span className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${down?"bg-red-500":tone.dot}`}/><span className={`truncate font-medium ${down?"text-stone-400 line-through decoration-red-400/70":""}`}>{c.name}{c.kind!=="player"&&c.number!=null?` #${c.number}`:""}</span>{down&&<Badge className="border border-red-400/30 bg-red-500/15 text-red-200">Down · 0 HP</Badge>}{i===data.turn&&<Badge className="bg-amber-300/15 text-amber-200">Turn</Badge>}</span><span className="mt-1 block truncate text-xs text-stone-500">{playerDetails?`${playerDetails} · `:""}{c.kind.charAt(0).toUpperCase()+c.kind.slice(1)} · AC {c.ac}{c.conditions.length?` · ${c.conditions.join(", ")}`:""}</span></span><span className="text-right text-xs"><span className={`block ${down?"font-semibold text-red-300":"text-stone-300"}`}>{c.hp}/{c.maxHp} HP</span><Progress value={Math.max(0,c.hp/c.maxHp*100)} className="mt-2 h-1.5 w-20 bg-white/10"/></span>
-  </button>})}</section>
-  <aside className="rounded-xl border border-white/10 bg-[#12161e] p-5 xl:sticky xl:top-20 xl:self-start">{selected?<>
-   <div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="flex gap-2"><label className="group relative min-w-0 flex-1"><span className="sr-only">Combatant name</span><Input className="h-11 border-white/10 bg-black/20 pr-10 font-serif text-xl text-amber-100" value={selected.name} onFocus={e=>e.currentTarget.select()} onChange={e=>update(selected.id,{name:e.target.value})}/><Pencil className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-stone-500"/></label>{selected.kind!=="player"&&<label className="w-24 shrink-0"><span className="sr-only">Combatant number</span><Input aria-label="Combatant number" className="h-11 border-white/10 bg-black/20 text-center font-serif text-lg text-amber-100" type="number" min="1" placeholder="#" value={selected.number??""} onChange={e=>update(selected.id,{number:e.target.value===""?null:Math.max(1,+e.target.value)})}/></label>}</div></div><Button size="icon" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={()=>{patch("combatants",data.combatants.filter(x=>x.id!==selected.id));setSelectedId("")}}><Trash2/></Button></div>
-   {selectedPlayer&&(selectedPlayer.race||selectedPlayer.className)&&<p className="mt-3 text-sm text-stone-400">{[selectedPlayer.race,selectedPlayer.className].filter(Boolean).join(" · ")}</p>}<div className="mt-4 grid grid-cols-3 gap-3"><label className="text-xs text-stone-500">Type<select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-black/25 px-2 font-medium text-stone-200 outline-none transition focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/10" value={selected.kind} onChange={e=>update(selected.id,{kind:e.target.value as Combatant["kind"]})}><option className="bg-[#12161e] text-stone-200" value="monster">Monster</option><option className="bg-[#12161e] text-stone-200" value="player">Player</option><option className="bg-[#12161e] text-stone-200" value="npc">NPC</option></select></label><label className="text-xs text-stone-500">Initiative<Input className="mt-1 border-white/10 bg-black/20" type="number" value={selected.initiative} onChange={e=>update(selected.id,{initiative:+e.target.value})}/></label><label className="text-xs text-stone-500">Armor class<Input className="mt-1 border-white/10 bg-black/20" type="number" value={selected.ac} onChange={e=>update(selected.id,{ac:+e.target.value})}/></label></div>
-   <div className="mt-5"><div className="mb-2 flex justify-between text-sm"><span className="text-stone-400">Hit points</span><span>{selected.hp} / {selected.maxHp}</span></div><Progress value={Math.max(0,selected.hp/selected.maxHp*100)} className="h-2.5 bg-white/10"/><div className="mt-3 flex items-center gap-2"><Button size="icon" variant="outline" className="border-white/10" onClick={()=>update(selected.id,{hp:Math.max(0,selected.hp-1)})}><Minus/></Button><Input className="w-20 border-white/10 bg-black/20 text-center" type="number" value={selected.hp} onChange={e=>update(selected.id,{hp:+e.target.value})}/><span className="text-stone-600">/</span><Input aria-label="Maximum hit points" className="w-20 border-white/10 bg-black/20 text-center" type="number" value={selected.maxHp} onChange={e=>update(selected.id,{maxHp:+e.target.value})}/><Button size="icon" variant="outline" className="border-white/10" onClick={()=>update(selected.id,{hp:Math.min(selected.maxHp,selected.hp+1)})}><Plus/></Button></div></div>
-   <section className="mt-6 border-t border-white/10 pt-5"><h3 className="font-serif text-lg text-amber-200">Status conditions</h3><div className="mt-3 flex flex-wrap gap-2">{selected.conditions.length?selected.conditions.map(condition=><Badge key={condition} className="gap-1 bg-violet-400/15 py-1.5 text-violet-200">{condition}<button aria-label={`Remove ${condition}`} onClick={()=>update(selected.id,{conditions:selected.conditions.filter(x=>x!==condition)})}><X size={13}/></button></Badge>):<span className="text-sm text-stone-600">No active conditions</span>}</div><div className="mt-3 flex gap-2"><Input list="condition-options" placeholder="Add a condition…" className="border-white/10 bg-black/20" value={newCondition} onChange={e=>setNewCondition(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCondition()}}/><datalist id="condition-options">{["Blinded","Charmed","Deafened","Frightened","Grappled","Incapacitated","Invisible","Paralyzed","Petrified","Poisoned","Prone","Restrained","Stunned","Unconscious","Concentrating"].map(x=><option key={x} value={x}/>)}</datalist><Button onClick={addCondition} variant="outline" className="border-white/10"><Plus/> Add</Button></div></section>
-   {monster?<div className="mt-6 border-t border-white/10 pt-5"><div className="mb-3 flex items-center justify-between"><div><h3 className="font-serif text-2xl text-amber-100">{monster.name}</h3><p className="text-sm italic text-stone-500">{monster.type} · CR {monster.cr}</p></div></div><div className="grid grid-cols-3 gap-2"><Stat label="Armor class" value={monster.ac}/><Stat label="Hit points" value={monster.hp}/><Stat label="Speed" value={monster.speed}/></div><Section title="Ability scores">{monster.stats}</Section><Section title="Actions & traits">{monster.abilities}</Section><Section title="Spellcasting">{monster.spells}<div className="mt-3 flex flex-wrap gap-2">{monster.slots.map((n,i)=><span key={i} className="rounded-md border border-violet-300/20 bg-violet-300/5 px-2 py-1 text-xs text-violet-200">Level {i+1}: {n}</span>)}</div></Section></div>:<div className="mt-6 rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">No bestiary stat block linked to this combatant.</div>}
-  </>:<div className="grid min-h-72 place-items-center text-stone-500">Select a combatant to view details.</div>}</aside>
- </div></>
-}
-
-function Bestiary({data,patch}:{data:CampaignState;patch:<T extends keyof CampaignState>(k:T,v:CampaignState[T])=>void}){
- const [importOpen,setImportOpen]=useState(false);const [catalog,setCatalog]=useState<RemoteMonsterRef[]>([]);const [query,setQuery]=useState("");const [remoteResults,setRemoteResults]=useState<FiveEToolsMonster[]>([]);const [selectedRemoteMonsters,setSelectedRemoteMonsters]=useState<FiveEToolsMonster[]>([]);const [remoteLoading,setRemoteLoading]=useState(false);const [remoteError,setRemoteError]=useState("");const [viewMode,setViewMode]=useState<"cards"|"list">("cards");const [selectedMonsterIds,setSelectedMonsterIds]=useState<string[]>([]);const [duplicatePrompt,setDuplicatePrompt]=useState<{existing:Monster;incoming:Monster}|null>(null);const duplicateResolver=useRef<((replace:boolean)=>void)|null>(null);const remoteFiles=useRef(new Map<string,FiveEToolsMonster[]>());
- const update=(id:string,part:Partial<Monster>)=>patch("monsters",data.monsters.map(monster=>monster.id===id?{...monster,...part}:monster));
- const add=()=>{const name=window.prompt("Enter a name for the new monster:","")?.trim();if(!name)return;patch("monsters",[...data.monsters,{id:uid(),name,type:"Medium creature",cr:"1",ac:12,hp:20,speed:"30 ft.",stats:"STR 10  DEX 10  CON 10  INT 10  WIS 10  CHA 10",abilities:"Add actions and abilities here.",spells:"No spells",slots:[0,0,0,0,0]}])};
- function deleteMonsters(ids:string[]){if(!ids.length)return;const names=data.monsters.filter(monster=>ids.includes(monster.id)).map(monster=>monster.name);const label=ids.length===1?`Delete "${names[0]}" from the Bestiary?`:`Delete ${ids.length} selected monsters from the Bestiary?`;if(!window.confirm(`${label}\n\nExisting combatants will remain, but their linked stat blocks will no longer be available.`))return;patch("monsters",data.monsters.filter(monster=>!ids.includes(monster.id)));setSelectedMonsterIds(current=>current.filter(id=>!ids.includes(id)));toast.success(ids.length===1?"Monster deleted":`${ids.length} monsters deleted`)}
- function toggleMonsterSelection(id:string){setSelectedMonsterIds(current=>current.includes(id)?current.filter(item=>item!==id):[...current,id])}
- async function loadCatalog(){if(catalog.length)return;setRemoteLoading(true);setRemoteError("");try{const [searchResponse,indexResponse]=await Promise.all([fetch(`${BESTIARY_BASE}/search/index.json`),fetch(`${BESTIARY_BASE}/data/bestiary/index.json`)]);if(!searchResponse.ok||!indexResponse.ok)throw new Error();const search=await searchResponse.json() as {m?:{s?:Record<string,number>};x?:Array<{c?:number;n?:string;s?:number}>};const fileIndex=await indexResponse.json() as Record<string,string>;const sourceById=new Map(Object.entries(search.m?.s??{}).map(([source,id])=>[id,source]));const refs=(search.x??[]).filter(item=>item.c===1&&item.n&&sourceById.has(item.s??-1)).map(item=>{const source=sourceById.get(item.s??-1)!;return {name:item.n!,source,file:fileIndex[source]}}).filter(item=>item.file);setCatalog(refs)}catch{setRemoteError("The external Bestiary catalogue could not be loaded.")}finally{setRemoteLoading(false)}}
- const searchRemote=useCallback(async()=>{const term=query.trim().toLowerCase();if(term.length<2){setRemoteResults([]);setRemoteError("");return}setRemoteLoading(true);setRemoteError("");try{const matches=catalog.filter(item=>item.name.toLowerCase().includes(term)).slice(0,50);const files=[...new Set(matches.map(item=>item.file))];await Promise.all(files.map(async file=>{if(remoteFiles.current.has(file))return;const response=await fetch(`${BESTIARY_BASE}/data/bestiary/${file}`);if(!response.ok)throw new Error();const payload=await response.json() as {monster?:FiveEToolsMonster[]};remoteFiles.current.set(file,payload.monster??[])}));const found=matches.map(ref=>remoteFiles.current.get(ref.file)?.find(monster=>monster.name===ref.name&&monster.source===ref.source)).filter((monster):monster is FiveEToolsMonster=>Boolean(monster));setRemoteResults(found)}catch{setRemoteError("The matching monster data could not be loaded.")}finally{setRemoteLoading(false)}},[catalog,query]);
- useEffect(()=>{if(!importOpen||!catalog.length)return;const timeout=setTimeout(()=>void searchRemote(),250);return()=>clearTimeout(timeout)},[importOpen,catalog,query,searchRemote]);
- function toggleRemoteMonster(remote:FiveEToolsMonster){const key=`${remote.name}::${remote.source}`;setSelectedRemoteMonsters(current=>current.some(item=>`${item.name}::${item.source}`===key)?current.filter(item=>`${item.name}::${item.source}`!==key):[...current,remote])}
- function askAboutDuplicate(existing:Monster,incoming:Monster){setDuplicatePrompt({existing,incoming});return new Promise<boolean>(resolve=>{duplicateResolver.current=resolve})}
- function resolveDuplicate(replace:boolean){const resolve=duplicateResolver.current;duplicateResolver.current=null;setDuplicatePrompt(null);resolve?.(replace)}
- async function importSelectedMonsters(){if(!selectedRemoteMonsters.length)return;const next=[...data.monsters];let added=0;let replaced=0;let discarded=0;for(const remote of selectedRemoteMonsters){const incoming=convertRemoteMonster(remote);const duplicateIndex=next.findIndex(existing=>existing.name.trim().toLowerCase()===incoming.name.trim().toLowerCase()&&(existing.source??"").trim().toLowerCase()===(incoming.source??"").trim().toLowerCase());if(duplicateIndex<0){next.push(incoming);added++;continue}const existing=next[duplicateIndex];if(await askAboutDuplicate(existing,incoming)){next[duplicateIndex]={...incoming,id:existing.id};replaced++}else discarded++}patch("monsters",next);setImportOpen(false);setQuery("");setRemoteResults([]);setSelectedRemoteMonsters([]);const changes=[added&&`${added} added`,replaced&&`${replaced} replaced`,discarded&&`${discarded} discarded`].filter(Boolean).join(", ");toast.success(changes?`Bestiary import complete: ${changes}`:"No monsters imported")}
- return <>
-  <Title eyebrow="Creature library" title="Bestiary" action={<div className="flex flex-wrap justify-end gap-2">
-   <div className="flex rounded-md border border-white/10 bg-black/20 p-0.5"><Button size="sm" variant="ghost" className={viewMode==="cards"?"bg-amber-300/15 text-amber-200 hover:bg-amber-300/20":"text-stone-400 hover:bg-white/5"} onClick={()=>setViewMode("cards")}>Cards</Button><Button size="sm" variant="ghost" className={viewMode==="list"?"bg-amber-300/15 text-amber-200 hover:bg-amber-300/20":"text-stone-400 hover:bg-white/5"} onClick={()=>setViewMode("list")}>List</Button></div>
-   <Dialog open={importOpen} onOpenChange={open=>{setImportOpen(open);if(open)void loadCatalog();else{setQuery("");setRemoteResults([]);setSelectedRemoteMonsters([]);setRemoteError("")}}}><DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-amber-300 px-3 py-2 text-sm font-medium whitespace-nowrap text-black transition-all hover:bg-amber-200 [&_svg]:size-4"><Download/> Import monster</DialogTrigger><DialogContent className="max-h-[88vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100 sm:max-w-2xl"><DialogHeader><DialogTitle className="font-serif text-2xl text-amber-100">Import monsters</DialogTitle></DialogHeader><p className="text-sm text-stone-400">Search the external 5eTools Bestiary. Results update while you type, and selected monsters remain selected across searches.</p><div className="relative"><Input autoFocus aria-label="Search external bestiary" placeholder="Type at least two characters…" className="border-white/10 bg-black/20 pr-24" value={query} onChange={e=>setQuery(e.target.value)}/><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-500">{remoteLoading?"Searching…":query.trim().length>=2?`${remoteResults.length} results`:"Typeahead"}</span></div>{remoteError&&<p className="rounded-lg border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">{remoteError}</p>}{!remoteLoading&&remoteResults.length>0&&<><div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 p-3"><label className="flex items-center gap-2 text-sm text-stone-400"><input type="checkbox" className="size-4 accent-amber-300" checked={remoteResults.every(remote=>selectedRemoteMonsters.some(item=>item.name===remote.name&&item.source===remote.source))} onChange={e=>setSelectedRemoteMonsters(current=>{const visibleKeys=new Set(remoteResults.map(remote=>`${remote.name}::${remote.source}`));if(!e.target.checked)return current.filter(item=>!visibleKeys.has(`${item.name}::${item.source}`));const existing=new Set(current.map(item=>`${item.name}::${item.source}`));return [...current,...remoteResults.filter(remote=>!existing.has(`${remote.name}::${remote.source}`))]})}/> Select all visible</label><span className="text-xs text-stone-500">{selectedRemoteMonsters.length} selected</span></div><Button disabled={!selectedRemoteMonsters.length} onClick={importSelectedMonsters} className="w-full bg-amber-300 text-black hover:bg-amber-200"><Download/> Import selected ({selectedRemoteMonsters.length})</Button><div className="space-y-2">{remoteResults.map((remote,index)=>{const summary=getRemoteSummary(remote);const checked=selectedRemoteMonsters.some(item=>item.name===remote.name&&item.source===remote.source);return <label key={`${remote.name}-${remote.source}-${index}`} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${checked?"border-amber-300/30 bg-amber-300/[.05]":"border-white/10 bg-black/20 hover:border-white/20"}`}><input type="checkbox" className="size-4 shrink-0 accent-amber-300" checked={checked} onChange={()=>toggleRemoteMonster(remote)}/><div className="min-w-0 flex-1"><p className="truncate font-medium text-stone-200">{remote.name}</p><p className="mt-1 text-xs text-stone-500">{remote.source} · CR {summary.cr} · {summary.type} · HP {summary.hp} · AC {summary.ac}</p></div></label>})}</div></>}{!remoteLoading&&!remoteError&&!remoteResults.length&&<div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">{query.trim().length<2?"Start typing a monster name to search.":"No matching monsters found."}</div>}</DialogContent></Dialog>
-   <Button onClick={add} className="bg-amber-300 text-black hover:bg-amber-200"><Plus/> New monster</Button>
-  </div>}/>
-  {viewMode==="cards"?<div className="grid gap-4 lg:grid-cols-2">{data.monsters.map(m=><div key={m.id} className="rounded-xl border border-white/10 bg-[#12161e] p-5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-serif text-2xl text-amber-100">{m.name}</h2><p className="mt-1 text-sm italic text-stone-500">{m.type} · CR {m.cr}{m.source?` · ${m.source}`:""}</p></div><div className="flex shrink-0 gap-1"><MonsterDialog monster={m} update={part=>update(m.id,part)} trigger={<Button size="sm" variant="outline" className="border-white/10">Open</Button>}/><Button size="icon-sm" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={()=>deleteMonsters([m.id])} aria-label={`Delete ${m.name}`}><Trash2/></Button></div></div><div className="mt-5 grid grid-cols-3 gap-2 text-center"><Stat label="Armor" value={m.ac}/><Stat label="Hit points" value={m.hp}/><Stat label="Speed" value={m.speed}/></div><p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-stone-400">{m.abilities.split("\n")[0]}</p></div>)}</div>:
-  <div className="overflow-hidden rounded-xl border border-white/10 bg-[#12161e]"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-3"><label className="flex items-center gap-2 text-sm text-stone-400"><input type="checkbox" className="size-4 accent-amber-300" checked={data.monsters.length>0&&selectedMonsterIds.length===data.monsters.length} onChange={e=>setSelectedMonsterIds(e.target.checked?data.monsters.map(monster=>monster.id):[])}/> Select all</label><Button size="sm" variant="outline" className="border-red-400/20 bg-red-400/5 text-red-200 hover:bg-red-400/10" disabled={!selectedMonsterIds.length} onClick={()=>deleteMonsters(selectedMonsterIds)}><Trash2/> Delete selected ({selectedMonsterIds.length})</Button></div><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-black/25 text-xs uppercase tracking-wider text-stone-500"><tr><th className="w-12 px-4 py-3"><span className="sr-only">Select</span></th><th className="px-3 py-3">Monster</th><th className="px-3 py-3">Type</th><th className="px-3 py-3">CR</th><th className="px-3 py-3 text-right">AC</th><th className="px-3 py-3 text-right">HP</th><th className="px-3 py-3">Speed</th><th className="px-4 py-3 text-right">Actions</th></tr></thead><tbody className="divide-y divide-white/10">{data.monsters.map(m=><tr key={m.id} className={selectedMonsterIds.includes(m.id)?"bg-amber-300/[.05]":"hover:bg-white/[.025]"}><td className="px-4 py-2.5"><input type="checkbox" className="size-4 accent-amber-300" checked={selectedMonsterIds.includes(m.id)} onChange={()=>toggleMonsterSelection(m.id)} aria-label={`Select ${m.name}`}/></td><td className="px-3 py-2.5"><p className="font-medium text-amber-100">{m.name}</p>{m.source&&<p className="text-xs text-stone-600">{m.source}</p>}</td><td className="px-3 py-2.5 text-stone-400">{m.type}</td><td className="px-3 py-2.5 text-stone-300">{m.cr}</td><td className="px-3 py-2.5 text-right text-stone-300">{m.ac}</td><td className="px-3 py-2.5 text-right text-stone-300">{m.hp}</td><td className="px-3 py-2.5 text-stone-400">{m.speed}</td><td className="px-4 py-2.5"><div className="flex justify-end gap-1"><MonsterDialog monster={m} update={part=>update(m.id,part)} trigger={<Button size="sm" variant="outline" className="border-white/10">Open</Button>}/><Button size="icon-sm" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={()=>deleteMonsters([m.id])} aria-label={`Delete ${m.name}`}><Trash2/></Button></div></td></tr>)}</tbody></table></div></div>}
-  <Dialog open={Boolean(duplicatePrompt)} onOpenChange={open=>{if(!open)resolveDuplicate(false)}}><DialogContent className="border-amber-300/20 bg-[#12161e] text-stone-100"><DialogHeader><DialogTitle className="font-serif text-2xl text-amber-100">Monster already exists</DialogTitle></DialogHeader><p className="text-sm leading-relaxed text-stone-400"><span className="font-medium text-stone-200">{duplicatePrompt?.incoming.name}</span>{duplicatePrompt?.incoming.source?` (${duplicatePrompt.incoming.source})`:""} already exists in the Bestiary. What would you like to do with this import?</p><div className="grid gap-2 sm:grid-cols-2"><Button variant="outline" className="border-white/15 bg-transparent hover:bg-white/5" onClick={()=>resolveDuplicate(false)}><X/> Discard import</Button><Button className="bg-amber-300 text-black hover:bg-amber-200" onClick={()=>resolveDuplicate(true)}><Download/> Replace existing</Button></div></DialogContent></Dialog>
- </>
-}
-
-function cleanRemoteText(value:unknown):string{if(value==null)return "";if(typeof value==="string")return value.replace(/\{@atk mw,rw}/g,"Melee or Ranged Weapon Attack:").replace(/\{@atk mw}/g,"Melee Weapon Attack:").replace(/\{@atk rw}/g,"Ranged Weapon Attack:").replace(/\{@\w+\s+([^}]+)}/g,(_,content:string)=>content.split("|")[0]);if(Array.isArray(value))return value.map(cleanRemoteText).filter(Boolean).join("\n");if(typeof value==="object"){const record=value as Record<string,unknown>;const body=cleanRemoteText(record.entries??record.entry??record.items??"");return record.name?`${cleanRemoteText(record.name)} — ${body}`:body}return String(value)}
-function formatRemoteEntries(value:unknown[]|undefined){return value?.map(cleanRemoteText).filter(Boolean).join("\n\n")??""}
-function getRemoteSummary(remote:FiveEToolsMonster){const sizes:Record<string,string>={T:"Tiny",S:"Small",M:"Medium",L:"Large",H:"Huge",G:"Gargantuan"};const rawType=typeof remote.type==="string"?remote.type:remote.type?.type??"creature";const type=`${(remote.size??[]).map(size=>sizes[size]??size).join("/")} ${rawType}`.trim();const acEntry=remote.ac?.[0];const ac=typeof acEntry==="number"?acEntry:acEntry?.ac??10;const hp=remote.hp?.average??10;const cr=typeof remote.cr==="object"?remote.cr.cr??"—":remote.cr??"—";return {type,ac,hp,cr:String(cr)}}
-function convertRemoteMonster(remote:FiveEToolsMonster):Monster{const summary=getRemoteSummary(remote);const speed=Object.entries(remote.speed??{}).filter(([,value])=>value!==false).map(([mode,value])=>{const amount=typeof value==="number"?value:typeof value==="object"?value.number:undefined;return `${mode==="walk"?"":`${mode} `}${amount??value} ft.`}).join(", ")||"30 ft.";const stats=`STR ${remote.str??10}  DEX ${remote.dex??10}  CON ${remote.con??10}  INT ${remote.int??10}  WIS ${remote.wis??10}  CHA ${remote.cha??10}`;const sections=[["Traits",remote.trait],["Actions",remote.action],["Bonus Actions",remote.bonus],["Reactions",remote.reaction],["Legendary Actions",remote.legendary],["Mythic Actions",remote.mythic]].map(([title,entries])=>{const body=formatRemoteEntries(entries as unknown[]|undefined);return body?`${title}\n${body}`:""}).filter(Boolean);const spellcasting=formatRemoteEntries(remote.spellcasting);const slots=Array.from({length:5},(_,index)=>{const level=String(index+1);for(const block of remote.spellcasting??[]){if(!block||typeof block!=="object")continue;const spells=(block as Record<string,unknown>).spells;if(!spells||typeof spells!=="object")continue;const levelData=(spells as Record<string,unknown>)[level];if(levelData&&typeof levelData==="object"){const count=(levelData as Record<string,unknown>).slots;if(typeof count==="number")return count}}return 0});return {id:uid(),name:remote.name,source:remote.source,type:summary.type,cr:summary.cr,ac:summary.ac,hp:summary.hp,speed,stats,abilities:sections.join("\n\n")||"No special actions or traits.",spells:spellcasting||"No spells",slots}}
-function Stat({label,value}:{label:string;value:React.ReactNode}){return <div className="rounded-lg bg-black/25 p-2"><p className="text-[10px] uppercase tracking-wider text-stone-500">{label}</p><p className="mt-1 text-sm font-semibold text-stone-200">{value}</p></div>}
-function MonsterDialog({monster,trigger,update}:{monster?:Monster;trigger:React.ReactNode;update?:(part:Partial<Monster>)=>void}){if(!monster)return <span className="text-xs text-stone-600">No stat block</span>;if(update)return <Dialog><DialogTrigger asChild>{trigger}</DialogTrigger><DialogContent className="max-h-[88vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100 sm:max-w-2xl"><DialogHeader><DialogTitle className="font-serif text-3xl text-amber-100">Edit monster stat block</DialogTitle></DialogHeader><div className="grid gap-3 sm:grid-cols-2"><label className="text-xs text-stone-500">Name<Input className="mt-1 border-white/10 bg-black/20 font-serif text-lg text-amber-100" value={monster.name} onChange={e=>update({name:e.target.value})}/></label><label className="text-xs text-stone-500">Creature type<Input className="mt-1 border-white/10 bg-black/20" value={monster.type} onChange={e=>update({type:e.target.value})}/></label></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><label className="text-xs text-stone-500">Challenge rating<Input className="mt-1 border-white/10 bg-black/20" value={monster.cr} onChange={e=>update({cr:e.target.value})}/></label><label className="text-xs text-stone-500">Armor class<Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" value={monster.ac} onChange={e=>update({ac:Math.max(0,+e.target.value)})}/></label><label className="text-xs text-stone-500">Hit points<Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" value={monster.hp} onChange={e=>update({hp:Math.max(0,+e.target.value)})}/></label><label className="text-xs text-stone-500">Speed<Input className="mt-1 border-white/10 bg-black/20" value={monster.speed} onChange={e=>update({speed:e.target.value})}/></label></div><label className="text-xs text-stone-500">Ability scores<Textarea className="mt-1 min-h-20 border-white/10 bg-black/20" value={monster.stats} onChange={e=>update({stats:e.target.value})}/></label><label className="text-xs text-stone-500">Actions & traits<Textarea className="mt-1 min-h-36 border-white/10 bg-black/20" value={monster.abilities} onChange={e=>update({abilities:e.target.value})}/></label><label className="text-xs text-stone-500">Spellcasting<Textarea className="mt-1 min-h-28 border-white/10 bg-black/20" value={monster.spells} onChange={e=>update({spells:e.target.value})}/></label><section><p className="text-xs text-stone-500">Spell slots</p><div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">{monster.slots.map((n,i)=><label key={i} className="text-xs text-stone-500">Level {i+1}<Input min="0" className="mt-1 border-white/10 bg-black/20 text-center" type="number" value={n} onChange={e=>{const slots=[...monster.slots];slots[i]=Math.max(0,+e.target.value);update({slots})}}/></label>)}</div></section></DialogContent></Dialog>;return <Dialog><DialogTrigger asChild>{trigger}</DialogTrigger><DialogContent className="max-h-[88vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100 sm:max-w-2xl"><DialogHeader><DialogTitle className="font-serif text-3xl text-amber-100">{monster.name}</DialogTitle><p className="text-sm italic text-stone-500">{monster.type} · CR {monster.cr}</p></DialogHeader><div className="grid grid-cols-3 gap-2"><Stat label="Armor class" value={monster.ac}/><Stat label="Hit points" value={monster.hp}/><Stat label="Speed" value={monster.speed}/></div><Section title="Ability scores">{monster.stats}</Section><Section title="Actions & traits">{monster.abilities}</Section><Section title="Spellcasting">{monster.spells}<div className="mt-3 flex flex-wrap gap-3">{monster.slots.map((n,i)=><span key={i} className="rounded-md border border-violet-300/20 bg-violet-300/5 px-2 py-1 text-xs text-violet-200">Level {i+1}: {n} slots</span>)}</div></Section></DialogContent></Dialog>}
-function Section({title,children}:{title:string;children:React.ReactNode}){return <section className="mt-2 border-t border-white/10 pt-4"><h3 className="mb-2 flex items-center gap-2 font-serif text-lg text-amber-200"><CircleDot size={14}/>{title}</h3><div className="whitespace-pre-line text-sm leading-7 text-stone-300">{children}</div></section>}
-
-function CampaignOverview({data,patch,openSession}:{data:CampaignState;patch:<T extends keyof CampaignState>(k:T,v:CampaignState[T])=>void;openSession:(id:string)=>void}){
- const sessions=useMemo(()=>[...data.sessions].sort((a,b)=>{const dateOrder=(a.date||"9999-12-31").localeCompare(b.date||"9999-12-31");return dateOrder||a.title.localeCompare(b.title)}),[data.sessions]);
- const formatDate=(date:string)=>{if(!date)return "Date not set";const parsed=new Date(`${date}T00:00:00`);return Number.isNaN(parsed.getTime())?date:new Intl.DateTimeFormat(undefined,{day:"numeric",month:"long",year:"numeric"}).format(parsed)};
- return <><Title eyebrow="Campaign overview" title={data.campaignName||"Unnamed campaign"}/><div className="grid gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(440px,1.2fr)]"><section className="space-y-5"><article className="rounded-xl border border-white/10 bg-[#12161e] p-5"><h2 className="font-serif text-xl text-amber-100">Campaign details</h2><label className="mt-4 block text-xs text-stone-500">Campaign name<Input className="mt-1 border-white/10 bg-black/20 font-serif text-lg text-amber-100" value={data.campaignName} onChange={e=>patch("campaignName",e.target.value)} placeholder="Campaign name" maxLength={120}/></label><label className="mt-4 block text-xs text-stone-500">General campaign notes<Textarea className="mt-1 min-h-72 resize-y border-white/10 bg-black/20 leading-7" value={data.campaignNotes} onChange={e=>patch("campaignNotes",e.target.value)} placeholder="Campaign premise, locations, factions, house rules, long-term reminders…"/></label></article></section><section><div className="mb-4"><p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-300/70">Session history</p><h2 className="mt-1 font-serif text-2xl text-stone-100">Timeline</h2><p className="mt-2 text-sm text-stone-500">Generated automatically from the Sessions component. Select an entry to open it.</p></div>{sessions.length?<div className="relative space-y-4 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-white/10">{sessions.map((session,index)=><article key={session.id} className="relative grid grid-cols-[40px_1fr] gap-4"><div className={`z-10 mt-5 grid h-10 w-10 place-items-center rounded-full border text-sm font-semibold ${session.done?"border-emerald-300/40 bg-emerald-300/15 text-emerald-300":"border-amber-300/30 bg-[#12161e] text-amber-200"}`}>{session.done?<Check size={18}/>:index+1}</div><button type="button" onClick={()=>openSession(session.id)} className="rounded-xl border border-white/10 bg-[#12161e] p-5 text-left transition hover:border-amber-300/30 hover:bg-amber-300/[.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-serif text-xl text-amber-100">{session.title||"Untitled session"}</h3><p className="mt-1 text-xs uppercase tracking-wider text-stone-500">{formatDate(session.date)}</p></div><div className="flex items-center gap-2"><Badge className={session.done?"border border-emerald-300/20 bg-emerald-300/10 text-emerald-200":"border border-amber-300/20 bg-amber-300/10 text-amber-100"}>{session.done?"Completed":"Planned"}</Badge><ChevronRight size={17} className="text-stone-500"/></div></div>{session.body?<p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-400">{session.body}</p>:<p className="mt-4 text-sm italic text-stone-600">No session notes yet.</p>}</button></article>)}</div>:<div className="rounded-xl border border-dashed border-white/10 bg-[#12161e]/50 p-10 text-center"><Feather className="mx-auto text-stone-600"/><h3 className="mt-3 font-serif text-xl text-stone-300">No sessions yet</h3><p className="mt-2 text-sm text-stone-500">Create a session note and it will appear here automatically.</p></div>}</section></div></>
-}
-
-function CampaignPlayers({data,patch}:{data:CampaignState;patch:<T extends keyof CampaignState>(k:T,v:CampaignState[T])=>void}){
- const [viewMode,setViewMode]=useState<"cards"|"list">("cards");const [selectedPlayerIds,setSelectedPlayerIds]=useState<string[]>([]);
- const update=(id:string,part:Partial<CampaignPlayer>)=>patch("players",data.players.map(player=>player.id===id?{...player,...part}:player));
- const add=()=>patch("players",[...data.players,{id:uid(),name:"New player",race:"",className:"",level:1,hp:null,ac:null,notes:""}]);
- function deletePlayers(ids:string[]){if(!ids.length)return;const names=data.players.filter(player=>ids.includes(player.id)).map(player=>player.name);const label=ids.length===1?`Delete "${names[0]}" from the campaign roster?`:`Delete ${ids.length} selected players from the campaign roster?`;if(!window.confirm(`${label}\n\nExisting combatants will remain, but their linked race and class information will no longer be available.`))return;patch("players",data.players.filter(player=>!ids.includes(player.id)));setSelectedPlayerIds(current=>current.filter(id=>!ids.includes(id)));toast.success(ids.length===1?"Player deleted":`${ids.length} players deleted`)}
- function togglePlayerSelection(id:string){setSelectedPlayerIds(current=>current.includes(id)?current.filter(item=>item!==id):[...current,id])}
- return <><Title eyebrow="Reusable party roster" title="Campaign players" action={<div className="flex flex-wrap justify-end gap-2"><div className="flex rounded-md border border-white/10 bg-black/20 p-0.5"><Button size="sm" variant="ghost" className={viewMode==="cards"?"bg-amber-300/15 text-amber-200 hover:bg-amber-300/20":"text-stone-400 hover:bg-white/5"} onClick={()=>setViewMode("cards")}>Cards</Button><Button size="sm" variant="ghost" className={viewMode==="list"?"bg-amber-300/15 text-amber-200 hover:bg-amber-300/20":"text-stone-400 hover:bg-white/5"} onClick={()=>setViewMode("list")}>List</Button></div><Button onClick={add} className="bg-amber-300 text-black hover:bg-amber-200"><Plus/> Add player</Button></div>}/><p className="mb-5 max-w-2xl text-sm leading-relaxed text-stone-400">Save the party once, then add these players to any encounter from the Combat menu. HP and armor class are optional; unset values default to 10 when added to combat.</p>{data.players.length?(viewMode==="cards"?<div className="grid gap-4 lg:grid-cols-2">{data.players.map(player=><article key={player.id} className="rounded-xl border border-white/10 bg-[#12161e] p-5"><div className="flex items-start gap-3"><label className="min-w-0 flex-1 text-xs text-stone-500">Player name<Input className="mt-1 border-white/10 bg-black/20 font-serif text-lg text-amber-100" value={player.name} onChange={e=>update(player.id,{name:e.target.value})}/></label><Button size="icon" variant="ghost" className="mt-5 text-stone-600 hover:text-red-300" onClick={()=>deletePlayers([player.id])} aria-label={`Delete ${player.name}`}><Trash2/></Button></div><div className="mt-4 grid grid-cols-2 gap-3"><label className="text-xs text-stone-500">Race<Input className="mt-1 border-white/10 bg-black/20" placeholder="e.g. Human" value={player.race} onChange={e=>update(player.id,{race:e.target.value})}/></label><label className="text-xs text-stone-500">Class<Input className="mt-1 border-white/10 bg-black/20" placeholder="e.g. Paladin" value={player.className} onChange={e=>update(player.id,{className:e.target.value})}/></label></div><div className="mt-3 grid grid-cols-3 gap-3"><label className="text-xs text-stone-500">Level<Input min="1" max="20" className="mt-1 border-white/10 bg-black/20" type="number" value={player.level??""} onChange={e=>update(player.id,{level:e.target.value===""?null:Math.min(20,Math.max(1,+e.target.value))})} onBlur={()=>{if(player.level===null)update(player.id,{level:1})}}/></label><label className="text-xs text-stone-500">Hit points (optional)<Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" placeholder="Not set" value={player.hp??""} onChange={e=>update(player.id,{hp:e.target.value===""?null:Math.max(0,+e.target.value)})}/></label><label className="text-xs text-stone-500">Armor class (optional)<Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" placeholder="Not set" value={player.ac??""} onChange={e=>update(player.id,{ac:e.target.value===""?null:Math.max(0,+e.target.value)})}/></label></div><label className="mt-4 block text-xs text-stone-500">Player notes<Textarea className="mt-1 min-h-28 resize-y border-white/10 bg-black/20" placeholder="Background, abilities, reminders, or campaign notes…" value={player.notes} onChange={e=>update(player.id,{notes:e.target.value})}/></label></article>)}</div>:<div className="overflow-hidden rounded-xl border border-white/10 bg-[#12161e]"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-3"><label className="flex items-center gap-2 text-sm text-stone-400"><input type="checkbox" className="size-4 accent-amber-300" checked={data.players.length>0&&selectedPlayerIds.length===data.players.length} onChange={e=>setSelectedPlayerIds(e.target.checked?data.players.map(player=>player.id):[])}/> Select all</label><Button size="sm" variant="outline" className="border-red-400/20 bg-red-400/5 text-red-200 hover:bg-red-400/10" disabled={!selectedPlayerIds.length} onClick={()=>deletePlayers(selectedPlayerIds)}><Trash2/> Delete selected ({selectedPlayerIds.length})</Button></div><div className="overflow-x-auto"><table className="w-full min-w-[880px] text-left text-sm"><thead className="bg-black/25 text-xs uppercase tracking-wider text-stone-500"><tr><th className="w-12 px-4 py-3"><span className="sr-only">Select</span></th><th className="px-3 py-3">Player</th><th className="px-3 py-3">Race</th><th className="px-3 py-3">Class</th><th className="px-3 py-3 text-right">Level</th><th className="px-3 py-3 text-right">HP</th><th className="px-3 py-3 text-right">AC</th><th className="px-3 py-3">Notes</th><th className="px-4 py-3 text-right">Actions</th></tr></thead><tbody className="divide-y divide-white/10">{data.players.map(player=><tr key={player.id} className={selectedPlayerIds.includes(player.id)?"bg-amber-300/[.05]":"hover:bg-white/[.025]"}><td className="px-4 py-2.5"><input type="checkbox" className="size-4 accent-amber-300" checked={selectedPlayerIds.includes(player.id)} onChange={()=>togglePlayerSelection(player.id)} aria-label={`Select ${player.name}`}/></td><td className="px-3 py-2.5 font-medium text-amber-100">{player.name}</td><td className="px-3 py-2.5 text-stone-400">{player.race||"—"}</td><td className="px-3 py-2.5 text-stone-400">{player.className||"—"}</td><td className="px-3 py-2.5 text-right text-stone-300">{player.level}</td><td className="px-3 py-2.5 text-right text-stone-300">{player.hp??"—"}</td><td className="px-3 py-2.5 text-right text-stone-300">{player.ac??"—"}</td><td className="max-w-64 truncate px-3 py-2.5 text-stone-500" title={player.notes}>{player.notes||"—"}</td><td className="px-4 py-2.5 text-right"><Button size="icon-sm" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={()=>deletePlayers([player.id])} aria-label={`Delete ${player.name}`}><Trash2/></Button></td></tr>)}</tbody></table></div></div>):<div className="rounded-xl border border-dashed border-white/10 bg-[#12161e]/50 p-10 text-center"><Users className="mx-auto text-stone-600"/><h2 className="mt-3 font-serif text-xl text-stone-300">No campaign players yet</h2><p className="mt-2 text-sm text-stone-500">Add the party here to reuse their details across encounters.</p></div>}</>
-}
-
-function Sessions({data,patch,loadEncounter}:{data:CampaignState;patch:<T extends keyof CampaignState>(k:T,v:CampaignState[T])=>void;loadEncounter:(encounter:PreparedEncounter)=>void}){
- const update=(id:string,part:Partial<SessionNote>)=>patch("sessions",data.sessions.map(session=>session.id===id?{...session,...part}:session));
- const addSession=()=>patch("sessions",[{id:uid(),title:"New session",date:new Date().toISOString().slice(0,10),body:"",done:false,encounters:[]},...data.sessions]);
- const updateEncounter=(session:SessionNote,encounterId:string,part:Partial<PreparedEncounter>)=>update(session.id,{encounters:session.encounters.map(encounter=>encounter.id===encounterId?{...encounter,...part}:encounter)});
- const addEncounter=(session:SessionNote)=>update(session.id,{encounters:[...session.encounters,{id:uid(),name:`Encounter ${session.encounters.length+1}`,monsters:[]}]});
- const deleteEncounter=(session:SessionNote,encounter:PreparedEncounter)=>{if(!window.confirm(`Delete prepared encounter "${encounter.name}"?`))return;update(session.id,{encounters:session.encounters.filter(item=>item.id!==encounter.id)});toast.success("Prepared encounter deleted")};
- const addMonster=(session:SessionNote,encounter:PreparedEncounter,monsterId:string)=>{if(!monsterId)return;const sameType=encounter.monsters.filter(entry=>entry.monsterId===monsterId);const nextNumber=Math.max(0,...sameType.map(entry=>entry.number??0))+1;updateEncounter(session,encounter.id,{monsters:[...encounter.monsters,{id:uid(),monsterId,number:nextNumber}]})};
- const updatePreparedMonster=(session:SessionNote,encounter:PreparedEncounter,entryId:string,part:Partial<PreparedEncounterMonster>)=>updateEncounter(session,encounter.id,{monsters:encounter.monsters.map(entry=>entry.id===entryId?{...entry,...part}:entry)});
- const removeMonster=(session:SessionNote,encounter:PreparedEncounter,entryId:string)=>updateEncounter(session,encounter.id,{monsters:encounter.monsters.filter(entry=>entry.id!==entryId)});
- return <><Title eyebrow="Preparation & recap" title="Session notes" action={<Button onClick={addSession} className="bg-amber-300 text-black hover:bg-amber-200"><Plus/> New session</Button>}/><div className="space-y-5">{data.sessions.map(session=><article id={`session-${session.id}`} tabIndex={-1} key={session.id} className={`scroll-mt-24 rounded-xl border p-5 outline-none transition focus:ring-2 focus:ring-amber-300/60 ${session.done?"border-emerald-300/15 bg-emerald-300/[.03]":"border-white/10 bg-[#12161e]"}`}><div className="flex gap-3"><button onClick={()=>update(session.id,{done:!session.done})} className={`mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full border ${session.done?"border-emerald-300 bg-emerald-300 text-black":"border-white/20"}`} aria-label="Mark session complete">{session.done&&<Check size={15}/>}</button><div className="min-w-0 flex-1"><Input className="border-0 bg-transparent px-0 font-serif text-xl text-amber-100" value={session.title} onChange={e=>update(session.id,{title:e.target.value})}/><Input type="date" className="mt-1 h-8 w-40 border-white/10 bg-black/20 text-xs" value={session.date} onChange={e=>update(session.id,{date:e.target.value})}/></div><Button size="icon" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={()=>patch("sessions",data.sessions.filter(item=>item.id!==session.id))} aria-label={`Delete ${session.title}`}><Trash2/></Button></div><Textarea className="mt-4 min-h-40 resize-y border-white/10 bg-black/20 leading-7" placeholder="Scenes, NPC motivations, clues, treasure, reminders…" value={session.body} onChange={e=>update(session.id,{body:e.target.value})}/><details className="group mt-5 border-t border-white/10 pt-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 py-1 transition hover:bg-white/[.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-300/70">Prepared combat</p><h3 className="mt-1 flex items-center gap-2 font-serif text-xl text-stone-200">Encounters <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 font-sans text-xs text-stone-400">{session.encounters.length}</span></h3></div><ChevronRight className="text-stone-500 transition-transform group-open:rotate-90"/></summary><div className="pt-4"><div className="flex justify-end"><Button size="sm" variant="outline" className="border-white/15 bg-transparent hover:bg-white/5" onClick={()=>addEncounter(session)}><Plus/> Add encounter</Button></div>{session.encounters.length?<div className="mt-4 grid gap-4 xl:grid-cols-2">{session.encounters.map(encounter=><article key={encounter.id} className="rounded-xl border border-white/10 bg-black/20 p-4"><div className="flex items-start gap-2"><Input aria-label="Encounter name" className="border-white/10 bg-[#12161e] font-serif text-lg text-amber-100" value={encounter.name} onChange={e=>updateEncounter(session,encounter.id,{name:e.target.value})}/><Button size="icon" variant="ghost" className="shrink-0 text-stone-600 hover:text-red-300" onClick={()=>deleteEncounter(session,encounter)} aria-label={`Delete ${encounter.name}`}><Trash2/></Button></div><div className="mt-3 flex gap-2"><select aria-label={`Add monster to ${encounter.name}`} value="" onChange={e=>addMonster(session,encounter,e.target.value)} className="h-9 min-w-0 flex-1 rounded-md border border-white/10 bg-[#12161e] px-3 text-sm text-stone-300"><option value="">Add a Bestiary monster…</option>{data.monsters.map(monster=><option key={monster.id} value={monster.id}>{monster.name} · CR {monster.cr}</option>)}</select></div>{encounter.monsters.length?<div className="mt-3 space-y-2">{encounter.monsters.map(reference=>{const monster=data.monsters.find(entry=>entry.id===reference.monsterId);return <div key={reference.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#12161e] px-3 py-2"><label className="w-16 shrink-0"><span className="sr-only">Monster number</span><Input aria-label={`${monster?.name??"Monster"} number`} className="h-8 border-white/10 bg-black/20 px-1 text-center text-sm text-red-200" type="number" min="1" placeholder="#" value={reference.number??""} onChange={e=>updatePreparedMonster(session,encounter,reference.id,{number:e.target.value===""?null:Math.max(1,+e.target.value)})}/></label><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-stone-200">{monster?.name??"Missing Bestiary monster"}{reference.number!=null?` #${reference.number}`:""}</p><p className="text-xs text-stone-500">{monster?`CR ${monster.cr} · HP ${monster.hp} · AC ${monster.ac}`:"This monster was removed from the Bestiary."}</p></div><Button size="icon-sm" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={()=>removeMonster(session,encounter,reference.id)} aria-label={`Remove ${monster?.name??"monster"}`}><X/></Button></div>})}</div>:<p className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-stone-600">No monsters prepared yet.</p>}<Button className="mt-4 w-full bg-amber-300 text-black hover:bg-amber-200" disabled={!encounter.monsters.some(reference=>data.monsters.some(monster=>monster.id===reference.monsterId))} onClick={()=>loadEncounter(encounter)}><Play/> Load in Combat</Button></article>)}</div>:<div className="mt-4 rounded-xl border border-dashed border-white/10 p-6 text-center"><Swords className="mx-auto text-stone-600"/><p className="mt-2 text-sm text-stone-500">Prepare one or more encounters for this session.</p></div>}</div></details></article>)}</div></>
-}
-
-function Story({data,patch}:{data:CampaignState;patch:<T extends keyof CampaignState>(k:T,v:CampaignState[T])=>void}){const update=(id:string,p:Partial<StoryBeat>)=>patch("story",data.story.map(s=>s.id===id?{...s,...p}:s));return <><Title eyebrow="Campaign arc" title="Storyline" action={<Button onClick={()=>patch("story",[...data.story,{id:uid(),title:"New story beat",chapter:"Unsorted",details:"",status:"planned"}])} className="bg-amber-300 text-black hover:bg-amber-200"><Plus/> Add story beat</Button>}/><div className="relative space-y-4 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-white/10">{data.story.map((s,i)=><article key={s.id} className="relative grid grid-cols-[40px_1fr] gap-4"><div className={`z-10 mt-5 grid h-10 w-10 place-items-center rounded-full border ${s.status==="happened"?"border-emerald-300/40 bg-emerald-300/15 text-emerald-300":s.status==="active"?"border-amber-300/50 bg-amber-300/15 text-amber-200":"border-white/15 bg-[#12161e] text-stone-600"}`}>{s.status==="happened"?<Check size={18}/>:i+1}</div><div className="rounded-xl border border-white/10 bg-[#12161e] p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><Input className="h-auto border-0 bg-transparent p-0 font-serif text-xl text-amber-100" value={s.title} onChange={e=>update(s.id,{title:e.target.value})}/><Input className="mt-1 h-auto border-0 bg-transparent p-0 text-xs uppercase tracking-wider text-stone-500" value={s.chapter} onChange={e=>update(s.id,{chapter:e.target.value})}/></div><select className="rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm" value={s.status} onChange={e=>update(s.id,{status:e.target.value as StoryBeat["status"]})}><option value="planned">Planned</option><option value="active">Active now</option><option value="happened">Happened</option></select></div><Textarea className="mt-4 min-h-24 border-white/10 bg-black/20" value={s.details} onChange={e=>update(s.id,{details:e.target.value})}/></div></article>)}</div></>}

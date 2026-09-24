@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current stable release is **v2.2.0**.
+The current stable release is **v2.3.0**.
 
 ## Features
 
@@ -57,7 +57,9 @@ If HP or AC is not set, the combat tracker uses `10` when that player is added t
 - Use card or compact list views.
 - Delete individual monsters or select several monsters for bulk deletion.
 - Import monsters from the 5etools-compatible JSON catalogue hosted at [dnd5e.lamagra.link](https://dnd5e.lamagra.link/bestiary.html).
-- Search the remote catalogue and compare source, CR, type, HP, and AC before importing.
+- Search the remote catalogue with typeahead results and compare source, CR, type, HP, and AC before importing.
+- Select and import multiple monsters in one operation.
+- Detect an existing monster with the same name and source, then choose whether to replace it or discard that individual import.
 - Convert imported records to the DM Command Table format and save a campaign-local copy.
 
 Imported monster data belongs to the current campaign and remains editable after import.
@@ -231,6 +233,8 @@ Updating from v2.0 to v2.1 requires no database migration. Existing campaigns re
 
 Updating from v2.1 to v2.2 also requires no database migration. Existing sessions receive an empty prepared-encounters list, while existing combatants and prepared monsters receive blank optional number fields.
 
+Updating from v2.2 to v2.3 requires no database migration. The release adds multi-select and typeahead workflows to encounter setup and Bestiary importing, plus duplicate-import handling.
+
 ## Campaign API
 
 The API is implemented in `app/api/campaigns/route.ts`:
@@ -247,11 +251,14 @@ Local registration, login, and logout use `POST /api/auth` with the correspondin
 ## Project structure
 
 ```text
-app/                  Application UI, authentication adapter, and campaign API
+app/                  Next.js entry points and local API route adapters
 components/ui/        Reusable interface primitives
 db/                   SQLite connection and Drizzle schema definitions
 drizzle/              Historical and schema-generation migration metadata
-lib/                   IndexedDB campaign cache and shared utilities
+features/              Campaign, Combat, Bestiary, Session, Story, and Auth modules
+lib/                   IndexedDB cache, typed local API clients, and shared utilities
+server/                Local authentication and SQLite repository services
+tests/                 Domain compatibility and conversion tests
 public/                Favicons and static assets
 data/                  Runtime SQLite files; excluded from version control
 deploy/                Reusable systemd, Nginx, environment, and update templates
@@ -280,8 +287,8 @@ compose.yaml           Local container deployment with persistent storage
 
 ## Release
 
-- Latest stable release: [DM Command Table 2.2](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.2.0)
-- Release tag: `v2.2.0`
+- Latest stable release: [DM Command Table 2.3](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.3.0)
+- Release tag: `v2.3.0`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
