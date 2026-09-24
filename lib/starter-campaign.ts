@@ -18,7 +18,13 @@ const STARTER_CAMPAIGN = {
     { id: "m2", name: "Ridgeback Drake", type: "Medium dragon", cr: "3", ac: 16, hp: 58, speed: "40 ft., fly 60 ft.", stats: "STR 18  DEX 14  CON 16  INT 6  WIS 12  CHA 8", abilities: "Pack Tactics — Advantage while an ally is within 5 feet.\nRending Bite — +6 to hit, 2d10 + 4 piercing.", spells: "No spells", slots: [0, 0, 0, 0, 0] },
   ],
   sessions: [
-    { id: "n1", title: "Session 12 — The Ashen Crossing", date: "2026-09-28", body: "Open on the bridge at dawn. The green scale reacts to the old ward-stone.\n\nRemember: Captain Vael knows more than she admitted.", done: false },
+    { id: "n1", title: "Session 12 — The Ashen Crossing", date: "2026-09-28", body: "Open on the bridge at dawn. The green scale reacts to the old ward-stone.\n\nRemember: Captain Vael knows more than she admitted.", done: false, encounters: [
+      { id: "e1", name: "Ambush at the ward-stone", monsters: [
+        { id: "em1", monsterId: "m1" },
+        { id: "em2", monsterId: "m1" },
+        { id: "em3", monsterId: "m2" },
+      ] },
+    ] },
   ],
   story: [
     { id: "s1", title: "The order is destroyed", chapter: "Prologue", details: "Lamfurion returns to find the sanctuary burned and a single green scale among the ashes.", status: "happened" },
