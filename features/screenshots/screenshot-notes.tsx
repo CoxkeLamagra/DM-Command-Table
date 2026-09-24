@@ -13,8 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import type { Screenshot } from "@/lib/api/screenshot-client";
-
-const SCREENSHOT_PATTERN = /\[\[screenshot:([a-f0-9-]+)\]\]/gi;
+import { appendScreenshotToken, parseScreenshotNotes } from "./tokens";
 
 export function ScreenshotNotes({
   value,
@@ -36,8 +35,7 @@ export function ScreenshotNotes({
   const [uploading, setUploading] = useState(false);
 
   function insert(record: Screenshot) {
-    const token = `[[screenshot:${record.id}]]`;
-    onChange(value ? `${value.replace(/\s+$/, "")}\n${token}` : token);
+    onChange(appendScreenshotToken(value, record.id));
     setLibraryOpen(false);
   }
 
@@ -143,24 +141,17 @@ export function NoteContent({
   className?: string;
 }) {
   const records = new Map(screenshots.map((record) => [record.id, record]));
-  const parts: Array<{ text?: string; id?: string }> = [];
-  let cursor = 0;
-  for (const match of value.matchAll(SCREENSHOT_PATTERN)) {
-    if (match.index > cursor) parts.push({ text: value.slice(cursor, match.index) });
-    parts.push({ id: match[1] });
-    cursor = match.index + match[0].length;
-  }
-  if (cursor < value.length) parts.push({ text: value.slice(cursor) });
+  const parts = parseScreenshotNotes(value);
   return (
     <div className={`space-y-3 text-sm leading-7 text-stone-300 ${className}`}>
       {parts.map((part, index) => {
-        if (part.text !== undefined)
+        if ("text" in part)
           return part.text.trim() ? (
             <p key={index} className="whitespace-pre-wrap">{part.text.trim()}</p>
           ) : null;
-        const screenshot = records.get(part.id ?? "");
+        const screenshot = records.get(part.screenshotId);
         return screenshot ? (
-          <figure key={`${part.id}-${index}`} className="overflow-hidden rounded-lg border border-white/10 bg-black/20 p-2">
+          <figure key={`${part.screenshotId}-${index}`} className="overflow-hidden rounded-lg border border-white/10 bg-black/20 p-2">
             <Image
               src={screenshot.url}
               alt={screenshot.name}
@@ -172,7 +163,7 @@ export function NoteContent({
             <figcaption className="px-1 pt-2 text-xs text-stone-500">{screenshot.name}</figcaption>
           </figure>
         ) : (
-          <p key={`${part.id}-${index}`} className="rounded border border-dashed border-red-300/20 p-3 text-xs text-red-200/70">
+          <p key={`${part.screenshotId}-${index}`} className="rounded border border-dashed border-red-300/20 p-3 text-xs text-red-200/70">
             Screenshot unavailable
           </p>
         );

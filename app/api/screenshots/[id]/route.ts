@@ -1,4 +1,4 @@
-import { getLocalUser } from "@/server/auth/sessions";
+import { authorizeRequest, rejectCrossOrigin } from "@/server/http/requests";
 import {
   deleteScreenshot,
   readScreenshot,
@@ -11,8 +11,8 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const user = await getLocalUser();
-  if (!user) return Response.json({ error: "Sign in required." }, { status: 401 });
+  const authorization = await authorizeRequest();
+  if ("response" in authorization) return authorization.response;
   const screenshot = await readScreenshot((await context.params).id);
   if (!screenshot)
     return Response.json({ error: "Screenshot not found." }, { status: 404 });
@@ -29,27 +29,11 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!sameOrigin(request))
-    return Response.json({ error: "Invalid request origin." }, { status: 403 });
-  const user = await getLocalUser();
-  if (!user) return Response.json({ error: "Sign in required." }, { status: 401 });
-  if (!user.isAdmin)
-    return Response.json({ error: "Administrator access required." }, { status: 403 });
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
+  const authorization = await authorizeRequest({ admin: true });
+  if ("response" in authorization) return authorization.response;
   if (!(await deleteScreenshot((await context.params).id)))
     return Response.json({ error: "Screenshot not found." }, { status: 404 });
   return Response.json({ deleted: true });
-}
-
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  const requestHost =
-    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    request.headers.get("host");
-  if (!requestHost) return false;
-  try {
-    return new URL(origin).host === requestHost;
-  } catch {
-    return false;
-  }
 }

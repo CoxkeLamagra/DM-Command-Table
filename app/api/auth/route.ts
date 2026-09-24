@@ -1,26 +1,25 @@
-import { getDatabase } from "@/db/sqlite";
 import {
   findLocalUser,
-  hashPassword,
   normaliseUsername,
   validateCredentials,
   verifyPassword,
 } from "@/server/auth/credentials";
+import { registerLocalUser } from "@/server/auth/registration";
 import { createSession, destroySession } from "@/server/auth/sessions";
-import { createStarterCampaign } from "@/lib/starter-campaign";
+import { readJson, rejectCrossOrigin } from "@/server/http/requests";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  if (!sameOrigin(request))
-    return Response.json({ error: "Invalid request origin." }, { status: 403 });
-  const body = (await request.json().catch(() => null)) as {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
+  const body = await readJson<{
     action?: string;
     username?: string;
     password?: string;
     displayName?: string;
-  } | null;
+  }>(request);
   const action = body?.action;
   const username = normaliseUsername(body?.username ?? "");
   const password = body?.password ?? "";
@@ -37,84 +36,18 @@ export async function POST(request: Request) {
   if (action === "register") {
     const displayName =
       (body?.displayName ?? username).trim().slice(0, 80) || username;
-    const db = getDatabase();
-    if (findLocalUser(username))
-      return Response.json(
-        { error: "That username is already registered." },
-        { status: 409 },
-      );
-    const now = Date.now();
-    const passwordHash = hashPassword(password);
-    const localAccounts = db
-      .prepare(
-        "SELECT COUNT(*) AS count FROM users WHERE password_hash IS NOT NULL",
-      )
-      .get() as { count: number };
-    const existingUsers = db
-      .prepare("SELECT COUNT(*) AS count FROM users")
-      .get() as { count: number };
-    const legacyUser =
-      localAccounts.count === 0 && existingUsers.count === 1
-        ? (db.prepare("SELECT id FROM users LIMIT 1").get() as
-            | { id: string }
-            | undefined)
-        : undefined;
-    const id = legacyUser?.id ?? crypto.randomUUID();
-    try {
-      if (legacyUser) {
-        db.prepare(
-          "UPDATE users SET display_name = ?, username = ?, password_hash = ?, is_admin = 1, updated_at = ? WHERE id = ?",
-        ).run(displayName, username, passwordHash, now, id);
-      } else {
-        const isAdmin = localAccounts.count === 0 ? 1 : 0;
-        db.prepare(
-          "INSERT INTO users (id, email, display_name, username, password_hash, is_admin, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ).run(
-          id,
-          `${username}@local.dm-command-table`,
-          displayName,
-          username,
-          passwordHash,
-          isAdmin,
-          now,
-        );
-      }
-    } catch {
-      return Response.json(
-        { error: "That username is already registered." },
-        { status: 409 },
-      );
-    }
-    db.prepare(
-      "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND invite_email = ?",
-    ).run(id, username);
-    const ownedCampaigns = db
-      .prepare("SELECT COUNT(*) AS count FROM campaigns WHERE owner_id = ?")
-      .get(id) as { count: number };
-    const legacyState = legacyUser
-      ? db
-          .prepare(
-            "SELECT id FROM campaign_states WHERE id = 'main-campaign' LIMIT 1",
-          )
-          .get()
-      : undefined;
-    if (ownedCampaigns.count === 0 && !legacyState) {
-      const starter = createStarterCampaign<Record<string, unknown>>();
-      const campaignId = crypto.randomUUID();
-      db.prepare(
-        "INSERT INTO campaigns (id, owner_id, name, payload, updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      ).run(
-        campaignId,
-        id,
-        String(starter.campaignName),
-        JSON.stringify(starter),
-        now,
-        now,
-      );
-    }
-    await createSession(id);
+    const result = registerLocalUser({ username, displayName, password });
+    if ("error" in result)
+      return Response.json({ error: result.error }, { status: result.status });
+    await createSession(result.user.userId);
     return Response.json(
-      { user: { username, displayName, isAdmin: localAccounts.count === 0 } },
+      {
+        user: {
+          username: result.user.username,
+          displayName: result.user.displayName,
+          isAdmin: result.user.isAdmin,
+        },
+      },
       { status: 201 },
     );
   }
@@ -141,20 +74,4 @@ export async function POST(request: Request) {
     { error: "Unsupported authentication action." },
     { status: 400 },
   );
-}
-
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  const forwardedHost = request.headers
-    .get("x-forwarded-host")
-    ?.split(",")[0]
-    ?.trim();
-  const requestHost = forwardedHost || request.headers.get("host");
-  if (!requestHost) return false;
-  try {
-    return new URL(origin).host === requestHost;
-  } catch {
-    return false;
-  }
 }

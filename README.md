@@ -241,9 +241,9 @@ components/ui/        Reusable interface primitives
 db/                   SQLite connection and Drizzle schema definitions
 drizzle/              Historical and schema-generation migration metadata
 features/              Campaign, Combat, Bestiary, Session, Story, and Auth modules
-lib/                   IndexedDB cache, typed local API clients, and shared utilities
-server/                Local authentication and SQLite repository services
-tests/                 Domain compatibility and conversion tests
+lib/                   IndexedDB cache, shared HTTP client, and typed local API clients
+server/                Local HTTP guards, authentication services, and SQLite repositories
+tests/                 Domain, migration, registration, administration, and storage tests
 public/                Favicons and static assets
 data/                  Runtime SQLite files; excluded from version control
 deploy/                Reusable systemd, Nginx, environment, and update templates
@@ -252,11 +252,14 @@ Dockerfile             Multi-stage production container build
 compose.yaml           Local container deployment with persistent storage
 ```
 
+Feature modules keep rendering separate from testable domain operations. Combat advancement and numbering, prepared encounters, Bestiary catalogue access and imports, screenshot-token parsing, and campaign normalization live outside their screen components. API routes are thin adapters over local server services and repositories. A single authenticated screenshot provider shares the server-local media library across Campaign, Session, Story, and Administration screens.
+
 ## Data and privacy
 
 - Campaign data is stored locally in browser IndexedDB and in the server's SQLite file.
 - No external database service is used by this version.
 - Passwords and sessions are stored only in the server-local SQLite database.
+- Screenshot files remain in the configured server-local uploads directory.
 - Campaigns are private unless the owner explicitly grants access to another registered username.
 - Exported JSON files contain the complete campaign payload, including players, monsters, encounters, notes, and story data.
 - Imported monster records are copied into the campaign; the application does not depend on the remote source after import.

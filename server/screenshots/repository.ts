@@ -1,6 +1,6 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getDatabase } from "@/db/sqlite";
+import { getDatabase } from "../../db/sqlite.ts";
 
 const MIME_EXTENSIONS: Record<string, string> = {
   "image/png": ".png",

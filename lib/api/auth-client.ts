@@ -1,4 +1,5 @@
 import type { CampaignUser } from "@/features/campaign/types";
+import { jsonRequest, requestJson } from "./http-client";
 
 export async function authenticate(input: {
   action: "login" | "register";
@@ -6,22 +7,13 @@ export async function authenticate(input: {
   password: string;
   displayName?: string;
 }): Promise<CampaignUser> {
-  let response: Response;
-  try {
-    response = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(input),
-    });
-  } catch {
-    throw new Error("The local server could not be reached.");
-  }
-  const body = (await response.json().catch(() => ({}))) as {
+  const body = await requestJson<{
     user?: CampaignUser;
-    error?: string;
-  };
-  if (!response.ok || !body.user)
-    throw new Error(body.error ?? "Authentication failed");
+  }>("/api/auth", jsonRequest("POST", input), {
+    fallback: "Authentication failed",
+    network: "The local server could not be reached.",
+  });
+  if (!body.user) throw new Error("Authentication failed");
   return body.user;
 }
 

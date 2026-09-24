@@ -15,6 +15,11 @@ import { Input } from "@/components/ui/input";
 import { ScreenTitle } from "@/features/shared/ui";
 import { ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
 import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
+import {
+  addPreparedMonster,
+  createPreparedEncounter,
+  createSessionNote,
+} from "./domain";
 import { createId } from "@/features/campaign/id";
 import type {
   CampaignPatch,
@@ -45,14 +50,7 @@ export function Sessions({
     );
   const addSession = () =>
     patch("sessions", [
-      {
-        id: uid(),
-        title: "New session",
-        date: new Date().toISOString().slice(0, 10),
-        body: "",
-        done: false,
-        encounters: [],
-      },
+      createSessionNote(uid, new Date().toISOString().slice(0, 10)),
       ...data.sessions,
     ]);
   const updateEncounter = (
@@ -69,11 +67,7 @@ export function Sessions({
     update(session.id, {
       encounters: [
         ...session.encounters,
-        {
-          id: uid(),
-          name: `Encounter ${session.encounters.length + 1}`,
-          monsters: [],
-        },
+        createPreparedEncounter(session.encounters.length, uid),
       ],
     });
   const deleteEncounter = (
@@ -93,15 +87,10 @@ export function Sessions({
     monsterId: string,
   ) => {
     if (!monsterId) return;
-    const sameType = encounter.monsters.filter(
-      (entry) => entry.monsterId === monsterId,
-    );
-    const nextNumber =
-      Math.max(0, ...sameType.map((entry) => entry.number ?? 0)) + 1;
     updateEncounter(session, encounter.id, {
       monsters: [
         ...encounter.monsters,
-        { id: uid(), monsterId, number: nextNumber },
+        addPreparedMonster(encounter, monsterId, uid),
       ],
     });
   };

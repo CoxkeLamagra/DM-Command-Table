@@ -4,6 +4,17 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+### Internal architecture
+
+- Centralized local API request, JSON error, authentication, administrator, and same-origin handling.
+- Moved local account registration, legacy adoption, initial administrator assignment, and starter-campaign creation into a dedicated authentication service.
+- Added a shared transaction helper for administration and campaign repository operations.
+- Consolidated all screenshot consumers behind one authenticated client-side library provider.
+- Extracted pure Combat, Session, Bestiary import, remote catalogue, and screenshot-token operations from their screen components.
+- Split Combat selection dialogs and campaign sharing into focused interface components.
+- Expanded regression coverage from 9 to 21 tests, including local registration, administrator operations, screenshot persistence, combat sequencing, prepared encounters, Bestiary duplicate decisions, and screenshot tokens.
+- Preserved all existing API routes, campaign payloads, permissions, SQLite storage, filesystem uploads, IndexedDB caching, and deployment behavior.
+
 ## 2.4.0 — 2026-09-24
 
 ### Screenshot notes

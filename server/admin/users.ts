@@ -1,5 +1,6 @@
-import { getDatabase } from "@/db/sqlite";
-import { hashPassword, normaliseUsername } from "@/server/auth/credentials";
+import { getDatabase } from "../../db/sqlite.ts";
+import { runTransaction } from "../../db/transaction.ts";
+import { hashPassword, normaliseUsername } from "../auth/credentials.ts";
 
 export type AdminUser = {
   id: string;
@@ -48,8 +49,7 @@ export function updateUser(
     .get(username, id);
   if (duplicate) return "duplicate";
 
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  return runTransaction(db, () => {
     db.prepare(
       `DELETE FROM campaign_members
        WHERE user_id = ? AND EXISTS (
@@ -68,12 +68,8 @@ export function updateUser(
     db.prepare(
       "UPDATE users SET username = ?, display_name = ?, updated_at = ? WHERE id = ?",
     ).run(username, displayName, Date.now(), id);
-    db.exec("COMMIT");
     return "updated";
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  });
 }
 
 export function resetUserPassword(id: string, password: string): boolean {
@@ -99,8 +95,7 @@ export function setUserAdmin(id: string, isAdmin: boolean): boolean {
 
 export function deleteUser(id: string): boolean {
   const db = getDatabase();
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  return runTransaction(db, () => {
     db.prepare("DELETE FROM local_sessions WHERE user_id = ?").run(id);
     db.prepare("DELETE FROM campaign_members WHERE user_id = ?").run(id);
     db.prepare(
@@ -110,12 +105,8 @@ export function deleteUser(id: string): boolean {
     const result = db
       .prepare("DELETE FROM users WHERE id = ? AND password_hash IS NOT NULL")
       .run(id);
-    db.exec("COMMIT");
     return result.changes > 0;
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  });
 }
 
 export function countAdmins(): number {

@@ -9,33 +9,32 @@ export type Screenshot = {
 };
 
 export async function fetchScreenshots(): Promise<Screenshot[]> {
-  const response = await fetch("/api/screenshots", { cache: "no-store" });
-  const body = (await response.json().catch(() => ({}))) as {
+  const body = await requestJson<{
     screenshots?: Screenshot[];
-    error?: string;
-  };
-  if (!response.ok || !body.screenshots)
-    throw new Error(body.error ?? "Screenshots could not be loaded.");
+  }>("/api/screenshots", { cache: "no-store" }, {
+    fallback: "Screenshots could not be loaded.",
+  });
+  if (!body.screenshots) throw new Error("Screenshots could not be loaded.");
   return body.screenshots;
 }
 
 export async function uploadScreenshot(file: File): Promise<Screenshot> {
   const form = new FormData();
   form.set("file", file);
-  const response = await fetch("/api/screenshots", { method: "POST", body: form });
-  const body = (await response.json().catch(() => ({}))) as {
+  const body = await requestJson<{
     screenshot?: Screenshot;
-    error?: string;
-  };
-  if (!response.ok || !body.screenshot)
-    throw new Error(body.error ?? "Screenshot could not be uploaded.");
+  }>("/api/screenshots", { method: "POST", body: form }, {
+    fallback: "Screenshot could not be uploaded.",
+  });
+  if (!body.screenshot) throw new Error("Screenshot could not be uploaded.");
   return body.screenshot;
 }
 
 export async function deleteScreenshot(id: string): Promise<void> {
-  const response = await fetch(`/api/screenshots/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
-  const body = (await response.json().catch(() => ({}))) as { error?: string };
-  if (!response.ok) throw new Error(body.error ?? "Screenshot could not be deleted.");
+  await requestJson(
+    `/api/screenshots/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    { fallback: "Screenshot could not be deleted." },
+  );
 }
+import { requestJson } from "./http-client";

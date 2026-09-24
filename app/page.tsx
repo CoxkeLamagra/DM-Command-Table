@@ -18,13 +18,6 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { toast, Toaster } from "sonner";
 import type { Combatant, PreparedEncounter } from "@/features/campaign/types";
@@ -34,11 +27,18 @@ import { NavigationItem } from "@/features/shared/ui";
 import { createId } from "@/features/campaign/id";
 import { CampaignOverview } from "@/features/campaign/campaign-overview";
 import { CampaignPlayers } from "@/features/campaign/campaign-players";
+import { ShareCampaignDialog } from "@/features/campaign/share-dialog";
 import { Sessions } from "@/features/sessions/sessions-screen";
 import { Story } from "@/features/story/story-screen";
 import { Combat } from "@/features/combat/combat-screen";
 import { Bestiary } from "@/features/bestiary/bestiary-screen";
 import { AdminScreen } from "@/features/admin/admin-screen";
+import { ScreenshotLibraryProvider } from "@/features/screenshots/use-screenshot-library";
+import {
+  advanceCombatTurn,
+  createPreparedCombatants,
+  orderCombatants,
+} from "@/features/combat/domain";
 
 const uid = createId;
 export default function Home() {
@@ -73,27 +73,19 @@ export default function Home() {
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("editor");
   const fileInput = useRef<HTMLInputElement | null>(null);
   const ordered = useMemo(
-    () => [...data.combatants].sort((a, b) => b.initiative - a.initiative),
+    () => orderCombatants(data.combatants),
     [data.combatants],
   );
   const advance = useCallback(() => {
     if (!canEdit || !ordered.length) return;
-    let next = -1;
-    for (let step = 1; step <= ordered.length; step++) {
-      const candidate = (data.turn + step) % ordered.length;
-      if (ordered[candidate].hp > 0) {
-        next = candidate;
-        break;
-      }
-    }
-    if (next < 0) return;
+    const next = advanceCombatTurn(ordered, data.turn, data.round);
+    if (!next) return;
     setData((currentData) => ({
       ...currentData,
-      turn: next,
-      round:
-        next <= currentData.turn ? currentData.round + 1 : currentData.round,
+      turn: next.turn,
+      round: next.round,
     }));
-  }, [canEdit, ordered, data.turn, setData]);
+  }, [canEdit, ordered, data.turn, data.round, setData]);
   useEffect(() => {
     const context = (
       document as Document & {
@@ -159,27 +151,7 @@ export default function Home() {
       )
     )
       return;
-    const prepared = encounter.monsters.flatMap((reference) => {
-      const monster = data.monsters.find(
-        (entry) => entry.id === reference.monsterId,
-      );
-      return monster
-        ? [
-            {
-              id: uid(),
-              name: monster.name,
-              number: reference.number ?? null,
-              kind: "monster" as const,
-              initiative: 10,
-              hp: monster.hp,
-              maxHp: monster.hp,
-              ac: monster.ac,
-              conditions: [],
-              monsterId: monster.id,
-            },
-          ]
-        : [];
-    });
+    const prepared = createPreparedCombatants(encounter, data.monsters, uid);
     const survivors = data.combatants.filter(
       (combatant) => combatant.kind !== "monster",
     );
@@ -215,6 +187,7 @@ export default function Home() {
   if (authRequired)
     return <AuthScreen onAuthenticated={() => void refresh(true)} />;
   return (
+    <ScreenshotLibraryProvider>
     <main className="min-h-screen bg-[#0b0d12] text-[#f5f0e5]">
       <Toaster theme="dark" position="bottom-right" />
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-[#0b0d12]/95 px-4 backdrop-blur md:px-7">
@@ -417,47 +390,16 @@ export default function Home() {
           )}
         </section>
       </Tabs>
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="border-amber-300/20 bg-[#12161e] text-stone-100">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-2xl text-amber-100">
-              Share campaign
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm leading-relaxed text-stone-400">
-            Grant access to another registered account on this DM Command Table
-            server.
-          </p>
-          <label className="text-sm text-stone-300">
-            Username
-            <Input
-              className="mt-2 border-white/10 bg-black/20"
-              value={shareUsername}
-              onChange={(e) => setShareUsername(e.target.value)}
-              placeholder="player_name"
-            />
-          </label>
-          <label className="text-sm text-stone-300">
-            Permission
-            <select
-              className="mt-2 h-10 w-full rounded-md border border-white/10 bg-black/25 px-3"
-              value={shareRole}
-              onChange={(e) =>
-                setShareRole(e.target.value as "viewer" | "editor")
-              }
-            >
-              <option value="editor">Editor — can change campaign data</option>
-              <option value="viewer">Viewer — read only</option>
-            </select>
-          </label>
-          <Button
-            onClick={share}
-            className="bg-amber-300 text-black hover:bg-amber-200"
-          >
-            <Share2 /> Grant access
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <ShareCampaignDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        username={shareUsername}
+        setUsername={setShareUsername}
+        role={shareRole}
+        setRole={setShareRole}
+        onShare={() => void share()}
+      />
     </main>
+    </ScreenshotLibraryProvider>
   );
 }

@@ -10,34 +10,35 @@ import {
   normaliseUsername,
   validateCredentials,
 } from "@/server/auth/credentials";
-import { getLocalUser } from "@/server/auth/sessions";
+import {
+  authorizeRequest,
+  readJson,
+  rejectCrossOrigin,
+} from "@/server/http/requests";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const user = await getLocalUser();
-  if (!user) return Response.json({ error: "Sign in required." }, { status: 401 });
-  if (!user.isAdmin)
-    return Response.json({ error: "Administrator access required." }, { status: 403 });
+  const authorization = await authorizeRequest({ admin: true });
+  if ("response" in authorization) return authorization.response;
   return Response.json({ users: listUsers() });
 }
 
 export async function PATCH(request: Request) {
-  if (!sameOrigin(request))
-    return Response.json({ error: "Invalid request origin." }, { status: 403 });
-  const user = await getLocalUser();
-  if (!user) return Response.json({ error: "Sign in required." }, { status: 401 });
-  if (!user.isAdmin)
-    return Response.json({ error: "Administrator access required." }, { status: 403 });
-  const body = (await request.json().catch(() => null)) as {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
+  const authorization = await authorizeRequest({ admin: true });
+  if ("response" in authorization) return authorization.response;
+  const { user } = authorization;
+  const body = await readJson<{
     action?: string;
     id?: string;
     username?: string;
     displayName?: string;
     password?: string;
     isAdmin?: boolean;
-  } | null;
+  }>(request);
   if (!body?.id)
     return Response.json({ error: "A user is required." }, { status: 400 });
 
@@ -80,12 +81,11 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!sameOrigin(request))
-    return Response.json({ error: "Invalid request origin." }, { status: 403 });
-  const user = await getLocalUser();
-  if (!user) return Response.json({ error: "Sign in required." }, { status: 401 });
-  if (!user.isAdmin)
-    return Response.json({ error: "Administrator access required." }, { status: 403 });
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
+  const authorization = await authorizeRequest({ admin: true });
+  if ("response" in authorization) return authorization.response;
+  const { user } = authorization;
   const id = new URL(request.url).searchParams.get("id") ?? "";
   if (!id) return Response.json({ error: "A user is required." }, { status: 400 });
   if (id === user.userId)
@@ -93,18 +93,4 @@ export async function DELETE(request: Request) {
   if (!deleteUser(id))
     return Response.json({ error: "User not found." }, { status: 404 });
   return Response.json({ users: listUsers() });
-}
-
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  const requestHost =
-    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    request.headers.get("host");
-  if (!requestHost) return false;
-  try {
-    return new URL(origin).host === requestHost;
-  } catch {
-    return false;
-  }
 }

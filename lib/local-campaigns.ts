@@ -24,17 +24,6 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-export async function readCachedCampaigns<T>(): Promise<CachedCampaign<T>[]> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE, "readonly");
-    const request = transaction.objectStore(STORE).getAll();
-    request.onsuccess = () => resolve(request.result as CachedCampaign<T>[]);
-    request.onerror = () => reject(request.error);
-    transaction.oncomplete = () => db.close();
-  });
-}
-
 export async function cacheCampaign<T>(campaign: CachedCampaign<T>): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {

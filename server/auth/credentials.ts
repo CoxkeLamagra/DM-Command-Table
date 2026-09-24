@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { getDatabase } from "@/db/sqlite";
+import { getDatabase } from "../../db/sqlite.ts";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/;
 

@@ -14,13 +14,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { MonsterDialog } from "./monster-dialog";
 import {
-  BESTIARY_BASE,
-  convertRemoteMonster,
   getRemoteSummary,
-  monsterIdentity,
   type FiveEToolsMonster,
   type RemoteMonsterRef,
 } from "./fiveetools";
+import {
+  loadRemoteCatalogue,
+  searchRemoteCatalogue,
+} from "./remote-catalogue";
+import { applyMonsterImports } from "./import-service";
 import { createId } from "@/features/campaign/id";
 import type {
   CampaignPatch,
@@ -120,29 +122,7 @@ export function Bestiary({
     setRemoteLoading(true);
     setRemoteError("");
     try {
-      const [searchResponse, indexResponse] = await Promise.all([
-        fetch(`${BESTIARY_BASE}/search/index.json`),
-        fetch(`${BESTIARY_BASE}/data/bestiary/index.json`),
-      ]);
-      if (!searchResponse.ok || !indexResponse.ok) throw new Error();
-      const search = (await searchResponse.json()) as {
-        m?: { s?: Record<string, number> };
-        x?: Array<{ c?: number; n?: string; s?: number }>;
-      };
-      const fileIndex = (await indexResponse.json()) as Record<string, string>;
-      const sourceById = new Map(
-        Object.entries(search.m?.s ?? {}).map(([source, id]) => [id, source]),
-      );
-      const refs = (search.x ?? [])
-        .filter(
-          (item) => item.c === 1 && item.n && sourceById.has(item.s ?? -1),
-        )
-        .map((item) => {
-          const source = sourceById.get(item.s ?? -1)!;
-          return { name: item.n!, source, file: fileIndex[source] };
-        })
-        .filter((item) => item.file);
-      setCatalog(refs);
+      setCatalog(await loadRemoteCatalogue());
     } catch {
       setRemoteError("The external Bestiary catalogue could not be loaded.");
     } finally {
@@ -159,34 +139,9 @@ export function Bestiary({
     setRemoteLoading(true);
     setRemoteError("");
     try {
-      const matches = catalog
-        .filter((item) => item.name.toLowerCase().includes(term))
-        .slice(0, 50);
-      const files = [...new Set(matches.map((item) => item.file))];
-      await Promise.all(
-        files.map(async (file) => {
-          if (remoteFiles.current.has(file)) return;
-          const response = await fetch(
-            `${BESTIARY_BASE}/data/bestiary/${file}`,
-          );
-          if (!response.ok) throw new Error();
-          const payload = (await response.json()) as {
-            monster?: FiveEToolsMonster[];
-          };
-          remoteFiles.current.set(file, payload.monster ?? []);
-        }),
+      setRemoteResults(
+        await searchRemoteCatalogue(term, catalog, remoteFiles.current),
       );
-      const found = matches
-        .map((ref) =>
-          remoteFiles.current
-            .get(ref.file)
-            ?.find(
-              (monster) =>
-                monster.name === ref.name && monster.source === ref.source,
-            ),
-        )
-        .filter((monster): monster is FiveEToolsMonster => Boolean(monster));
-      setRemoteResults(found);
     } catch {
       setRemoteError("The matching monster data could not be loaded.");
     } finally {
@@ -220,27 +175,13 @@ export function Bestiary({
   }
   async function importSelectedMonsters() {
     if (!selectedRemoteMonsters.length) return;
-    const next = [...data.monsters];
-    let added = 0;
-    let replaced = 0;
-    let discarded = 0;
-    for (const remote of selectedRemoteMonsters) {
-      const incoming = convertRemoteMonster(remote, uid);
-      const duplicateIndex = next.findIndex(
-        (existing) => monsterIdentity(existing) === monsterIdentity(incoming),
-      );
-      if (duplicateIndex < 0) {
-        next.push(incoming);
-        added++;
-        continue;
-      }
-      const existing = next[duplicateIndex];
-      if (await askAboutDuplicate(existing, incoming)) {
-        next[duplicateIndex] = { ...incoming, id: existing.id };
-        replaced++;
-      } else discarded++;
-    }
-    patch("monsters", next);
+    const { monsters, added, replaced, discarded } = await applyMonsterImports(
+      data.monsters,
+      selectedRemoteMonsters,
+      uid,
+      askAboutDuplicate,
+    );
+    patch("monsters", monsters);
     setImportOpen(false);
     setQuery("");
     setRemoteResults([]);

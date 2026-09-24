@@ -1,26 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ChevronRight,
-  Library,
   Minus,
   Pencil,
   Plus,
   RotateCcw,
   Trash2,
-  Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +22,12 @@ import type {
   Combatant,
 } from "@/features/campaign/types";
 import { DetailSection, ScreenTitle, Stat } from "@/features/shared/ui";
+import {
+  createMonsterCombatants,
+  createPlayerCombatants,
+  turnAfterRemovingMonsters,
+} from "./domain";
+import { BestiaryMonsterPicker, CampaignPlayerPicker } from "./combatant-pickers";
 
 const uid = createId;
 
@@ -61,16 +58,6 @@ export function Combat({
     (player) => player.id === selected?.campaignPlayerId,
   );
   const hasStandingCombatant = ordered.some((c) => c.hp > 0);
-  const filteredMonsters = useMemo(() => {
-    const query = bestiarySearch.trim().toLowerCase();
-    return query
-      ? data.monsters.filter((entry) =>
-          [entry.name, entry.type, entry.source ?? "", entry.cr].some((value) =>
-            String(value).toLowerCase().includes(query),
-          ),
-        )
-      : data.monsters;
-  }, [bestiarySearch, data.monsters]);
   const add = () => {
     const id = uid();
     patch("combatants", [
@@ -89,24 +76,12 @@ export function Combat({
     setSelectedId(id);
   };
   const addCampaignPlayers = () => {
-    const players = data.players.filter((player) =>
-      selectedPlayerIds.includes(player.id),
+    const additions = createPlayerCombatants(
+      data.players,
+      selectedPlayerIds,
+      uid,
     );
-    if (!players.length) return;
-    const additions = players.map((player) => {
-      const hp = player.hp ?? 10;
-      return {
-        id: uid(),
-        name: player.name,
-        kind: "player" as const,
-        initiative: 10,
-        hp,
-        maxHp: hp,
-        ac: player.ac ?? 10,
-        conditions: [],
-        campaignPlayerId: player.id,
-      };
-    });
+    if (!additions.length) return;
     patch("combatants", [...data.combatants, ...additions]);
     setSelectedId(additions.at(-1)?.id ?? "");
     setSelectedPlayerIds([]);
@@ -116,36 +91,13 @@ export function Combat({
     );
   };
   const addBestiaryMonsters = () => {
-    const entries = data.monsters.filter((entry) =>
-      selectedMonsterIds.includes(entry.id),
+    const additions = createMonsterCombatants(
+      data.monsters,
+      selectedMonsterIds,
+      data.combatants,
+      uid,
     );
-    if (!entries.length) return;
-    const nextNumbers = new Map<string, number>();
-    for (const entry of entries) {
-      const existing = data.combatants
-        .filter(
-          (combatant) =>
-            combatant.kind === "monster" && combatant.monsterId === entry.id,
-        )
-        .map((combatant) => combatant.number ?? 0);
-      nextNumbers.set(entry.id, Math.max(0, ...existing) + 1);
-    }
-    const additions = entries.map((entry) => {
-      const number = nextNumbers.get(entry.id) ?? 1;
-      nextNumbers.set(entry.id, number + 1);
-      return {
-        id: uid(),
-        name: entry.name,
-        number,
-        kind: "monster" as const,
-        initiative: 10,
-        hp: entry.hp,
-        maxHp: entry.hp,
-        ac: entry.ac,
-        conditions: [],
-        monsterId: entry.id,
-      };
-    });
+    if (!additions.length) return;
     patch("combatants", [...data.combatants, ...additions]);
     setSelectedId(additions.at(-1)?.id ?? "");
     setSelectedMonsterIds([]);
@@ -180,12 +132,7 @@ export function Combat({
     const survivors = ordered.filter(
       (combatant) => combatant.kind !== "monster",
     );
-    const currentActive = ordered[data.turn];
-    let nextTurn =
-      currentActive?.kind !== "monster"
-        ? survivors.findIndex((combatant) => combatant.id === currentActive.id)
-        : survivors.findIndex((combatant) => combatant.hp > 0);
-    if (nextTurn < 0) nextTurn = 0;
+    const nextTurn = turnAfterRemovingMonsters(ordered, data.turn);
     patch(
       "combatants",
       data.combatants.filter((combatant) => combatant.kind !== "monster"),
@@ -258,90 +205,19 @@ export function Combat({
             >
               <Pencil /> Rename encounter
             </Button>
-            <Dialog
+            <CampaignPlayerPicker
+              players={data.players}
               open={playerPickerOpen}
               onOpenChange={(open) => {
                 setPlayerPickerOpen(open);
                 if (!open) setSelectedPlayerIds([]);
               }}
-            >
-              <DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-amber-300 px-3 py-2 text-sm font-medium whitespace-nowrap text-black transition-all hover:bg-amber-200 [&_svg]:size-4">
-                <Users /> Add campaign player
-              </DialogTrigger>
-              <DialogContent className="max-h-[80vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100">
-                <DialogHeader>
-                  <DialogTitle className="font-serif text-2xl text-amber-100">
-                    Add campaign players
-                  </DialogTitle>
-                </DialogHeader>
-                {data.players.length ? (
-                  <>
-                    <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-stone-400">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-amber-300"
-                        checked={
-                          selectedPlayerIds.length === data.players.length
-                        }
-                        onChange={(e) =>
-                          setSelectedPlayerIds(
-                            e.target.checked
-                              ? data.players.map((player) => player.id)
-                              : [],
-                          )
-                        }
-                      />{" "}
-                      Select all players
-                    </label>
-                    <div className="space-y-2">
-                      {data.players.map((player) => (
-                        <label
-                          key={player.id}
-                          className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selectedPlayerIds.includes(player.id) ? "border-amber-300/30 bg-amber-300/[.05]" : "border-white/10 bg-black/20 hover:border-white/20"}`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="size-4 shrink-0 accent-amber-300"
-                            checked={selectedPlayerIds.includes(player.id)}
-                            onChange={() =>
-                              setSelectedPlayerIds((current) =>
-                                current.includes(player.id)
-                                  ? current.filter((id) => id !== player.id)
-                                  : [...current, player.id],
-                              )
-                            }
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium text-stone-200">
-                              {player.name || "Unnamed player"}
-                            </p>
-                            <p className="mt-1 text-xs text-stone-500">
-                              {[player.race, player.className]
-                                .filter(Boolean)
-                                .join(" · ") || "Race and class not set"}{" "}
-                              · HP {player.hp ?? "Not set"} · AC{" "}
-                              {player.ac ?? "Not set"}
-                            </p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                    <Button
-                      disabled={!selectedPlayerIds.length}
-                      onClick={addCampaignPlayers}
-                      className="w-full bg-amber-300 text-black hover:bg-amber-200"
-                    >
-                      <Plus /> Add selected ({selectedPlayerIds.length})
-                    </Button>
-                  </>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">
-                    No saved players yet. Add them from the Players menu first.
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
-            <Dialog
+              selectedIds={selectedPlayerIds}
+              setSelectedIds={setSelectedPlayerIds}
+              onAdd={addCampaignPlayers}
+            />
+            <BestiaryMonsterPicker
+              monsters={data.monsters}
               open={bestiaryPickerOpen}
               onOpenChange={(open) => {
                 setBestiaryPickerOpen(open);
@@ -350,115 +226,12 @@ export function Combat({
                   setSelectedMonsterIds([]);
                 }
               }}
-            >
-              <DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-amber-300 px-3 py-2 text-sm font-medium whitespace-nowrap text-black transition-all hover:bg-amber-200 [&_svg]:size-4">
-                <Library /> Add bestiary monster
-              </DialogTrigger>
-              <DialogContent className="max-h-[80vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100">
-                <DialogHeader>
-                  <DialogTitle className="font-serif text-2xl text-amber-100">
-                    Add bestiary monsters
-                  </DialogTitle>
-                </DialogHeader>
-                {data.monsters.length ? (
-                  <>
-                    <Input
-                      autoFocus
-                      aria-label="Search bestiary monsters"
-                      className="border-white/10 bg-black/20"
-                      placeholder="Search by name, type, source, or CR…"
-                      value={bestiarySearch}
-                      onChange={(e) => setBestiarySearch(e.target.value)}
-                    />
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 p-3">
-                      <label className="flex items-center gap-2 text-sm text-stone-400">
-                        <input
-                          type="checkbox"
-                          className="size-4 accent-amber-300"
-                          checked={
-                            filteredMonsters.length > 0 &&
-                            filteredMonsters.every((entry) =>
-                              selectedMonsterIds.includes(entry.id),
-                            )
-                          }
-                          onChange={(e) =>
-                            setSelectedMonsterIds((current) =>
-                              e.target.checked
-                                ? [
-                                    ...new Set([
-                                      ...current,
-                                      ...filteredMonsters.map(
-                                        (entry) => entry.id,
-                                      ),
-                                    ]),
-                                  ]
-                                : current.filter(
-                                    (id) =>
-                                      !filteredMonsters.some(
-                                        (entry) => entry.id === id,
-                                      ),
-                                  ),
-                            )
-                          }
-                        />{" "}
-                        Select all visible
-                      </label>
-                      <span className="text-xs text-stone-500">
-                        {filteredMonsters.length} results
-                      </span>
-                    </div>
-                    {filteredMonsters.length ? (
-                      <div className="space-y-2">
-                        {filteredMonsters.map((entry) => (
-                          <label
-                            key={entry.id}
-                            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selectedMonsterIds.includes(entry.id) ? "border-amber-300/30 bg-amber-300/[.05]" : "border-white/10 bg-black/20 hover:border-white/20"}`}
-                          >
-                            <input
-                              type="checkbox"
-                              className="size-4 shrink-0 accent-amber-300"
-                              checked={selectedMonsterIds.includes(entry.id)}
-                              onChange={() =>
-                                setSelectedMonsterIds((current) =>
-                                  current.includes(entry.id)
-                                    ? current.filter((id) => id !== entry.id)
-                                    : [...current, entry.id],
-                                )
-                              }
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-stone-200">
-                                {entry.name}
-                              </p>
-                              <p className="mt-1 text-xs text-stone-500">
-                                {entry.type} · CR {entry.cr} · HP {entry.hp} ·
-                                AC {entry.ac}
-                                {entry.source ? ` · ${entry.source}` : ""}
-                              </p>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">
-                        No monsters match “{bestiarySearch}”.
-                      </div>
-                    )}
-                    <Button
-                      disabled={!selectedMonsterIds.length}
-                      onClick={addBestiaryMonsters}
-                      className="w-full bg-amber-300 text-black hover:bg-amber-200"
-                    >
-                      <Plus /> Add selected ({selectedMonsterIds.length})
-                    </Button>
-                  </>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">
-                    No monsters in the Bestiary yet.
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
+              search={bestiarySearch}
+              setSearch={setBestiarySearch}
+              selectedIds={selectedMonsterIds}
+              setSelectedIds={setSelectedMonsterIds}
+              onAdd={addBestiaryMonsters}
+            />
             <Button
               onClick={add}
               className="bg-amber-300 text-black hover:bg-amber-200"

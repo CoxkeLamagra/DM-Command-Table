@@ -72,6 +72,12 @@ export const RUNTIME_SCHEMA = `
 `;
 
 export function applyRuntimeMigrations(database: DatabaseSync): void {
+  addLocalAccountColumns(database);
+  ensureLocalAccountIndexes(database);
+  ensureAdministrator(database);
+}
+
+function addLocalAccountColumns(database: DatabaseSync): void {
   const columns = database.prepare("PRAGMA table_info(users)").all() as Array<{
     name: string;
   }>;
@@ -86,9 +92,15 @@ export function applyRuntimeMigrations(database: DatabaseSync): void {
       "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
     );
   }
+}
+
+function ensureLocalAccountIndexes(database: DatabaseSync): void {
   database.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)",
   );
+}
+
+function ensureAdministrator(database: DatabaseSync): void {
   const admins = database
     .prepare(
       "SELECT COUNT(*) AS count FROM users WHERE password_hash IS NOT NULL AND is_admin = 1",

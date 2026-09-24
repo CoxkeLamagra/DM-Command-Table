@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { applyRuntimeMigrations, RUNTIME_SCHEMA } from "./runtime-schema";
+import { applyRuntimeMigrations, RUNTIME_SCHEMA } from "./runtime-schema.ts";
 
 const DEFAULT_DATABASE_PATH = path.join(
   process.cwd(),

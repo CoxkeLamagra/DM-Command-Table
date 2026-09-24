@@ -1,5 +1,6 @@
-import { getDatabase } from "@/db/sqlite";
-import { normaliseUsername, type LocalUser } from "@/server/auth/credentials";
+import { getDatabase } from "../../db/sqlite.ts";
+import { runTransaction } from "../../db/transaction.ts";
+import { normaliseUsername, type LocalUser } from "../auth/credentials.ts";
 
 export type CampaignRole = "owner" | "editor" | "viewer";
 type CountRow = { count: number };
@@ -137,13 +138,8 @@ export function shareCampaign(
 
 export function deleteCampaign(id: string): void {
   const db = getDatabase();
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  runTransaction(db, () => {
     db.prepare("DELETE FROM campaign_members WHERE campaign_id = ?").run(id);
     db.prepare("DELETE FROM campaigns WHERE id = ?").run(id);
-    db.exec("COMMIT");
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  });
 }
