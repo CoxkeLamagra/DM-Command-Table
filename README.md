@@ -2,7 +2,7 @@
 
 DM Command Table is a browser-based workspace for preparing and running tabletop RPG campaigns. It combines campaign management, reusable player and monster records, live encounter tracking, session notes, and story planning in one responsive interface.
 
-The current stable release is **v1.0.0**.
+The current stable release is **v2.0.0**.
 
 ## Features
 
@@ -103,6 +103,8 @@ DM_COMMAND_TABLE_SECURE_COOKIES=false
 
 After configuring HTTPS, set `DM_COMMAND_TABLE_SECURE_COOKIES=true` and restart the service. This prevents the browser from sending the session cookie over an unencrypted connection.
 
+Registration is open to anyone who can reach the application. Keep an HTTP deployment on a trusted private network; use HTTPS and suitable network access controls before exposing it more broadly.
+
 ## Technology
 
 - React 19 and TypeScript
@@ -196,6 +198,21 @@ The application does not automatically copy data from Cloudflare D1 into SQLite.
 
 Campaign sharing permissions must be granted again after import because exports contain campaign content, not server-side membership records.
 
+## Upgrading from v1 to v2
+
+Back up the SQLite database before upgrading. On the supplied Debian 13 LXC deployment:
+
+```bash
+mkdir -p /var/backups/dm-command-table
+sqlite3 /var/lib/dm-command-table/dm-command-table.sqlite \
+  ".backup '/var/backups/dm-command-table/pre-v2.sqlite'"
+update-dm-command-table
+```
+
+Open the site after the update and register the intended owner account first. When the old database contains one legacy user, this account adopts that user record and its campaigns. The application adds the account and session columns automatically; no manual SQL migration is required.
+
+Newly registered accounts receive the editable example campaign. Existing users with campaign data do not receive a duplicate example.
+
 ## Campaign API
 
 The API is implemented in `app/api/campaigns/route.ts`:
@@ -245,8 +262,9 @@ compose.yaml           Local container deployment with persistent storage
 
 ## Release
 
-- Latest stable release: [DM Command Table 1.0](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v1.0.0)
-- Release tag: `v1.0.0`
+- Latest stable release: [DM Command Table 2.0](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.0.0)
+- Release tag: `v2.0.0`
+- Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 

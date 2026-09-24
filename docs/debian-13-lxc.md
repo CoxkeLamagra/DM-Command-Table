@@ -21,6 +21,8 @@ The application checkout and persistent data are deliberately separated:
 
 Pulling or rebuilding the Git repository does not overwrite the SQLite database.
 
+This guide applies to DM Command Table **v2.0.0** and later.
+
 ## 1. Create the LXC
 
 Create a Debian 13 LXC in Proxmox or another LXC host. Recommended minimum resources for a small private deployment:
@@ -242,6 +244,30 @@ runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm build
 systemctl start dm-command-table.service
 systemctl status dm-command-table.service --no-pager
 ```
+
+### Upgrade an existing v1 installation to v2
+
+Create a database backup before the first v2 update:
+
+```bash
+mkdir -p /var/backups/dm-command-table
+sqlite3 /var/lib/dm-command-table/dm-command-table.sqlite \
+  ".backup '/var/backups/dm-command-table/pre-v2.sqlite'"
+update-dm-command-table
+```
+
+The application adds the local-account and session fields automatically. Open the site after the update and register the intended campaign owner first. If the old database contains one legacy user, this first local account adopts that record and its campaigns.
+
+The old `DM_COMMAND_TABLE_ALLOW_LOCAL_USER` and `DM_COMMAND_TABLE_LOCAL_USER_*` settings are no longer used and can be removed from `/etc/dm-command-table.env`. Ensure it contains:
+
+```text
+DM_COMMAND_TABLE_DB_PATH=/var/lib/dm-command-table/dm-command-table.sqlite
+DM_COMMAND_TABLE_SECURE_COOKIES=false
+NODE_ENV=production
+PORT=3000
+```
+
+Use `DM_COMMAND_TABLE_SECURE_COOKIES=true` only after HTTPS is active.
 
 ## 11. Back up and restore SQLite
 
