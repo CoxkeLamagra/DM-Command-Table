@@ -202,39 +202,6 @@ sqlite3 ./data/dm-command-table.sqlite ".backup './data/dm-command-table-backup.
 
 Alternatively, stop the application before copying the database file and its companion files.
 
-## Migrating from the former Cloudflare D1 version
-
-The application does not automatically copy data from Cloudflare D1 into SQLite. Before switching deployments:
-
-1. Open each campaign in the former deployment.
-2. Export it as JSON.
-3. Start the SQLite version and sign in as the intended owner.
-4. Import each exported campaign.
-5. Verify the imported campaign before retiring the former deployment.
-
-Campaign sharing permissions must be granted again after import because exports contain campaign content, not server-side membership records.
-
-## Upgrading from v1 to v2.2
-
-Back up the SQLite database before upgrading. On the supplied Debian 13 LXC deployment:
-
-```bash
-mkdir -p /var/backups/dm-command-table
-sqlite3 /var/lib/dm-command-table/dm-command-table.sqlite \
-  ".backup '/var/backups/dm-command-table/pre-v2.sqlite'"
-update-dm-command-table
-```
-
-Open the site after the update and register the intended owner account first. When the old database contains one legacy user, this account adopts that user record and its campaigns. The application adds the account and session columns automatically; no manual SQL migration is required.
-
-Newly registered accounts receive the editable example campaign. Existing users with campaign data do not receive a duplicate example.
-
-Updating from v2.0 to v2.1 requires no database migration. Existing campaigns receive an empty general-notes field automatically when opened.
-
-Updating from v2.1 to v2.2 also requires no database migration. Existing sessions receive an empty prepared-encounters list, while existing combatants and prepared monsters receive blank optional number fields.
-
-Updating from v2.2 to v2.3 requires no database migration. The release adds multi-select and typeahead workflows to encounter setup and Bestiary importing, plus duplicate-import handling.
-
 ## Campaign API
 
 The API is implemented in `app/api/campaigns/route.ts`:
