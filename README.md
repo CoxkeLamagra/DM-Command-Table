@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current stable release is **v2.3.0**.
+The current stable release is **v2.4.0**.
 
 ## Features
 
@@ -264,16 +264,16 @@ compose.yaml           Local container deployment with persistent storage
 
 ## Current limitations
 
-- There is no password-reset or account-administration interface yet. Back up the SQLite database regularly.
 - Collaboration synchronizes complete campaign snapshots and does not provide presence indicators, record locking, or conflict merging.
 - SQLite is intended for one application instance with persistent local storage. Multiple application instances must not write independent copies of the database.
 - A campaign invite is managed by granting access again with the desired role; the interface does not yet include a membership-management screen.
 - Monster importing depends on the external catalogue being reachable and retaining its compatible JSON structure.
+- Campaign JSON exports contain screenshot references but not the uploaded image files; include the server `uploads` directory in backups.
 
 ## Release
 
-- Latest stable release: [DM Command Table 2.3](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.3.0)
-- Release tag: `v2.3.0`
+- Latest stable release: [DM Command Table 2.4](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v2.4.0)
+- Release tag: `v2.4.0`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License

@@ -4,6 +4,8 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 2.4.0 — 2026-09-24
+
 ### Screenshot notes
 
 - Added local screenshot uploads and reusable inline screenshot references to Campaign, Session, and Story notes.

@@ -21,7 +21,7 @@ The application checkout and persistent data are deliberately separated:
 
 Pulling or rebuilding the Git repository does not overwrite the SQLite database.
 
-This guide applies to DM Command Table **v2.3.0** and later.
+This guide applies to DM Command Table **v2.4.0** and later.
 
 ## 1. Create the LXC
 
