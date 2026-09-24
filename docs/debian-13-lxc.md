@@ -143,6 +143,8 @@ DM_COMMAND_TABLE_SECURE_COOKIES=false
 
 The SQLite file and account schema are created automatically on the first API request. After the service starts, open the site and use **Register** to create an account with a username and password. Additional users can register their own local accounts and campaign owners can share campaigns with those usernames.
 
+Each new account receives an editable example campaign. It can be renamed, changed, exported, or deleted after the user has explored the available features.
+
 When upgrading an existing single-user installation, the first registered local account automatically adopts the existing user record and its campaigns. Use the intended owner account for this first registration.
 
 Passwords are salted and hashed with `scrypt`. Login sessions and password hashes remain in `/var/lib/dm-command-table/dm-command-table.sqlite`; no external authentication or database service is used.

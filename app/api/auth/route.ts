@@ -1,5 +1,6 @@
 import { getDatabase } from "@/db/sqlite";
 import { createSession, destroySession, findLocalUser, hashPassword, normaliseUsername, validateCredentials, verifyPassword } from "@/app/local-auth";
+import { createStarterCampaign } from "@/lib/starter-campaign";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +50,19 @@ export async function POST(request: Request) {
     db.prepare(
       "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND invite_email = ?",
     ).run(id, username);
+    const ownedCampaigns = db.prepare(
+      "SELECT COUNT(*) AS count FROM campaigns WHERE owner_id = ?",
+    ).get(id) as { count: number };
+    const legacyState = legacyUser
+      ? db.prepare("SELECT id FROM campaign_states WHERE id = 'main-campaign' LIMIT 1").get()
+      : undefined;
+    if (ownedCampaigns.count === 0 && !legacyState) {
+      const starter = createStarterCampaign<Record<string, unknown>>();
+      const campaignId = crypto.randomUUID();
+      db.prepare(
+        "INSERT INTO campaigns (id, owner_id, name, payload, updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).run(campaignId, id, String(starter.campaignName), JSON.stringify(starter), now, now);
+    }
     await createSession(id);
     return Response.json({ user: { username, displayName } }, { status: 201 });
   }

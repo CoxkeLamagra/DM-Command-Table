@@ -88,6 +88,7 @@ DM Command Table provides its own server-local account system:
 - Login sessions use random server-side tokens. Only a SHA-256 hash of each token is stored in SQLite.
 - The browser receives an HttpOnly, `SameSite=Lax` session cookie that expires after 30 days.
 - Signing out deletes the active server-side session.
+- A newly registered account receives an editable example campaign demonstrating combatants, campaign players, bestiary monsters, session notes, and story beats.
 
 Accounts and sessions exist only in the configured SQLite database. No external identity provider or account database is contacted.
 
