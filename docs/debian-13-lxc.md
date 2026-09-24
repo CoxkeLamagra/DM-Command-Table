@@ -118,7 +118,7 @@ test -f /opt/dm-command-table/app/.next/BUILD_ID
 
 The final command must succeed. It verifies that Next.js produced the build required by the systemd service.
 
-## 6. Configure the SQLite database and local account
+## 6. Configure SQLite and local authentication
 
 Install the supplied environment template:
 
@@ -129,21 +129,25 @@ chmod 640 /etc/dm-command-table.env
 chown root:dmct /etc/dm-command-table.env
 ```
 
-Edit the identity shown in the application:
+Review the configuration:
 
 ```bash
 nano /etc/dm-command-table.env
 ```
 
-For a private single-user deployment, keep:
+For the default plain-HTTP private-network deployment, keep:
 
 ```text
-DM_COMMAND_TABLE_ALLOW_LOCAL_USER=true
+DM_COMMAND_TABLE_SECURE_COOKIES=false
 ```
 
-Change `DM_COMMAND_TABLE_LOCAL_USER_EMAIL` and `DM_COMMAND_TABLE_LOCAL_USER_NAME` to the intended owner. The SQLite file and schema are created automatically on the first API request.
+The SQLite file and account schema are created automatically on the first API request. After the service starts, open the site and use **Register** to create an account with a username and password. Additional users can register their own local accounts and campaign owners can share campaigns with those usernames.
 
-> Single-user mode must not be exposed as a public multi-user service. Campaign sharing between separate users requires a trusted authentication proxy that supplies verified `oai-authenticated-user-*` headers; see the main README.
+When upgrading an existing single-user installation, the first registered local account automatically adopts the existing user record and its campaigns. Use the intended owner account for this first registration.
+
+Passwords are salted and hashed with `scrypt`. Login sessions and password hashes remain in `/var/lib/dm-command-table/dm-command-table.sqlite`; no external authentication or database service is used.
+
+When the site is later served exclusively over HTTPS, change the setting to `DM_COMMAND_TABLE_SECURE_COOKIES=true` and restart the service.
 
 ## 7. Install and start the systemd service
 

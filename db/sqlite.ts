@@ -19,8 +19,17 @@ export function getDatabase(): DatabaseSync {
   database.exec("PRAGMA foreign_keys = ON");
   database.exec("PRAGMA busy_timeout = 5000");
   database.exec(SCHEMA);
+  ensureUserColumns(database);
 
   return database;
+}
+
+function ensureUserColumns(db: DatabaseSync): void {
+  const columns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has("username")) db.exec("ALTER TABLE users ADD COLUMN username TEXT");
+  if (!names.has("password_hash")) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)");
 }
 
 const SCHEMA = `
@@ -34,6 +43,8 @@ const SCHEMA = `
     id TEXT PRIMARY KEY NOT NULL,
     email TEXT NOT NULL,
     display_name TEXT NOT NULL,
+    username TEXT,
+    password_hash TEXT,
     updated_at INTEGER NOT NULL
   );
 
@@ -67,4 +78,18 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_campaign_members_invite_email
     ON campaign_members (invite_email);
+
+  CREATE TABLE IF NOT EXISTS local_sessions (
+    token_hash TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_local_sessions_user_id
+    ON local_sessions (user_id);
+
+  CREATE INDEX IF NOT EXISTS idx_local_sessions_expires_at
+    ON local_sessions (expires_at);
 `;

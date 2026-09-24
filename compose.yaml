@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     environment:
       DM_COMMAND_TABLE_DB_PATH: /data/dm-command-table.sqlite
-      DM_COMMAND_TABLE_ALLOW_LOCAL_USER: "true"
+      DM_COMMAND_TABLE_SECURE_COOKIES: "false"
     volumes:
       - dm-command-table-data:/data
     restart: unless-stopped

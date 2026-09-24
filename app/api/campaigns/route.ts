@@ -1,5 +1,5 @@
 import { getDatabase } from "@/db/sqlite";
-import { getChatGPTUser } from "../../chatgpt-auth";
+import { getLocalUser, normaliseUsername } from "../../local-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,17 +19,13 @@ type CampaignRow = {
 };
 
 async function currentUser() {
-  const user = await getChatGPTUser();
+  const user = await getLocalUser();
   if (!user) return null;
 
   const db = getDatabase();
-  const now = Date.now();
-  db.prepare(
-    "INSERT INTO users (id, email, display_name, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET email = excluded.email, display_name = excluded.display_name, updated_at = excluded.updated_at",
-  ).run(user.userId, user.email.toLowerCase(), user.displayName, now);
   db.prepare(
     "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND invite_email = ?",
-  ).run(user.userId, user.email.toLowerCase());
+  ).run(user.userId, user.username);
 
   return user;
 }
@@ -86,7 +82,7 @@ export async function GET() {
   ).all(user.userId, user.userId, user.userId, user.userId) as CampaignRow[];
 
   return Response.json({
-    user: { email: user.email, displayName: user.displayName },
+    user: { username: user.username, displayName: user.displayName },
     campaigns: rows.map((row) => ({
       ...row,
       payload: JSON.parse(row.payload),
@@ -107,14 +103,14 @@ export async function POST(request: Request) {
     id?: string;
     name?: string;
     payload?: unknown;
-    email?: string;
+    username?: string;
     role?: string;
   };
 
   if (body.action === "share") {
-    if (!body.id || !body.email || !["viewer", "editor"].includes(body.role ?? "")) {
+    if (!body.id || !body.username || !["viewer", "editor"].includes(body.role ?? "")) {
       return Response.json(
-        { error: "Campaign, email and role are required." },
+        { error: "Campaign, username and role are required." },
         { status: 400 },
       );
     }
@@ -126,13 +122,16 @@ export async function POST(request: Request) {
     }
 
     const db = getDatabase();
-    const email = body.email.trim().toLowerCase();
+    const username = normaliseUsername(body.username);
     const known = db.prepare(
-      "SELECT id FROM users WHERE email = ? LIMIT 1",
-    ).get(email) as IdRow | undefined;
+      "SELECT id FROM users WHERE username = ? LIMIT 1",
+    ).get(username) as IdRow | undefined;
+    if (!known) {
+      return Response.json({ error: "No local account exists with that username." }, { status: 404 });
+    }
     db.prepare(
       "INSERT INTO campaign_members (campaign_id, user_id, invite_email, role, added_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(campaign_id, invite_email) DO UPDATE SET user_id = excluded.user_id, role = excluded.role",
-    ).run(body.id, known?.id ?? null, email, body.role!, Date.now());
+    ).run(body.id, known.id, username, body.role!, Date.now());
     return Response.json({ shared: true });
   }
 

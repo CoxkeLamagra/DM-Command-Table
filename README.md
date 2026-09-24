@@ -12,7 +12,7 @@ The current stable release is **v1.0.0**.
 - Store a device-local copy of every campaign in IndexedDB for offline access.
 - Synchronize campaign progress to a SQLite database stored on the application server.
 - Export and import complete campaigns as portable JSON files.
-- Share campaigns with another authenticated DM Command Table user by email.
+- Share campaigns with another registered DM Command Table user by username.
 - Assign **Editor** access for collaboration or **Viewer** access for read-only use.
 - Poll for server changes every five seconds while the application is open.
 
@@ -69,7 +69,7 @@ DM Command Table uses a local-first model with no external database service:
 4. If the server is temporarily unavailable, an existing browser cache remains available.
 5. JSON export provides portable backups and file-based campaign sharing.
 
-The SQLite database contains users, campaign ownership, campaign payloads, and Viewer or Editor memberships. The default location is:
+The SQLite database contains local accounts, password hashes, login sessions, campaign ownership, campaign payloads, and Viewer or Editor memberships. The default location is:
 
 ```text
 ./data/dm-command-table.sqlite
@@ -81,24 +81,25 @@ Set `DM_COMMAND_TABLE_DB_PATH` to use a different location. The directory is cre
 
 ## Authentication
 
-The application continues to accept the managed ChatGPT authentication headers:
+DM Command Table provides its own server-local account system:
 
-- `oai-authenticated-user-id`
-- `oai-authenticated-user-email`
-- `oai-authenticated-user-full-name`
-- `oai-authenticated-user-full-name-encoding`
+- Register with a unique username and password.
+- Passwords are salted and hashed with Node.js `scrypt`; plaintext passwords are never stored.
+- Login sessions use random server-side tokens. Only a SHA-256 hash of each token is stored in SQLite.
+- The browser receives an HttpOnly, `SameSite=Lax` session cookie that expires after 30 days.
+- Signing out deletes the active server-side session.
 
-For local development, a local user is supplied automatically. Its identity can be changed with the `DM_COMMAND_TABLE_LOCAL_USER_*` environment variables in `.env.example`.
+Accounts and sessions exist only in the configured SQLite database. No external identity provider or account database is contacted.
 
-For a private, single-user production deployment, set:
+On an upgrade from the former single-user mode, the first registered account adopts the sole existing user record so its campaigns remain available.
+
+For a plain-HTTP private network deployment, keep:
 
 ```bash
-DM_COMMAND_TABLE_ALLOW_LOCAL_USER=true
+DM_COMMAND_TABLE_SECURE_COOKIES=false
 ```
 
-Do not enable that option on a public or multi-user server. Multi-user deployments should place the application behind a trusted authentication proxy that removes client-supplied `oai-authenticated-user-*` headers and inserts verified values.
-
-The authentication boundary remains isolated in `app/chatgpt-auth.ts` so it can be replaced with another account system later.
+After configuring HTTPS, set `DM_COMMAND_TABLE_SECURE_COOKIES=true` and restart the service. This prevents the browser from sending the session cookie over an unencrypted connection.
 
 ## Technology
 
@@ -161,9 +162,7 @@ The included Docker configuration stores SQLite data in a persistent named volum
 docker compose up --build -d
 ```
 
-The application is then available at [http://localhost:3000](http://localhost:3000). The default Compose configuration enables the explicit single-user mode and should only be exposed on a trusted private network.
-
-To run a multi-user deployment, remove `DM_COMMAND_TABLE_ALLOW_LOCAL_USER` from `compose.yaml` and configure a trusted authentication proxy.
+The application is then available at [http://localhost:3000](http://localhost:3000). Register the first local account from the sign-in screen. Accounts and campaign data persist in the SQLite volume.
 
 ## Debian 13 LXC deployment
 
@@ -206,6 +205,8 @@ The API is implemented in `app/api/campaigns/route.ts`:
 | `PUT` | `/api/campaigns` | Save a campaign when the user is its owner or an editor. |
 | `DELETE` | `/api/campaigns?id=...` | Delete a campaign owned by the authenticated user. |
 
+Local registration, login, and logout use `POST /api/auth` with the corresponding `action` value.
+
 ## Project structure
 
 ```text
@@ -226,15 +227,15 @@ compose.yaml           Local container deployment with persistent storage
 
 - Campaign data is stored locally in browser IndexedDB and in the server's SQLite file.
 - No external database service is used by this version.
-- Campaigns are private unless the owner explicitly grants access to another authenticated email address.
-- Pending invitations activate when a user signs in with the matching email address.
+- Passwords and sessions are stored only in the server-local SQLite database.
+- Campaigns are private unless the owner explicitly grants access to another registered username.
 - Exported JSON files contain the complete campaign payload, including players, monsters, encounters, notes, and story data.
 - Imported monster records are copied into the campaign; the application does not depend on the remote source after import.
 - SQLite files, environment files, dependencies, and build output are excluded from version control.
 
 ## Current limitations
 
-- The managed ChatGPT sign-in flow requires a compatible hosting or authentication proxy.
+- There is no password-reset or account-administration interface yet. Back up the SQLite database regularly.
 - Collaboration synchronizes complete campaign snapshots and does not provide presence indicators, record locking, or conflict merging.
 - SQLite is intended for one application instance with persistent local storage. Multiple application instances must not write independent copies of the database.
 - A campaign invite is managed by granting access again with the desired role; the interface does not yet include a membership-management screen.

@@ -26,4 +26,4 @@ COPY --from=builder --chown=node:node /app/public ./public
 USER node
 EXPOSE 3000
 VOLUME ["/data"]
-CMD ["pnpm", "start", "--", "-H", "0.0.0.0"]
+CMD ["pnpm", "exec", "next", "start", "-H", "0.0.0.0"]
