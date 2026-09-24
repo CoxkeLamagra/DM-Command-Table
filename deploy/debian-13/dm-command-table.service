@@ -10,7 +10,9 @@ User=dmct
 Group=dmct
 WorkingDirectory=/opt/dm-command-table/app
 EnvironmentFile=/etc/dm-command-table.env
-ExecStart=/usr/bin/pnpm start -- -H 127.0.0.1 -p 3000
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStartPre=/usr/bin/test -f /opt/dm-command-table/app/.next/BUILD_ID
+ExecStart=/usr/bin/env pnpm start -- -H 127.0.0.1 -p 3000
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -18,7 +20,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
-ReadWritePaths=/var/lib/dm-command-table /opt/dm-command-table/app/.next
+ReadWritePaths=/var/lib/dm-command-table
 
 [Install]
 WantedBy=multi-user.target

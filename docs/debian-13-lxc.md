@@ -80,10 +80,11 @@ Verify the installed tools:
 ```bash
 node --version
 pnpm --version
+command -v pnpm
 git --version
 ```
 
-Node must report `v22.13.0` or newer, and pnpm should report `11.25.0`.
+Node must report `v22.13.0` or newer, and pnpm should report `11.25.0`. The pnpm path can be `/usr/bin/pnpm` or `/usr/local/bin/pnpm`; the supplied service resolves it through the configured system PATH.
 
 ## 4. Create the service account and persistent directories
 
@@ -109,9 +110,12 @@ runuser -u dmct -- git clone --branch main --single-branch \
 Install exactly the dependencies recorded in the lockfile and create the production build:
 
 ```bash
-runuser -u dmct -- /usr/bin/pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
-runuser -u dmct -- /usr/bin/pnpm --dir /opt/dm-command-table/app build
+runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
+runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app build
+test -f /opt/dm-command-table/app/.next/BUILD_ID
 ```
+
+The final command must succeed. It verifies that Next.js produced the build required by the systemd service.
 
 ## 6. Configure the SQLite database and local account
 
@@ -225,8 +229,8 @@ The same update can be performed manually:
 ```bash
 systemctl stop dm-command-table.service
 runuser -u dmct -- git -C /opt/dm-command-table/app pull --ff-only
-runuser -u dmct -- /usr/bin/pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
-runuser -u dmct -- /usr/bin/pnpm --dir /opt/dm-command-table/app build
+runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
+runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app build
 systemctl start dm-command-table.service
 systemctl status dm-command-table.service --no-pager
 ```
@@ -265,6 +269,24 @@ systemctl start dm-command-table.service
 systemctl status dm-command-table.service --no-pager
 journalctl -u dm-command-table.service -n 200 --no-pager
 ```
+
+Verify that pnpm can be resolved and that a production build exists:
+
+```bash
+command -v pnpm
+runuser -u dmct -- /usr/bin/env pnpm --version
+test -f /opt/dm-command-table/app/.next/BUILD_ID
+```
+
+If the build check fails, recreate it before restarting the service:
+
+```bash
+runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app install --frozen-lockfile
+runuser -u dmct -- /usr/bin/env pnpm --dir /opt/dm-command-table/app build
+systemctl restart dm-command-table.service
+```
+
+If the journal mentions `Failed to set up mount namespacing` for `.next`, update the repository and reinstall the latest service template. Older templates incorrectly listed `.next` under `ReadWritePaths`, which made systemd require that directory before starting the process.
 
 ### Nginx reports `502 Bad Gateway`
 
