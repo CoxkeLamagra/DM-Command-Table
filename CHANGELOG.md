@@ -2,6 +2,16 @@
 
 All notable DM Command Table releases are documented here.
 
+## 2.1.0 — 2026-09-24
+
+### Campaign overview
+
+- Renamed the former **Campaign** player-management navigation entry to **Players**.
+- Added a dedicated **Campaign** screen with an editable campaign name and general campaign notes.
+- Added a chronological timeline generated automatically from the campaign's session entries.
+- Made timeline entries clickable so they open, scroll to, focus, and highlight the corresponding entry in **Sessions**.
+- Added backward-compatible defaults so existing campaigns receive an empty general-notes field without a database migration.
+
 ## 2.0.0 — 2026-09-24
 
 ### Local hosting and storage
