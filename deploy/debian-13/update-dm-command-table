@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+
+APP_DIR=/opt/dm-command-table/app
+SERVICE=dm-command-table.service
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Run this updater as root." >&2
+  exit 1
+fi
+
+if ! runuser -u dmct -- git -C "$APP_DIR" diff --quiet --; then
+  echo "The application checkout contains local changes; update aborted." >&2
+  exit 1
+fi
+
+if ! runuser -u dmct -- git -C "$APP_DIR" diff --cached --quiet --; then
+  echo "The application checkout contains staged changes; update aborted." >&2
+  exit 1
+fi
+
+systemctl stop "$SERVICE"
+
+if runuser -u dmct -- git -C "$APP_DIR" pull --ff-only \
+  && runuser -u dmct -- /usr/bin/pnpm --dir "$APP_DIR" install --frozen-lockfile \
+  && runuser -u dmct -- /usr/bin/pnpm --dir "$APP_DIR" build; then
+  systemctl start "$SERVICE"
+  systemctl --no-pager --full status "$SERVICE"
+else
+  echo "Update failed. The service remains stopped; inspect the output above." >&2
+  exit 1
+fi

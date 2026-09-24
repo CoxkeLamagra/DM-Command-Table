@@ -165,6 +165,14 @@ The application is then available at [http://localhost:3000](http://localhost:30
 
 To run a multi-user deployment, remove `DM_COMMAND_TABLE_ALLOW_LOCAL_USER` from `compose.yaml` and configure a trusted authentication proxy.
 
+## Debian 13 LXC deployment
+
+For a complete bare-metal-style LXC installation with Node.js 22, systemd, Nginx, persistent SQLite storage, backups, and a one-command GitHub update workflow, see:
+
+- [Deploy DM Command Table in a Debian 13 LXC](docs/debian-13-lxc.md)
+
+Reusable configuration templates are available under `deploy/debian-13/`.
+
 ## Database backup
 
 The live database can have `-wal` and `-shm` companion files. For a consistent backup, use SQLite's backup command rather than copying only the main file while the application is running:
@@ -208,6 +216,8 @@ drizzle/              Historical and schema-generation migration metadata
 lib/                   IndexedDB campaign cache and shared utilities
 public/                Favicons and static assets
 data/                  Runtime SQLite files; excluded from version control
+deploy/                Reusable systemd, Nginx, environment, and update templates
+docs/                  Deployment and operations guides
 Dockerfile             Multi-stage production container build
 compose.yaml           Local container deployment with persistent storage
 ```

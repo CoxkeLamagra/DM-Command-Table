@@ -1,0 +1,24 @@
+[Unit]
+Description=DM Command Table
+Documentation=https://github.com/CoxkeLamagra/DM-Command-Table
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dmct
+Group=dmct
+WorkingDirectory=/opt/dm-command-table/app
+EnvironmentFile=/etc/dm-command-table.env
+ExecStart=/usr/bin/pnpm start -- -H 127.0.0.1 -p 3000
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/dm-command-table /opt/dm-command-table/app/.next
+
+[Install]
+WantedBy=multi-user.target
