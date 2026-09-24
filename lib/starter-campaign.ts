@@ -1,5 +1,6 @@
 const STARTER_CAMPAIGN = {
   campaignName: "The Scale of Verdant Night",
+  campaignNotes: "A mystery-driven campaign following Lamfurion's search for the force that destroyed his order and the meaning of the green scale left behind.",
   encounterName: "The Ashen Crossing",
   round: 1,
   turn: 0,
