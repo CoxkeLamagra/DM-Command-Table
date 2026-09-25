@@ -4,6 +4,16 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 4.0.1 — 2026-09-25
+
+### Fixes
+
+- Replaced source blobs that were corrupted while the original v4.0 release commit was assembled.
+- Restored valid UTF-8 source files so Turbopack can parse and build the application.
+- Updated the visible application version to v4.0.1.
+
+## 4.0.0 — 2026-09-25
+
 ### Version 4 refactor
 
 - Replaced backward-compatible campaign normalization with one strictly validated v4 campaign model and export format.
