@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { Check, ChevronRight, Feather } from "lucide-react";
+import { Check, ChevronRight, Feather, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScreenTitle } from "@/features/shared/ui";
 import { NoteContent, ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
@@ -13,10 +14,12 @@ export function CampaignOverview({
   data,
   patch,
   openSession,
+  createSession,
 }: {
   data: CampaignState;
   patch: CampaignPatch;
   openSession: (id: string) => void;
+  createSession: () => void;
 }) {
   const { screenshots, upload } = useScreenshotLibrary();
   const sessions = useMemo(
@@ -79,12 +82,26 @@ export function CampaignOverview({
         </section>
         <section>
           <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-300/70">
-              Session history
-            </p>
-            <h2 className="mt-1 font-serif text-2xl text-stone-100">
-              Timeline
-            </h2>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-300/70">
+                  Session history
+                </p>
+                <h2 className="mt-1 font-serif text-2xl text-stone-100">
+                  Timeline
+                </h2>
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                onClick={createSession}
+                className="bg-amber-300 text-black hover:bg-amber-200"
+                aria-label="Create new session"
+                title="Create new session"
+              >
+                <Plus />
+              </Button>
+            </div>
             <p className="mt-2 text-sm text-stone-500">
               Generated automatically from the Sessions component. Select an
               entry to open it.

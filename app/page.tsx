@@ -29,6 +29,7 @@ import { CampaignOverview } from "@/features/campaign/campaign-overview";
 import { CampaignPlayers } from "@/features/campaign/campaign-players";
 import { ShareCampaignDialog } from "@/features/campaign/share-dialog";
 import { Sessions } from "@/features/sessions/sessions-screen";
+import { createSessionNote } from "@/features/sessions/domain";
 import { Story } from "@/features/story/story-screen";
 import { Combat } from "@/features/combat/combat-screen";
 import { Bestiary } from "@/features/bestiary/bestiary-screen";
@@ -140,6 +141,20 @@ export default function Home() {
     setActiveTab("sessions");
     setMobile(false);
   }
+  async function createCampaignAndOpen() {
+    if (!(await addCampaign())) return;
+    setActiveTab("campaign");
+    setMobile(false);
+  }
+  function createSessionAndOpen() {
+    const session = createSessionNote(
+      uid,
+      new Date().toISOString().slice(0, 10),
+    );
+    patch("sessions", [session, ...data.sessions]);
+    openSession(session.id);
+    toast.success("Session created");
+  }
   function loadPreparedEncounter(encounter: PreparedEncounter) {
     const currentMonsters = data.combatants.filter(
       (combatant) => combatant.kind === "monster",
@@ -227,7 +242,7 @@ export default function Home() {
             size="sm"
             variant="outline"
             className="hidden border-white/15 bg-transparent hover:bg-white/5 sm:inline-flex"
-            onClick={addCampaign}
+            onClick={() => void createCampaignAndOpen()}
           >
             <Plus /> Campaign
           </Button>
@@ -371,6 +386,7 @@ export default function Home() {
               data={data}
               patch={patch}
               openSession={openSession}
+              createSession={createSessionAndOpen}
             />
           </TabsContent>
           <TabsContent value="sessions">

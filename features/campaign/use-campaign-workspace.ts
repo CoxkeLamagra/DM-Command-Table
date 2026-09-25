@@ -149,8 +149,10 @@ export function useCampaignWorkspace() {
       setCurrentId(created.id);
       setData(payload);
       toast.success("Campaign created");
+      return true;
     } catch {
       toast.error("Campaign could not be created");
+      return false;
     }
   }, []);
 
