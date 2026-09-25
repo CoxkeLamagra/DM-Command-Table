@@ -134,7 +134,6 @@ export function RichTextEditor({
         aria-label={placeholder ?? "Rich text"}
         data-placeholder={placeholder ?? ""}
         className={`${className} overflow-y-auto px-3 py-2 text-sm leading-7 text-stone-200 outline-none empty:before:pointer-events-none empty:before:text-stone-600 empty:before:content-[attr(data-placeholder)] [&_ol]:ml-6 [&_ol]:list-decimal [&_ul]:ml-6 [&_ul]:list-disc`}
-        dangerouslySetInnerHTML={{ __html: editableHtml(value) }}
         onInput={(event) => onChange(event.currentTarget.innerHTML)}
         onKeyUp={rememberSelection}
         onMouseUp={rememberSelection}
@@ -213,7 +212,11 @@ function FormatButton({
 
 function editableHtml(value: string): string {
   if (!value) return "";
-  if (/<\/?[a-z][^>]*>/i.test(value)) return value;
+  if (
+    /<\/?[a-z][^>]*>/i.test(value) ||
+    /&(?:amp|gt|lt|nbsp|quot|#0?39|#\d+|#x[0-9a-f]+);/i.test(value)
+  )
+    return value;
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
