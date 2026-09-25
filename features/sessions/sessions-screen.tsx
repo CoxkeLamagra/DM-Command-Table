@@ -3,6 +3,7 @@
 import {
   Check,
   ChevronRight,
+  Link2,
   Play,
   Plus,
   Swords,
@@ -35,10 +36,12 @@ export function Sessions({
   data,
   patch,
   loadEncounter,
+  openStory,
 }: {
   data: CampaignState;
   patch: CampaignPatch;
   loadEncounter: (encounter: PreparedEncounter) => void;
+  openStory: (id: string) => void;
 }) {
   const { screenshots, upload } = useScreenshotLibrary();
   const update = (id: string, part: Partial<SessionNote>) =>
@@ -128,7 +131,11 @@ export function Sessions({
         }
       />
       <div className="space-y-5">
-        {data.sessions.map((session) => (
+        {data.sessions.map((session) => {
+          const linkedStories = data.story.filter((beat) =>
+            beat.sessionIds.includes(session.id),
+          );
+          return (
           <article
             id={`session-${session.id}`}
             tabIndex={-1}
@@ -173,6 +180,23 @@ export function Sessions({
                 <Trash2 />
               </Button>
             </div>
+            {linkedStories.length > 0 && (
+              <section className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500">
+                  <Link2 size={14} /> Linked stories
+                </span>
+                {linkedStories.map((beat) => (
+                  <button
+                    key={beat.id}
+                    type="button"
+                    onClick={() => openStory(beat.id)}
+                    className="rounded-full border border-amber-300/20 bg-amber-300/[.06] px-3 py-1 text-xs text-amber-100 transition hover:border-amber-300/40 hover:bg-amber-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
+                  >
+                    {beat.title || "Untitled story beat"}
+                  </button>
+                ))}
+              </section>
+            )}
             <div className="mt-4">
             <ScreenshotNotes
               className="min-h-40"
@@ -356,7 +380,8 @@ export function Sessions({
               </div>
             </details>
           </article>
-        ))}
+          );
+        })}
       </div>
     </>
   );

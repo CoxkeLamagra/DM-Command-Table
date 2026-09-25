@@ -72,6 +72,7 @@ export default function Home() {
   const [mobile, setMobile] = useState(false);
   const [activeTab, setActiveTab] = useState("campaign");
   const [targetSessionId, setTargetSessionId] = useState("");
+  const [targetStoryId, setTargetStoryId] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("editor");
@@ -139,6 +140,16 @@ export default function Home() {
     });
     return () => cancelAnimationFrame(frame);
   }, [activeTab, targetSessionId]);
+  useEffect(() => {
+    if (activeTab !== "story" || !targetStoryId) return;
+    const frame = requestAnimationFrame(() => {
+      const entry = document.getElementById(`story-${targetStoryId}`);
+      entry?.scrollIntoView({ behavior: "smooth", block: "center" });
+      entry?.focus({ preventScroll: true });
+      setTargetStoryId("");
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, targetStoryId]);
   async function share() {
     if (await shareCampaign(shareUsername, shareRole)) {
       setShareUsername("");
@@ -148,6 +159,11 @@ export default function Home() {
   function openSession(id: string) {
     setTargetSessionId(id);
     setActiveTab("sessions");
+    setMobile(false);
+  }
+  function openStory(id: string) {
+    setTargetStoryId(id);
+    setActiveTab("story");
     setMobile(false);
   }
   async function createCampaignAndOpen() {
@@ -406,6 +422,7 @@ export default function Home() {
               data={data}
               patch={patch}
               loadEncounter={loadPreparedEncounter}
+              openStory={openStory}
             />
           </TabsContent>
           <TabsContent value="story">

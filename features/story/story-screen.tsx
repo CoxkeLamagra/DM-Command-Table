@@ -71,8 +71,10 @@ export function Story({
       <div className="relative space-y-4 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-white/10">
         {data.story.map((s, i) => (
           <article
+            id={`story-${s.id}`}
+            tabIndex={-1}
             key={s.id}
-            className="relative grid grid-cols-[40px_1fr] gap-4"
+            className="relative grid scroll-mt-24 grid-cols-[40px_1fr] gap-4 rounded-xl outline-none focus:ring-2 focus:ring-amber-300/60"
           >
             <div
               className={`z-10 mt-5 grid h-10 w-10 place-items-center rounded-full border ${s.status === "happened" ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-300" : s.status === "active" ? "border-amber-300/50 bg-amber-300/15 text-amber-200" : "border-white/15 bg-[#12161e] text-stone-600"}`}
