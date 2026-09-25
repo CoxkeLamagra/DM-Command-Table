@@ -27,7 +27,11 @@ export async function applyMonsterImports(
     }
     const existing = monsters[duplicateIndex];
     if (await decideReplacement(existing, incoming)) {
-      monsters[duplicateIndex] = { ...incoming, id: existing.id };
+      monsters[duplicateIndex] = {
+        ...incoming,
+        id: existing.id,
+        notes: existing.notes,
+      };
       replaced++;
     } else discarded++;
   }

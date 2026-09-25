@@ -144,6 +144,7 @@ export function convertRemoteMonster(
     stats,
     abilities: sections.join("\n\n") || "No special actions or traits.",
     spells: spellcasting || "No spells",
+    notes: "",
     slots,
   };
 }

@@ -29,7 +29,10 @@ export function normaliseCampaign(value: CampaignState): CampaignState {
       level: player.level ?? 1,
       notes: player.notes ?? "",
     })),
-    monsters: value.monsters ?? [],
+    monsters: (value.monsters ?? []).map((monster) => ({
+      ...monster,
+      notes: monster.notes ?? "",
+    })),
     sessions: (value.sessions ?? []).map((session) => ({
       ...session,
       encounters: (session.encounters ?? []).map((encounter) => ({

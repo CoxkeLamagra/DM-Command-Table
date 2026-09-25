@@ -33,7 +33,7 @@ test("campaign players retain fallback HP and AC values", () => {
 test("bestiary and prepared monsters preserve numbering and links", () => {
   const monster: Monster = {
     id: "m", name: "Goblin", type: "humanoid", cr: "1/4", ac: 15, hp: 7,
-    speed: "30 ft.", stats: "", abilities: "", spells: "", slots: [],
+    speed: "30 ft.", stats: "", abilities: "", spells: "", notes: "", slots: [],
   };
   const existing = [{ ...combatant("old", "monster"), monsterId: "m", number: 2 }];
   assert.equal(createMonsterCombatants([monster], ["m"], existing, () => "new")[0].number, 3);

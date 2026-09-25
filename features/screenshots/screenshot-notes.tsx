@@ -140,6 +140,7 @@ export function NoteContent({
   screenshots: Screenshot[];
   className?: string;
 }) {
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const records = new Map(screenshots.map((record) => [record.id, record]));
   const parts = parseScreenshotNotes(value);
   return (
@@ -150,16 +151,37 @@ export function NoteContent({
             <p key={index} className="whitespace-pre-wrap">{part.text.trim()}</p>
           ) : null;
         const screenshot = records.get(part.screenshotId);
+        const imageKey = `${part.screenshotId}-${index}`;
+        const expanded = expandedImage === imageKey;
         return screenshot ? (
-          <figure key={`${part.screenshotId}-${index}`} className="overflow-hidden rounded-lg border border-white/10 bg-black/20 p-2">
-            <Image
-              src={screenshot.url}
-              alt={screenshot.name}
-              width={1600}
-              height={900}
-              unoptimized
-              className="max-h-[70vh] h-auto w-full object-contain"
-            />
+          <figure
+            key={imageKey}
+            className={`overflow-hidden rounded-lg border border-white/10 bg-black/20 p-2 transition-all ${expanded ? "w-full" : "w-fit max-w-full"}`}
+          >
+            <button
+              type="button"
+              className={`block max-w-full cursor-zoom-in overflow-hidden rounded bg-black/30 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 ${expanded ? "w-full cursor-zoom-out" : "w-auto"}`}
+              onClick={() =>
+                setExpandedImage((current) =>
+                  current === imageKey ? null : imageKey,
+                )
+              }
+              aria-label={`${expanded ? "Reduce" : "Enlarge"} ${screenshot.name}`}
+              aria-expanded={expanded}
+            >
+              <Image
+                src={screenshot.url}
+                alt={screenshot.name}
+                width={1600}
+                height={900}
+                unoptimized
+                className={
+                  expanded
+                    ? "max-h-[70vh] h-auto w-full object-contain"
+                    : "h-32 w-auto max-w-full object-contain sm:h-40"
+                }
+              />
+            </button>
             <figcaption className="px-1 pt-2 text-xs text-stone-500">{screenshot.name}</figcaption>
           </figure>
         ) : (

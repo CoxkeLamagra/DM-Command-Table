@@ -80,6 +80,7 @@ export function Bestiary({
         stats: "STR 10  DEX 10  CON 10  INT 10  WIS 10  CHA 10",
         abilities: "Add actions and abilities here.",
         spells: "No spells",
+        notes: "",
         slots: [0, 0, 0, 0, 0],
       },
     ]);

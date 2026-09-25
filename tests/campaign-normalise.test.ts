@@ -86,3 +86,33 @@ test("normaliseCampaign preserves prepared encounter monster numbers", () => {
     2,
   );
 });
+
+test("normaliseCampaign adds backward-compatible monster notes", () => {
+  const campaign = normaliseCampaign({
+    campaignName: "Legacy monster",
+    campaignNotes: "",
+    encounterName: "Encounter",
+    round: 1,
+    turn: 0,
+    combatants: [],
+    players: [],
+    sessions: [],
+    story: [],
+    monsters: [
+      {
+        id: "monster",
+        name: "Goblin",
+        type: "humanoid",
+        cr: "1/4",
+        ac: 15,
+        hp: 7,
+        speed: "30 ft.",
+        stats: "",
+        abilities: "",
+        spells: "",
+        slots: [],
+      },
+    ],
+  } as unknown as CampaignState);
+  assert.equal(campaign.monsters[0].notes, "");
+});

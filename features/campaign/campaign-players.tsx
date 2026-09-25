@@ -5,8 +5,12 @@ import { Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ScreenTitle } from "@/features/shared/ui";
+import {
+  NoteContent,
+  ScreenshotNotes,
+} from "@/features/screenshots/screenshot-notes";
+import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import { createId } from "./id";
 import type { CampaignPatch, CampaignPlayer, CampaignState } from "./types";
 
@@ -19,6 +23,7 @@ export function CampaignPlayers({
   data: CampaignState;
   patch: CampaignPatch;
 }) {
+  const { screenshots, upload } = useScreenshotLibrary();
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const update = (id: string, part: Partial<CampaignPlayer>) =>
@@ -235,17 +240,19 @@ export function CampaignPlayers({
                     />
                   </label>
                 </div>
-                <label className="mt-4 block text-xs text-stone-500">
-                  Player notes
-                  <Textarea
-                    className="mt-1 min-h-28 resize-y border-white/10 bg-black/20"
-                    placeholder="Background, abilities, reminders, or campaign notes…"
-                    value={player.notes}
-                    onChange={(e) =>
-                      update(player.id, { notes: e.target.value })
-                    }
-                  />
-                </label>
+                <section className="mt-4 text-xs text-stone-500">
+                  <p>Player notes</p>
+                  <div className="mt-1">
+                    <ScreenshotNotes
+                      className="min-h-28"
+                      placeholder="Background, abilities, reminders, or campaign notes…"
+                      value={player.notes}
+                      onChange={(notes) => update(player.id, { notes })}
+                      screenshots={screenshots}
+                      upload={upload}
+                    />
+                  </div>
+                </section>
               </article>
             ))}
           </div>
@@ -334,11 +341,15 @@ export function CampaignPlayers({
                       <td className="px-3 py-2.5 text-right text-stone-300">
                         {player.ac ?? "—"}
                       </td>
-                      <td
-                        className="max-w-64 truncate px-3 py-2.5 text-stone-500"
-                        title={player.notes}
-                      >
-                        {player.notes || "—"}
+                      <td className="max-w-80 px-3 py-2.5 text-stone-500">
+                        {player.notes ? (
+                          <NoteContent
+                            value={player.notes}
+                            screenshots={screenshots}
+                          />
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <Button

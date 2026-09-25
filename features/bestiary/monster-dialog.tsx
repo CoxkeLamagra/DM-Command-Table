@@ -12,6 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Monster } from "@/features/campaign/types";
 import { DetailSection, Stat } from "@/features/shared/ui";
+import {
+  NoteContent,
+  ScreenshotNotes,
+} from "@/features/screenshots/screenshot-notes";
+import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 
 export function MonsterDialog({
   monster,
@@ -22,6 +27,7 @@ export function MonsterDialog({
   trigger: ReactNode;
   update?: (part: Partial<Monster>) => void;
 }) {
+  const { screenshots, upload } = useScreenshotLibrary();
   if (!monster)
     return <span className="text-xs text-stone-600">No stat block</span>;
 
@@ -120,6 +126,19 @@ export function MonsterDialog({
             />
           </label>
           <section>
+            <p className="text-xs text-stone-500">Notes</p>
+            <div className="mt-1">
+              <ScreenshotNotes
+                className="min-h-28"
+                placeholder="Tactics, lore, encounter reminders, or images…"
+                value={monster.notes}
+                onChange={(notes) => update({ notes })}
+                screenshots={screenshots}
+                upload={upload}
+              />
+            </div>
+          </section>
+          <section>
             <p className="text-xs text-stone-500">Spell slots</p>
             <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
               {monster.slots.map((count, index) => (
@@ -179,6 +198,11 @@ export function MonsterDialog({
             ))}
           </div>
         </DetailSection>
+        {monster.notes && (
+          <DetailSection title="Notes">
+            <NoteContent value={monster.notes} screenshots={screenshots} />
+          </DetailSection>
+        )}
       </DialogContent>
     </Dialog>
   );

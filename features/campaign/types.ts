@@ -36,6 +36,7 @@ export type Monster = {
   stats: string;
   abilities: string;
   spells: string;
+  notes: string;
   slots: number[];
   source?: string;
 };

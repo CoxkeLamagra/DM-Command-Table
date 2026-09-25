@@ -15,6 +15,7 @@ const existing: Monster = {
   stats: "old",
   abilities: "old",
   spells: "No spells",
+  notes: "Tactics [[screenshot:map]]",
   slots: [0, 0, 0, 0, 0],
 };
 
@@ -38,6 +39,7 @@ test("duplicate imports preserve ids when replaced", async () => {
   );
   assert.equal(result.monsters[0].id, "existing");
   assert.equal(result.monsters[0].ac, 16);
+  assert.equal(result.monsters[0].notes, existing.notes);
   assert.deepEqual(
     { added: result.added, replaced: result.replaced, discarded: result.discarded },
     { added: 0, replaced: 1, discarded: 0 },
