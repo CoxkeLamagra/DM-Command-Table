@@ -6,7 +6,7 @@ const STARTER_CAMPAIGN = {
   turn: 0,
   combatants: [
     { id: "c1", name: "Lamfurion", kind: "player", initiative: 18, hp: 47, maxHp: 52, ac: 19, conditions: [] },
-    { id: "c2", name: "Goblin Hexer", number: 1, kind: "monster", initiative: 15, hp: 21, maxHp: 32, ac: 14, conditions: ["Concentrating"], monsterId: "m1" },
+    { id: "c2", name: "Goblin Hexer", number: 1, kind: "monster", initiative: 15, hp: 21, maxHp: 32, ac: 14, conditions: [{ id: "condition-1", name: "Concentrating", remainingTurns: null }], monsterId: "m1" },
     { id: "c3", name: "Ridgeback Drake", number: 1, kind: "monster", initiative: 11, hp: 44, maxHp: 58, ac: 16, conditions: [], monsterId: "m2" },
   ],
   players: [
@@ -27,9 +27,9 @@ const STARTER_CAMPAIGN = {
     ] },
   ],
   story: [
-    { id: "s1", title: "The order is destroyed", chapter: "Prologue", details: "Lamfurion returns to find the sanctuary burned and a single green scale among the ashes.", status: "happened" },
-    { id: "s2", title: "Trace the ward-stone", chapter: "Chapter II", details: "The party must reach the Ashen Crossing before the cult removes the stone.", status: "active" },
-    { id: "s3", title: "Reveal the Verdant Oath", chapter: "Chapter III", details: "The scale belongs to an ancient guardian bound beneath Neverwinter.", status: "planned" },
+    { id: "s1", title: "The order is destroyed", chapter: "Prologue", details: "Lamfurion returns to find the sanctuary burned and a single green scale among the ashes.", status: "happened", sessionIds: [] },
+    { id: "s2", title: "Trace the ward-stone", chapter: "Chapter II", details: "The party must reach the Ashen Crossing before the cult removes the stone.", status: "active", sessionIds: ["n1"] },
+    { id: "s3", title: "Reveal the Verdant Oath", chapter: "Chapter III", details: "The scale belongs to an ancient guardian bound beneath Neverwinter.", status: "planned", sessionIds: [] },
   ],
 };
 

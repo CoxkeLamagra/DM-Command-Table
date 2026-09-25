@@ -4,6 +4,13 @@ import { useState } from "react";
 import { Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScreenTitle } from "@/features/shared/ui";
 import {
@@ -24,7 +31,7 @@ export function CampaignPlayers({
   patch: CampaignPatch;
 }) {
   const { screenshots, upload } = useScreenshotLibrary();
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("list");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const update = (id: string, part: Partial<CampaignPlayer>) =>
     patch(
@@ -324,7 +331,52 @@ export function CampaignPlayers({
                         />
                       </td>
                       <td className="px-3 py-2.5 font-medium text-amber-100">
-                        {player.name}
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="text-left hover:text-amber-200 hover:underline">
+                              {player.name}
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="max-h-[88vh] overflow-y-auto border-amber-300/20 bg-[#12161e] text-stone-100 sm:max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle className="font-serif text-2xl text-amber-100">
+                                Edit campaign player
+                              </DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="text-xs text-stone-500">
+                                Player name
+                                <Input className="mt-1 border-white/10 bg-black/20" value={player.name} onChange={(event) => update(player.id, { name: event.target.value })} />
+                              </label>
+                              <label className="text-xs text-stone-500">
+                                Race
+                                <Input className="mt-1 border-white/10 bg-black/20" value={player.race} onChange={(event) => update(player.id, { race: event.target.value })} />
+                              </label>
+                              <label className="text-xs text-stone-500">
+                                Class
+                                <Input className="mt-1 border-white/10 bg-black/20" value={player.className} onChange={(event) => update(player.id, { className: event.target.value })} />
+                              </label>
+                              <label className="text-xs text-stone-500">
+                                Level
+                                <Input min="1" max="20" className="mt-1 border-white/10 bg-black/20" type="number" value={player.level ?? ""} onChange={(event) => update(player.id, { level: event.target.value === "" ? null : Math.min(20, Math.max(1, +event.target.value)) })} />
+                              </label>
+                              <label className="text-xs text-stone-500">
+                                Hit points
+                                <Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" value={player.hp ?? ""} onChange={(event) => update(player.id, { hp: event.target.value === "" ? null : Math.max(0, +event.target.value) })} />
+                              </label>
+                              <label className="text-xs text-stone-500">
+                                Armor class
+                                <Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" value={player.ac ?? ""} onChange={(event) => update(player.id, { ac: event.target.value === "" ? null : Math.max(0, +event.target.value) })} />
+                              </label>
+                            </div>
+                            <section className="text-xs text-stone-500">
+                              <p>Player notes</p>
+                              <div className="mt-1">
+                                <ScreenshotNotes className="min-h-32" value={player.notes} onChange={(notes) => update(player.id, { notes })} screenshots={screenshots} upload={upload} />
+                              </div>
+                            </section>
+                          </DialogContent>
+                        </Dialog>
                       </td>
                       <td className="px-3 py-2.5 text-stone-400">
                         {player.race || "—"}

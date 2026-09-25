@@ -50,7 +50,7 @@ export function Bestiary({
   >([]);
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState("");
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("list");
   const [selectedMonsterIds, setSelectedMonsterIds] = useState<string[]>([]);
   const [duplicatePrompt, setDuplicatePrompt] = useState<{
     existing: Monster;
@@ -513,7 +513,15 @@ export function Bestiary({
                       />
                     </td>
                     <td className="px-3 py-2.5">
-                      <p className="font-medium text-amber-100">{m.name}</p>
+                      <MonsterDialog
+                        monster={m}
+                        update={(part) => update(m.id, part)}
+                        trigger={
+                          <button className="text-left font-medium text-amber-100 hover:text-amber-200 hover:underline">
+                            {m.name}
+                          </button>
+                        }
+                      />
                       {m.source && (
                         <p className="text-xs text-stone-600">{m.source}</p>
                       )}

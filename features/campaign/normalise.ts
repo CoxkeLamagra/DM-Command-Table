@@ -1,8 +1,9 @@
 import type { CampaignState, Combatant } from "./types";
 
-type LegacyCombatant = Omit<Combatant, "kind"> & {
+type LegacyCombatant = Omit<Combatant, "kind" | "conditions"> & {
   kind?: Combatant["kind"] | "hero";
   condition?: string;
+  conditions?: Array<Combatant["conditions"][number] | string>;
 };
 
 /**
@@ -18,9 +19,21 @@ export function normaliseCampaign(value: CampaignState): CampaignState {
       ...combatant,
       number: combatant.number ?? null,
       kind: combatant.kind === "hero" ? "player" : combatant.kind || "monster",
-      conditions:
+      conditions: (
         combatant.conditions ??
-        (combatant.condition ? [combatant.condition] : []),
+        (combatant.condition ? [combatant.condition] : [])
+      ).map((condition, index) =>
+        typeof condition === "string"
+          ? {
+              id: `${combatant.id}-condition-${index}`,
+              name: condition,
+              remainingTurns: null,
+            }
+          : {
+              ...condition,
+              remainingTurns: condition.remainingTurns ?? null,
+            },
+      ),
     })),
     players: (value.players ?? []).map((player) => ({
       ...player,
@@ -43,6 +56,9 @@ export function normaliseCampaign(value: CampaignState): CampaignState {
         })),
       })),
     })),
-    story: value.story ?? [],
+    story: (value.story ?? []).map((beat) => ({
+      ...beat,
+      sessionIds: beat.sessionIds ?? [],
+    })),
   };
 }

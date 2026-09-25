@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Plus } from "lucide-react";
+import { Check, Link2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScreenTitle } from "@/features/shared/ui";
@@ -28,6 +28,20 @@ export function Story({
       "story",
       data.story.map((s) => (s.id === id ? { ...s, ...p } : s)),
     );
+  function deleteBeat(beat: StoryBeat) {
+    if (!window.confirm(`Delete the story beat "${beat.title}"?`)) return;
+    patch(
+      "story",
+      data.story.filter((entry) => entry.id !== beat.id),
+    );
+  }
+  function toggleSession(beat: StoryBeat, sessionId: string) {
+    update(beat.id, {
+      sessionIds: beat.sessionIds.includes(sessionId)
+        ? beat.sessionIds.filter((id) => id !== sessionId)
+        : [...beat.sessionIds, sessionId],
+    });
+  }
   return (
     <>
       <ScreenTitle
@@ -44,6 +58,7 @@ export function Story({
                   chapter: "Unsorted",
                   details: "",
                   status: "planned",
+                  sessionIds: [],
                 },
               ])
             }
@@ -78,19 +93,30 @@ export function Story({
                     onChange={(e) => update(s.id, { chapter: e.target.value })}
                   />
                 </div>
-                <select
-                  className="rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                  value={s.status}
-                  onChange={(e) =>
-                    update(s.id, {
-                      status: e.target.value as StoryBeat["status"],
-                    })
-                  }
-                >
-                  <option value="planned">Planned</option>
-                  <option value="active">Active now</option>
-                  <option value="happened">Happened</option>
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                    value={s.status}
+                    onChange={(e) =>
+                      update(s.id, {
+                        status: e.target.value as StoryBeat["status"],
+                      })
+                    }
+                  >
+                    <option value="planned">Planned</option>
+                    <option value="active">Active now</option>
+                    <option value="happened">Happened</option>
+                  </select>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-stone-600 hover:text-red-300"
+                    onClick={() => deleteBeat(s)}
+                    aria-label={`Delete ${s.title}`}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
               </div>
               <div className="mt-4">
               <ScreenshotNotes
@@ -101,6 +127,38 @@ export function Story({
                 upload={upload}
               />
               </div>
+              <section className="mt-4 border-t border-white/10 pt-4">
+                <h3 className="flex items-center gap-2 text-sm font-medium text-stone-300">
+                  <Link2 size={15} className="text-amber-300/70" /> Linked sessions
+                </h3>
+                {data.sessions.length ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {data.sessions.map((session) => (
+                      <label
+                        key={session.id}
+                        className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm transition ${s.sessionIds.includes(session.id) ? "border-amber-300/30 bg-amber-300/[.06] text-amber-100" : "border-white/10 bg-black/20 text-stone-400 hover:border-white/20"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 size-4 accent-amber-300"
+                          checked={s.sessionIds.includes(session.id)}
+                          onChange={() => toggleSession(s, session.id)}
+                        />
+                        <span>
+                          <span className="block">{session.title || "Untitled session"}</span>
+                          <span className="block text-xs text-stone-600">
+                            {session.date || "Date not set"}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm italic text-stone-600">
+                    Create a session before linking it to this story beat.
+                  </p>
+                )}
+              </section>
             </div>
           </article>
         ))}

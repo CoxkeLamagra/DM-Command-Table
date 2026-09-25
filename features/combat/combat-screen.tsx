@@ -49,6 +49,7 @@ export function Combat({
   const { screenshots } = useScreenshotLibrary();
   const [selectedId, setSelectedId] = useState(ordered[0]?.id ?? "");
   const [newCondition, setNewCondition] = useState("");
+  const [newConditionDuration, setNewConditionDuration] = useState("");
   const [playerPickerOpen, setPlayerPickerOpen] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [bestiaryPickerOpen, setBestiaryPickerOpen] = useState(false);
@@ -190,9 +191,30 @@ export function Combat({
   };
   const addCondition = () => {
     const value = newCondition.trim();
-    if (value && selected && !selected.conditions.includes(value))
-      update(selected.id, { conditions: [...selected.conditions, value] });
+    if (
+      value &&
+      selected &&
+      !selected.conditions.some(
+        (condition) => condition.name.toLowerCase() === value.toLowerCase(),
+      )
+    ) {
+      const parsedDuration = Number.parseInt(newConditionDuration, 10);
+      update(selected.id, {
+        conditions: [
+          ...selected.conditions,
+          {
+            id: uid(),
+            name: value,
+            remainingTurns:
+              Number.isFinite(parsedDuration) && parsedDuration > 0
+                ? parsedDuration
+                : null,
+          },
+        ],
+      });
+    }
     setNewCondition("");
+    setNewConditionDuration("");
   };
   return (
     <>
@@ -352,7 +374,15 @@ export function Combat({
                     {playerDetails ? `${playerDetails} · ` : ""}
                     {c.kind.charAt(0).toUpperCase() + c.kind.slice(1)} · AC{" "}
                     {c.ac}
-                    {c.conditions.length ? ` · ${c.conditions.join(", ")}` : ""}
+                    {c.conditions.length
+                      ? ` · ${c.conditions
+                          .map((condition) =>
+                            condition.remainingTurns === null
+                              ? condition.name
+                              : `${condition.name} (${condition.remainingTurns})`,
+                          )
+                          .join(", ")}`
+                      : ""}
                   </span>
                 </span>
                 <span className="text-right text-xs">
@@ -548,16 +578,21 @@ export function Combat({
                   {selected.conditions.length ? (
                     selected.conditions.map((condition) => (
                       <Badge
-                        key={condition}
+                        key={condition.id}
                         className="gap-1 bg-violet-400/15 py-1.5 text-violet-200"
                       >
-                        {condition}
+                        {condition.name}
+                        {condition.remainingTurns !== null && (
+                          <span className="text-violet-300/70">
+                            · {condition.remainingTurns} turn{condition.remainingTurns === 1 ? "" : "s"}
+                          </span>
+                        )}
                         <button
-                          aria-label={`Remove ${condition}`}
+                          aria-label={`Remove ${condition.name}`}
                           onClick={() =>
                             update(selected.id, {
                               conditions: selected.conditions.filter(
-                                (x) => x !== condition,
+                                (entry) => entry.id !== condition.id,
                               ),
                             })
                           }
@@ -572,7 +607,7 @@ export function Combat({
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Input
                     list="condition-options"
                     placeholder="Add a condition…"
@@ -604,6 +639,19 @@ export function Combat({
                       <option key={x} value={x} />
                     ))}
                   </datalist>
+                  <Input
+                    aria-label="Condition duration in turns"
+                    title="Duration in turns (optional)"
+                    placeholder="Turns"
+                    className="w-24 border-white/10 bg-black/20"
+                    type="number"
+                    min="1"
+                    value={newConditionDuration}
+                    onChange={(event) => setNewConditionDuration(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") addCondition();
+                    }}
+                  />
                   <Button
                     onClick={addCondition}
                     variant="outline"

@@ -45,7 +45,13 @@ test("normaliseCampaign adds backward-compatible defaults without changing ids",
   assert.equal(result.encounterName, "The Ashen Crossing");
   assert.equal(result.combatants[0].id, "combatant-1");
   assert.equal(result.combatants[0].kind, "player");
-  assert.deepEqual(result.combatants[0].conditions, ["Blessed"]);
+  assert.deepEqual(result.combatants[0].conditions, [
+    {
+      id: "combatant-1-condition-0",
+      name: "Blessed",
+      remainingTurns: null,
+    },
+  ]);
   assert.equal(result.players[0].level, 1);
   assert.deepEqual(result.sessions[0].encounters, []);
   assert.deepEqual(result.monsters, []);

@@ -41,6 +41,7 @@ import {
   advanceCombatTurn,
   createPreparedCombatants,
   orderCombatants,
+  tickConditions,
 } from "@/features/combat/domain";
 
 const uid = createId;
@@ -69,7 +70,7 @@ export default function Home() {
     patch,
   } = useCampaignWorkspace();
   const [mobile, setMobile] = useState(false);
-  const [activeTab, setActiveTab] = useState("combat");
+  const [activeTab, setActiveTab] = useState("campaign");
   const [targetSessionId, setTargetSessionId] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
@@ -83,10 +84,16 @@ export default function Home() {
     if (!canEdit || !ordered.length) return;
     const next = advanceCombatTurn(ordered, data.turn, data.round);
     if (!next) return;
+    const nextCombatantId = ordered[next.turn]?.id;
     setData((currentData) => ({
       ...currentData,
       turn: next.turn,
       round: next.round,
+      combatants: currentData.combatants.map((combatant) =>
+        combatant.id === nextCombatantId
+          ? { ...combatant, conditions: tickConditions(combatant.conditions) }
+          : combatant,
+      ),
     }));
   }, [canEdit, ordered, data.turn, data.round, setData]);
   useEffect(() => {
@@ -325,23 +332,23 @@ export default function Home() {
             variant="line"
             className="h-auto w-full shrink-0 flex-col items-stretch gap-1 bg-transparent p-0"
           >
-            <NavigationItem value="combat" icon={<Swords />}>
-              Combat
-            </NavigationItem>
-            <NavigationItem value="bestiary" icon={<Library />}>
-              Bestiary
-            </NavigationItem>
-            <NavigationItem value="players" icon={<Users />}>
-              Players
-            </NavigationItem>
             <NavigationItem value="campaign" icon={<BookOpen />}>
               Campaign
+            </NavigationItem>
+            <NavigationItem value="story" icon={<ScrollText />}>
+              Story
             </NavigationItem>
             <NavigationItem value="sessions" icon={<Feather />}>
               Sessions
             </NavigationItem>
-            <NavigationItem value="story" icon={<ScrollText />}>
-              Story
+            <NavigationItem value="players" icon={<Users />}>
+              Players
+            </NavigationItem>
+            <NavigationItem value="bestiary" icon={<Library />}>
+              Bestiary
+            </NavigationItem>
+            <NavigationItem value="combat" icon={<Swords />}>
+              Combat
             </NavigationItem>
             <NavigationItem value="account" icon={<CircleUserRound />}>
               Account

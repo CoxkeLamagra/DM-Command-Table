@@ -5,6 +5,7 @@ import {
   createMonsterCombatants,
   createPreparedCombatants,
   createPlayerCombatants,
+  tickConditions,
   turnAfterRemovingMonsters,
 } from "../features/combat/domain.ts";
 import type { Combatant, Monster } from "../features/campaign/types.ts";
@@ -17,6 +18,20 @@ test("combat advancement skips downed combatants and advances the round", () => 
   const ordered = [combatant("a", "player"), combatant("b", "monster", 0)];
   assert.deepEqual(advanceCombatTurn(ordered, 0, 2), { turn: 0, round: 3 });
   assert.equal(advanceCombatTurn([combatant("down", "monster", 0)], 0, 1), null);
+});
+
+test("timed conditions count down and expire on the combatant turn", () => {
+  assert.deepEqual(
+    tickConditions([
+      { id: "timed", name: "Stunned", remainingTurns: 2 },
+      { id: "expires", name: "Prone", remainingTurns: 1 },
+      { id: "manual", name: "Grappled", remainingTurns: null },
+    ]),
+    [
+      { id: "timed", name: "Stunned", remainingTurns: 1 },
+      { id: "manual", name: "Grappled", remainingTurns: null },
+    ],
+  );
 });
 
 test("campaign players retain fallback HP and AC values", () => {

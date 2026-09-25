@@ -9,9 +9,15 @@ export type Combatant = {
   hp: number;
   maxHp: number;
   ac: number;
-  conditions: string[];
+  conditions: CombatCondition[];
   monsterId?: string;
   campaignPlayerId?: string;
+};
+
+export type CombatCondition = {
+  id: string;
+  name: string;
+  remainingTurns: number | null;
 };
 
 export type CampaignPlayer = {
@@ -68,6 +74,7 @@ export type StoryBeat = {
   chapter: string;
   details: string;
   status: "planned" | "active" | "happened";
+  sessionIds: string[];
 };
 
 export type CampaignState = {

@@ -1,5 +1,6 @@
 import type {
   CampaignPlayer,
+  CombatCondition,
   Combatant,
   Monster,
   PreparedEncounter,
@@ -27,6 +28,14 @@ export function advanceCombatTurn(
     }
   }
   return null;
+}
+
+export function tickConditions(conditions: CombatCondition[]): CombatCondition[] {
+  return conditions.flatMap((condition) => {
+    if (condition.remainingTurns === null) return [condition];
+    const remainingTurns = condition.remainingTurns - 1;
+    return remainingTurns > 0 ? [{ ...condition, remainingTurns }] : [];
+  });
 }
 
 export function createPlayerCombatants(
