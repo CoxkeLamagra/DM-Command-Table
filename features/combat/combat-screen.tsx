@@ -3,12 +3,10 @@
 import { useState } from "react";
 import {
   ChevronRight,
-  Minus,
   Pencil,
   Plus,
   RotateCcw,
   Trash2,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,8 +19,7 @@ import type {
   CampaignState,
   Combatant,
 } from "@/features/campaign/types";
-import { DetailSection, ScreenTitle, Stat } from "@/features/shared/ui";
-import { NoteContent } from "@/features/screenshots/screenshot-notes";
+import { ScreenTitle } from "@/features/shared/ui";
 import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import {
   createMonsterCombatants,
@@ -30,6 +27,7 @@ import {
   turnAfterRemovingMonsters,
 } from "./domain";
 import { BestiaryMonsterPicker, CampaignPlayerPicker } from "./combatant-pickers";
+import { ConditionEditor, HitPointEditor, MonsterStatBlock } from "./combatant-details";
 
 const uid = createId;
 
@@ -48,8 +46,6 @@ export function Combat({
 }) {
   const { screenshots } = useScreenshotLibrary();
   const [selectedId, setSelectedId] = useState(ordered[0]?.id ?? "");
-  const [newCondition, setNewCondition] = useState("");
-  const [newConditionDuration, setNewConditionDuration] = useState("");
   const [playerPickerOpen, setPlayerPickerOpen] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [bestiaryPickerOpen, setBestiaryPickerOpen] = useState(false);
@@ -189,33 +185,6 @@ export function Combat({
       text: "text-sky-300",
     },
   };
-  const addCondition = () => {
-    const value = newCondition.trim();
-    if (
-      value &&
-      selected &&
-      !selected.conditions.some(
-        (condition) => condition.name.toLowerCase() === value.toLowerCase(),
-      )
-    ) {
-      const parsedDuration = Number.parseInt(newConditionDuration, 10);
-      update(selected.id, {
-        conditions: [
-          ...selected.conditions,
-          {
-            id: uid(),
-            name: value,
-            remainingTurns:
-              Number.isFinite(parsedDuration) && parsedDuration > 0
-                ? parsedDuration
-                : null,
-          },
-        ],
-      });
-    }
-    setNewCondition("");
-    setNewConditionDuration("");
-  };
   return (
     <>
       <ScreenTitle
@@ -327,33 +296,7 @@ export function Combat({
             const tone = colors[c.kind];
             const down = c.hp <= 0;
             const campaignPlayer = data.players.find(
-              (player) => player.id === c.campaignPlayerId,
-            );
-            const playerDetails = [
-              campaignPlayer?.race,
-              campaignPlayer?.className,
-            ]
-              .filter(Boolean)
-              .join(" Â· ");
-            return (
-              <button
-                key={c.id}
-                onClick={() => setSelectedId(c.id)}
-                className={`grid w-full grid-cols-[44px_1fr_auto] items-center gap-3 rounded-xl border p-3 text-left transition ${down ? "border-red-500/50 bg-red-950/20" : selected?.id === c.id ? `${tone.border} ${tone.bg}` : "border-white/10 bg-[#12161e] hover:border-white/20"} ${selected?.id === c.id && down ? "ring-1 ring-red-400/40" : ""}`}
-              >
-                <span
-                  className={`grid h-10 w-10 place-items-center rounded-full bg-black/25 font-serif text-lg ${down ? "text-red-300" : tone.text}`}
-                >
-                  {c.initiative}
-                </span>
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${down ? "bg-red-500" : tone.dot}`}
-                    />
-                    <span
-                      className={`truncate font-medium ${down ? "text-stone-400 line-through decoration-red-400/70" : ""}`}
-                    >
+              (player) => xç«h‘éì¶»§q«^t                 >
                       {c.name}
                       {c.kind !== "player" && c.number != null
                         ? ` #${c.number}`
@@ -516,196 +459,16 @@ export function Combat({
                   />
                 </label>
               </div>
-              <div className="mt-5">
-                <div className="mb-2 flex justify-between text-sm">
-                  <span className="text-stone-400">Hit points</span>
-                  <span>
-                    {selected.hp} / {selected.maxHp}
-                  </span>
-                </div>
-                <Progress
-                  value={Math.max(0, (selected.hp / selected.maxHp) * 100)}
-                  className="h-2.5 bg-white/10"
-                />
-                <div className="mt-3 flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="border-white/10"
-                    onClick={() =>
-                      update(selected.id, { hp: Math.max(0, selected.hp - 1) })
-                    }
-                  >
-                    <Minus />
-                  </Button>
-                  <Input
-                    className="w-20 border-white/10 bg-black/20 text-center"
-                    type="number"
-                    value={selected.hp}
-                    onChange={(e) =>
-                      update(selected.id, { hp: +e.target.value })
-                    }
-                  />
-                  <span className="text-stone-600">/</span>
-                  <Input
-                    aria-label="Maximum hit points"
-                    className="w-20 border-white/10 bg-black/20 text-center"
-                    type="number"
-                    value={selected.maxHp}
-                    onChange={(e) =>
-                      update(selected.id, { maxHp: +e.target.value })
-                    }
-                  />
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="border-white/10"
-                    onClick={() =>
-                      update(selected.id, {
-                        hp: Math.min(selected.maxHp, selected.hp + 1),
-                      })
-                    }
-                  >
-                    <Plus />
-                  </Button>
-                </div>
-              </div>
-              <section className="mt-6 border-t border-white/10 pt-5">
-                <h3 className="font-serif text-lg text-amber-200">
-                  Status conditions
-                </h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selected.conditions.length ? (
-                    selected.conditions.map((condition) => (
-                      <Badge
-                        key={condition.id}
-                        className="gap-1 bg-violet-400/15 py-1.5 text-violet-200"
-                      >
-                        {condition.name}
-                        {condition.remainingTurns !== null && (
-                          <span className="text-violet-300/70">
-                            Â· {condition.remainingTurns} turn{condition.remainingTurns === 1 ? "" : "s"}
-                          </span>
-                        )}
-                        <button
-                          aria-label={`Remove ${condition.name}`}
-                          onClick={() =>
-                            update(selected.id, {
-                              conditions: selected.conditions.filter(
-                                (entry) => entry.id !== condition.id,
-                              ),
-                            })
-                          }
-                        >
-                          <X size={13} />
-                        </button>
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-sm text-stone-600">
-                      No active conditions
-                    </span>
-                  )}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Input
-                    list="condition-options"
-                    placeholder="Add a conditionâ€¦"
-                    className="border-white/10 bg-black/20"
-                    value={newCondition}
-                    onChange={(e) => setNewCondition(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addCondition();
-                    }}
-                  />
-                  <datalist id="condition-options">
-                    {[
-                      "Blinded",
-                      "Charmed",
-                      "Deafened",
-                      "Frightened",
-                      "Grappled",
-                      "Incapacitated",
-                      "Invisible",
-                      "Paralyzed",
-                      "Petrified",
-                      "Poisoned",
-                      "Prone",
-                      "Restrained",
-                      "Stunned",
-                      "Unconscious",
-                      "Concentrating",
-                    ].map((x) => (
-                      <option key={x} value={x} />
-                    ))}
-                  </datalist>
-                  <Input
-                    aria-label="Condition duration in turns"
-                    title="Duration in turns (optional)"
-                    placeholder="Turns"
-                    className="w-24 border-white/10 bg-black/20"
-                    type="number"
-                    min="1"
-                    value={newConditionDuration}
-                    onChange={(event) => setNewConditionDuration(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") addCondition();
-                    }}
-                  />
-                  <Button
-                    onClick={addCondition}
-                    variant="outline"
-                    className="border-white/10"
-                  >
-                    <Plus /> Add
-                  </Button>
-                </div>
-              </section>
-              {monster ? (
-                <div className="mt-6 border-t border-white/10 pt-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif text-2xl text-amber-100">
-                        {monster.name}
-                      </h3>
-                      <p className="text-sm italic text-stone-500">
-                        {monster.type} Â· CR {monster.cr}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Stat label="Armor class" value={monster.ac} />
-                    <Stat label="Hit points" value={monster.hp} />
-                    <Stat label="Speed" value={monster.speed} />
-                  </div>
-                  <DetailSection title="Ability scores">
-                    <NoteContent value={monster.stats} screenshots={screenshots} />
-                  </DetailSection>
-                  <DetailSection title="Actions & traits">
-                    <NoteContent
-                      value={monster.abilities}
-                      screenshots={screenshots}
-                    />
-                  </DetailSection>
-                  <DetailSection title="Spellcasting">
-                    <NoteContent value={monster.spells} screenshots={screenshots} />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {monster.slots.map((n, i) => (
-                        <span
-                          key={i}
-                          className="rounded-md border border-violet-300/20 bg-violet-300/5 px-2 py-1 text-xs text-violet-200"
-                        >
-                          Level {i + 1}: {n}
-                        </span>
-                      ))}
-                    </div>
-                  </DetailSection>
-                </div>
-              ) : (
-                <div className="mt-6 rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">
-                  No bestiary stat block linked to this combatant.
-                </div>
-              )}
+              <HitPointEditor
+                combatant={selected}
+                update={(part) => update(selected.id, part)}
+              />
+              <ConditionEditor
+                key={selected.id}
+                combatant={selected}
+                update={(part) => update(selected.id, part)}
+              />
+              <MonsterStatBlock monster={monster} screenshots={screenshots} />
             </>
           ) : (
             <div className="grid min-h-72 place-items-center text-stone-500">

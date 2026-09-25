@@ -59,7 +59,7 @@ export function findLocalUser(username: string): UserRow | null {
       .prepare(
         `SELECT id AS userId, username, display_name AS displayName, password_hash AS passwordHash,
                 is_admin AS isAdmin
-         FROM users WHERE username = ? AND password_hash IS NOT NULL LIMIT 1`,
+         FROM users WHERE username = ? LIMIT 1`,
       )
       .get(normaliseUsername(username)) as UserRow | undefined) ?? null
   );

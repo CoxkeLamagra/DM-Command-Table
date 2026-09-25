@@ -29,6 +29,7 @@ import type {
   PreparedEncounterMonster,
   SessionNote,
 } from "@/features/campaign/types";
+import { removeSessionFromStory } from "@/features/story/domain";
 
 const uid = createId;
 
@@ -116,6 +117,13 @@ export function Sessions({
     updateEncounter(session, encounter.id, {
       monsters: encounter.monsters.filter((entry) => entry.id !== entryId),
     });
+  function deleteSession(session: SessionNote) {
+    patch(
+      "sessions",
+      data.sessions.filter((item) => item.id !== session.id),
+    );
+    patch("story", removeSessionFromStory(data.story, session.id));
+  }
   return (
     <>
       <ScreenTitle
@@ -169,12 +177,7 @@ export function Sessions({
                 size="icon"
                 variant="ghost"
                 className="text-stone-600 hover:text-red-300"
-                onClick={() =>
-                  patch(
-                    "sessions",
-                    data.sessions.filter((item) => item.id !== session.id),
-                  )
-                }
+                onClick={() => deleteSession(session)}
                 aria-label={`Delete ${session.title}`}
               >
                 <Trash2 />

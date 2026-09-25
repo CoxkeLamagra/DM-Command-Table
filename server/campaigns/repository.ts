@@ -3,10 +3,8 @@ import { runTransaction } from "../../db/transaction.ts";
 import { normaliseUsername, type LocalUser } from "../auth/credentials.ts";
 
 export type CampaignRole = "owner" | "editor" | "viewer";
-type CountRow = { count: number };
 type IdRow = { id: string };
 type AccessRow = { role: CampaignRole };
-type LegacyRow = { payload: string; updatedAt: number };
 type CampaignRow = {
   id: string;
   name: string;
@@ -19,7 +17,7 @@ type CampaignRow = {
 export function connectPendingMemberships(user: LocalUser): void {
   getDatabase()
     .prepare(
-      "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND invite_email = ?",
+      "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND member_username = ?",
     )
     .run(user.userId, user.username);
 }
@@ -34,37 +32,6 @@ export function getCampaignAccess(
     )
     .get(userId, userId, campaignId, userId, userId) as AccessRow | undefined;
   return row?.role ?? null;
-}
-
-export function migrateSoleLegacyCampaign(user: LocalUser): void {
-  const db = getDatabase();
-  const owned = db
-    .prepare("SELECT COUNT(*) AS count FROM campaigns WHERE owner_id = ?")
-    .get(user.userId) as CountRow;
-  const knownUsers = db
-    .prepare("SELECT COUNT(*) AS count FROM users")
-    .get() as CountRow;
-  if (owned.count !== 0 || knownUsers.count !== 1) return;
-
-  const legacy = db
-    .prepare(
-      "SELECT payload, updated_at AS updatedAt FROM campaign_states WHERE id = 'main-campaign' LIMIT 1",
-    )
-    .get() as LegacyRow | undefined;
-  if (!legacy) return;
-
-  const parsed = JSON.parse(legacy.payload) as { campaignName?: string };
-  const now = legacy.updatedAt || Date.now();
-  db.prepare(
-    "INSERT INTO campaigns (id, owner_id, name, payload, updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-  ).run(
-    crypto.randomUUID(),
-    user.userId,
-    parsed.campaignName ?? "Imported campaign",
-    legacy.payload,
-    now,
-    now,
-  );
 }
 
 export function listCampaigns(userId: string) {
@@ -131,7 +98,7 @@ export function shareCampaign(
     .get(username) as IdRow | undefined;
   if (!known) return false;
   db.prepare(
-    "INSERT INTO campaign_members (campaign_id, user_id, invite_email, role, added_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(campaign_id, invite_email) DO UPDATE SET user_id = excluded.user_id, role = excluded.role",
+    "INSERT INTO campaign_members (campaign_id, user_id, member_username, role, added_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(campaign_id, member_username) DO UPDATE SET user_id = excluded.user_id, role = excluded.role",
   ).run(id, known.id, username, role, Date.now());
   return true;
 }

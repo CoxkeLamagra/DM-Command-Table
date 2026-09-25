@@ -21,7 +21,7 @@ The application checkout and persistent data are deliberately separated:
 
 Pulling or rebuilding the Git repository does not overwrite the SQLite database.
 
-This guide applies to DM Command Table **v3.0.0** and later.
+This guide applies to DM Command Table **v4.0.0** and later.
 
 ## 1. Create the LXC
 
@@ -245,20 +245,7 @@ systemctl start dm-command-table.service
 systemctl status dm-command-table.service --no-pager
 ```
 
-### Upgrade an existing v1 installation to v2
-
-Create a database backup before the first v2 update:
-
-```bash
-mkdir -p /var/backups/dm-command-table
-sqlite3 /var/lib/dm-command-table/dm-command-table.sqlite \
-  ".backup '/var/backups/dm-command-table/pre-v2.sqlite'"
-update-dm-command-table
-```
-
-The application adds the local-account and session fields automatically. Open the site after the update and register the intended campaign owner first. If the old database contains one legacy user, this first local account adopts that record and its campaigns.
-
-The old `DM_COMMAND_TABLE_ALLOW_LOCAL_USER` and `DM_COMMAND_TABLE_LOCAL_USER_*` settings are no longer used and can be removed from `/etc/dm-command-table.env`. Ensure it contains:
+Ensure `/etc/dm-command-table.env` contains:
 
 ```text
 DM_COMMAND_TABLE_DB_PATH=/var/lib/dm-command-table/dm-command-table.sqlite
@@ -270,9 +257,19 @@ PORT=3000
 
 Use `DM_COMMAND_TABLE_SECURE_COOKIES=true` only after HTTPS is active.
 
-### Upgrade from v2.4 to v3.0
+### Upgrade from an earlier version to v4.0
 
-No manual database migration is required. Back up both the SQLite database and the `uploads` directory, run `update-dm-command-table`, and verify that accounts, campaigns, embedded screenshots, and administrator access remain available after the service restarts.
+Version 4 uses a new canonical schema and intentionally does not migrate databases from earlier versions. Stop the service, back up the existing database and uploads directory, and move the old database files before updating:
+
+```bash
+systemctl stop dm-command-table.service
+mkdir -p /var/backups/dm-command-table/v3
+mv /var/lib/dm-command-table/dm-command-table.sqlite* \
+  /var/backups/dm-command-table/v3/
+update-dm-command-table
+```
+
+Register the first v4 account after startup; it becomes the administrator. Keep the backup if you may need to return temporarily to the v3 release.
 
 ## 11. Back up and restore server data
 

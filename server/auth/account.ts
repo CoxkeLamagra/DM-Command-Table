@@ -13,7 +13,7 @@ export function renameAccount(
   const username = normaliseUsername(usernameValue);
   const db = getDatabase();
   const existing = db
-    .prepare("SELECT id FROM users WHERE id = ? AND password_hash IS NOT NULL")
+    .prepare("SELECT id FROM users WHERE id = ?")
     .get(userId);
   if (!existing) return "not_found";
   const duplicate = db
@@ -27,15 +27,15 @@ export function renameAccount(
        WHERE user_id = ? AND EXISTS (
          SELECT 1 FROM campaign_members pending
          WHERE pending.campaign_id = campaign_members.campaign_id
-           AND pending.invite_email = ?
+           AND pending.member_username = ?
            AND pending.user_id IS NULL
        )`,
     ).run(userId, username);
     db.prepare(
-      "UPDATE campaign_members SET invite_email = ? WHERE user_id = ?",
+      "UPDATE campaign_members SET member_username = ? WHERE user_id = ?",
     ).run(username, userId);
     db.prepare(
-      "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND invite_email = ?",
+      "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND member_username = ?",
     ).run(userId, username);
     db.prepare(
       "UPDATE users SET username = ?, updated_at = ? WHERE id = ?",
@@ -52,7 +52,7 @@ export function changeOwnPassword(
   const db = getDatabase();
   const existing = db
     .prepare(
-      "SELECT password_hash AS passwordHash FROM users WHERE id = ? AND password_hash IS NOT NULL",
+      "SELECT password_hash AS passwordHash FROM users WHERE id = ?",
     )
     .get(userId) as { passwordHash: string } | undefined;
   if (!existing) return "not_found";

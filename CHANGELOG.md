@@ -4,6 +4,22 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+### Version 4 refactor
+
+- Replaced backward-compatible campaign normalization with one strictly validated v4 campaign model and export format.
+- Replaced incremental runtime database alterations with one canonical local SQLite schema.
+- Removed legacy single-campaign adoption, optional local-account columns, and old campaign-state migration paths.
+- Renamed campaign membership storage around usernames instead of the obsolete invite-email terminology.
+- Extracted the application header, sidebar, focused-record navigation, player editor, combat HP/condition editors, and monster stat block into focused components.
+- Centralized story/session relationship updates and remove story references when a linked session is deleted.
+- Added the package version to the bottom-left corner of the application interface.
+- Retained local SQLite, local filesystem screenshots, IndexedDB caching, local authentication, and all current user-facing functionality.
+- Increased domain and storage regression coverage to 26 tests.
+
+### Compatibility
+
+- Version 4 intentionally does not load v3-or-earlier SQLite databases or campaign export files. Start it with a fresh database.
+
 ## 3.0.0 — 2026-09-24
 
 ### Internal architecture

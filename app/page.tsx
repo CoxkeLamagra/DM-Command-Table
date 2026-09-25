@@ -1,30 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  BookOpen,
-  CircleUserRound,
-  Download,
-  Feather,
-  Library,
-  LogOut,
-  Menu,
-  Plus,
-  Save,
-  ScrollText,
-  Settings,
-  Share2,
-  Swords,
-  Upload,
-  Users,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
+import { Swords } from "lucide-react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { toast, Toaster } from "sonner";
 import type { Combatant, PreparedEncounter } from "@/features/campaign/types";
 import { useCampaignWorkspace } from "@/features/campaign/use-campaign-workspace";
 import { AuthScreen } from "@/features/auth/auth-screen";
-import { NavigationItem } from "@/features/shared/ui";
 import { createId } from "@/features/campaign/id";
 import { CampaignOverview } from "@/features/campaign/campaign-overview";
 import { CampaignPlayers } from "@/features/campaign/campaign-players";
@@ -43,6 +25,9 @@ import {
   orderCombatants,
   tickConditions,
 } from "@/features/combat/domain";
+import { ApplicationHeader } from "@/features/app/application-header";
+import { ApplicationSidebar } from "@/features/app/application-sidebar";
+import { useRecordNavigation } from "@/features/app/use-record-navigation";
 
 const uid = createId;
 export default function Home() {
@@ -70,9 +55,7 @@ export default function Home() {
     patch,
   } = useCampaignWorkspace();
   const [mobile, setMobile] = useState(false);
-  const [activeTab, setActiveTab] = useState("campaign");
-  const [targetSessionId, setTargetSessionId] = useState("");
-  const [targetStoryId, setTargetStoryId] = useState("");
+  const { activeTab, setActiveTab, openSession: navigateToSession, openStory: navigateToStory } = useRecordNavigation();
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("editor");
@@ -130,26 +113,6 @@ export default function Home() {
     );
     return () => lifecycle.abort();
   }, [advance]);
-  useEffect(() => {
-    if (activeTab !== "sessions" || !targetSessionId) return;
-    const frame = requestAnimationFrame(() => {
-      const entry = document.getElementById(`session-${targetSessionId}`);
-      entry?.scrollIntoView({ behavior: "smooth", block: "center" });
-      entry?.focus({ preventScroll: true });
-      setTargetSessionId("");
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [activeTab, targetSessionId]);
-  useEffect(() => {
-    if (activeTab !== "story" || !targetStoryId) return;
-    const frame = requestAnimationFrame(() => {
-      const entry = document.getElementById(`story-${targetStoryId}`);
-      entry?.scrollIntoView({ behavior: "smooth", block: "center" });
-      entry?.focus({ preventScroll: true });
-      setTargetStoryId("");
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [activeTab, targetStoryId]);
   async function share() {
     if (await shareCampaign(shareUsername, shareRole)) {
       setShareUsername("");
@@ -157,13 +120,11 @@ export default function Home() {
     }
   }
   function openSession(id: string) {
-    setTargetSessionId(id);
-    setActiveTab("sessions");
+    navigateToSession(id);
     setMobile(false);
   }
   function openStory(id: string) {
-    setTargetStoryId(id);
-    setActiveTab("story");
+    navigateToStory(id);
     setMobile(false);
   }
   async function createCampaignAndOpen() {
@@ -230,105 +191,25 @@ export default function Home() {
     <ScreenshotLibraryProvider>
     <main className="min-h-screen bg-[#0b0d12] text-[#f5f0e5]">
       <Toaster theme="dark" position="bottom-right" />
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-[#0b0d12]/95 px-4 backdrop-blur md:px-7">
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            className="md:hidden"
-            onClick={() => setMobile(!mobile)}
-            aria-label="Open navigation"
-          >
-            <Menu />
-          </button>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-amber-400/30 bg-amber-300/10 text-amber-300">
-            <Swords size={20} />
-          </span>
-          <div className="min-w-0">
-            <p className="font-serif text-lg font-semibold leading-none">
-              DM Command Table
-            </p>
-            <select
-              aria-label="Current campaign"
-              className="mt-1 max-w-56 bg-transparent text-xs text-stone-400 outline-none"
-              value={currentId}
-              onChange={(e) => selectCampaign(e.target.value)}
-            >
-              {campaigns.map((c) => (
-                <option className="bg-[#12161e]" key={c.id} value={c.id}>
-                  {c.name}
-                  {c.role !== "owner" ? ` · ${c.role}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-stone-400">
-          <span className="hidden lg:inline">{saving ? "Saving…" : saved}</span>
-          <Button
-            size="sm"
-            variant="outline"
-            className="hidden border-white/15 bg-transparent hover:bg-white/5 sm:inline-flex"
-            onClick={() => void createCampaignAndOpen()}
-          >
-            <Plus /> Campaign
-          </Button>
-          <Button
-            size="icon"
-            variant="outline"
-            className="border-white/15 bg-transparent"
-            onClick={exportCampaign}
-            title="Export campaign"
-          >
-            <Download />
-          </Button>
-          <Button
-            size="icon"
-            variant="outline"
-            className="border-white/15 bg-transparent"
-            onClick={() => fileInput.current?.click()}
-            title="Import campaign"
-          >
-            <Upload />
-          </Button>
-          {current?.role === "owner" && (
-            <Button
-              size="icon"
-              variant="outline"
-              className="border-white/15 bg-transparent"
-              onClick={() => setShareOpen(true)}
-              title="Share campaign"
-            >
-              <Share2 />
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-white/15 bg-transparent hover:bg-white/5"
-            disabled={!canEdit}
-            onClick={() => save()}
-          >
-            <Save size={15} /> Save
-          </Button>
-          <button
-            onClick={() => void logout()}
-            title={`Sign out ${user?.username ?? ""}`}
-            className="rounded-md p-2 hover:bg-white/5 hover:text-stone-200"
-          >
-            <LogOut size={17} />
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void importCampaign(f);
-              e.currentTarget.value = "";
-            }}
-          />
-        </div>
-      </header>
+      <ApplicationHeader
+        campaigns={campaigns}
+        currentId={currentId}
+        current={current}
+        user={user}
+        mobileOpen={mobile}
+        saving={saving}
+        saved={saved}
+        canEdit={canEdit}
+        fileInput={fileInput}
+        selectCampaign={selectCampaign}
+        toggleMobile={() => setMobile((open) => !open)}
+        createCampaign={() => void createCampaignAndOpen()}
+        exportCampaign={exportCampaign}
+        importCampaign={(file) => void importCampaign(file)}
+        openShare={() => setShareOpen(true)}
+        save={() => void save()}
+        logout={() => void logout()}
+      />
       <Tabs
         value={activeTab}
         onValueChange={(value) => {
@@ -338,61 +219,12 @@ export default function Home() {
         orientation="vertical"
         className="flex min-h-[calc(100vh-4rem)] gap-0"
       >
-        <aside
-          className={`${mobile ? "fixed inset-x-0 top-16 z-20 flex" : "hidden"} max-h-[calc(100vh-4rem)] w-full flex-col overflow-y-auto border-b border-white/10 bg-[#11141b] p-3 md:static md:flex md:min-h-[calc(100vh-4rem)] md:w-56 md:shrink-0 md:border-b-0 md:border-r`}
-        >
-          <p className="mb-2 px-3 pt-2 text-[11px] font-semibold uppercase tracking-[.18em] text-amber-300/70">
-            Campaign desk
-          </p>
-          <TabsList
-            variant="line"
-            className="h-auto w-full shrink-0 flex-col items-stretch gap-1 bg-transparent p-0"
-          >
-            <NavigationItem value="campaign" icon={<BookOpen />}>
-              Campaign
-            </NavigationItem>
-            <NavigationItem value="story" icon={<ScrollText />}>
-              Story
-            </NavigationItem>
-            <NavigationItem value="sessions" icon={<Feather />}>
-              Sessions
-            </NavigationItem>
-            <NavigationItem value="players" icon={<Users />}>
-              Players
-            </NavigationItem>
-            <NavigationItem value="bestiary" icon={<Library />}>
-              Bestiary
-            </NavigationItem>
-            <NavigationItem value="combat" icon={<Swords />}>
-              Combat
-            </NavigationItem>
-            <NavigationItem value="account" icon={<CircleUserRound />}>
-              Account
-            </NavigationItem>
-            {user?.isAdmin && (
-              <NavigationItem value="admin" icon={<Settings />}>
-                Administration
-              </NavigationItem>
-            )}
-          </TabsList>
-          <div className="mt-auto hidden rounded-xl border border-white/10 bg-black/20 p-3 md:block">
-            <p className="text-xs font-medium text-stone-300">
-              {current?.shared ? "Shared campaign" : "Private campaign"} ·{" "}
-              {current?.role ?? "owner"}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-stone-500">
-              Saved locally and synced to your account.
-            </p>
-            {current?.role === "owner" && (
-              <button
-                onClick={deleteCampaign}
-                className="mt-3 text-xs text-red-300/70 hover:text-red-300"
-              >
-                Delete campaign
-              </button>
-            )}
-          </div>
-        </aside>
+        <ApplicationSidebar
+          mobileOpen={mobile}
+          campaign={current}
+          user={user}
+          deleteCampaign={deleteCampaign}
+        />
         <section className="min-w-0 flex-1 p-4 md:p-7">
           <TabsContent value="combat">
             <Combat

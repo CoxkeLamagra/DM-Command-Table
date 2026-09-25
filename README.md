@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current stable release is **v3.0.0**.
+The current development version is **v4.0.0**. The latest published release is **v3.2**.
 
 ## Features
 
@@ -86,7 +86,8 @@ Imported monster data belongs to the current campaign and remains editable after
 - Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
-- Upload screenshots and embed them directly in Campaign, Session, and Story notes.
+- Paste or upload screenshots into every rich-text notes field, including Campaign, Session, Story, Player, and Monster records.
+- Format rich text with lists, bold, italic, underline, and text colors.
 - Reuse uploaded screenshots from the local library; images scale automatically to the available browser width.
 
 ## Storage architecture
@@ -124,8 +125,6 @@ DM Command Table provides its own server-local account system:
 - A newly registered account receives an editable example campaign demonstrating combatants, campaign players, bestiary monsters, session notes, and story beats.
 
 Accounts and sessions exist only in the configured SQLite database. No external identity provider or account database is contacted.
-
-On an upgrade from the former single-user mode, the first registered account adopts the sole existing user record so its campaigns remain available.
 
 For a plain-HTTP private network deployment, keep:
 
@@ -220,11 +219,11 @@ Alternatively, stop the application before copying the database file and its com
 
 Back up the adjacent `uploads` directory as well to preserve screenshots embedded in notes. A JSON campaign export contains screenshot references but does not include the binary image files.
 
-## Upgrading to v3.0
+## Upgrading to v4.0
 
-Back up the SQLite database and the adjacent `uploads` directory before upgrading a hosted installation. Version 3.0 requires no manual database migration: the application applies the compatible local schema updates when it starts.
+Version 4.0 is an intentional clean break. Databases and JSON exports created by v3 or earlier are not accepted by the v4 runtime. Stop the application and move the old SQLite database out of the configured data directory before starting v4 so the canonical schema can be created from scratch.
 
-Version 3.0 consolidates the administrator and screenshot capabilities introduced in v2.4 and completes the internal architecture refactor. Existing accounts, permissions, campaigns, sessions, prepared encounters, Bestiary entries, embedded screenshot references, and uploaded image files remain compatible.
+Screenshot files can remain in the uploads directory, but references to them live inside campaign data and are not imported automatically. Keep a backup of the previous database and uploads directory if you may need to run the previous release again.
 
 ## Campaign API
 
@@ -249,7 +248,7 @@ drizzle/              Historical and schema-generation migration metadata
 features/              Campaign, Combat, Bestiary, Session, Story, and Auth modules
 lib/                   IndexedDB cache, shared HTTP client, and typed local API clients
 server/                Local HTTP guards, authentication services, and SQLite repositories
-tests/                 Domain, migration, registration, administration, and storage tests
+tests/                 Domain, schema, registration, administration, and storage tests
 public/                Favicons and static assets
 data/                  Runtime SQLite files; excluded from version control
 deploy/                Reusable systemd, Nginx, environment, and update templates
@@ -258,7 +257,7 @@ Dockerfile             Multi-stage production container build
 compose.yaml           Local container deployment with persistent storage
 ```
 
-Feature modules keep rendering separate from testable domain operations. Combat advancement and numbering, prepared encounters, Bestiary catalogue access and imports, screenshot-token parsing, and campaign normalization live outside their screen components. API routes are thin adapters over local server services and repositories. A single authenticated screenshot provider shares the server-local media library across Campaign, Session, Story, and Administration screens.
+Feature modules keep rendering separate from testable domain operations. Combat advancement and numbering, prepared encounters, story/session relationships, Bestiary catalogue access and imports, screenshot-token parsing, and strict campaign validation live outside their screen components. API routes are thin adapters over local server services and repositories. A single authenticated screenshot provider shares the server-local media library across all rich-text fields and Administration.
 
 ## Data and privacy
 
@@ -281,8 +280,8 @@ Feature modules keep rendering separate from testable domain operations. Combat 
 
 ## Release
 
-- Latest stable release: [DM Command Table 3.0](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v3.0.0)
-- Release tag: `v3.0.0`
+- Latest stable release: [DM Command Table 3.2](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v3.2)
+- Development version: `4.0.0`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License

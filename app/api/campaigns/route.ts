@@ -5,7 +5,6 @@ import {
   deleteCampaign,
   getCampaignAccess,
   listCampaigns,
-  migrateSoleLegacyCampaign,
   shareCampaign,
   updateCampaign,
 } from "@/server/campaigns/repository";
@@ -14,6 +13,8 @@ import {
   normaliseCampaignName,
   normaliseUpdatedCampaignName,
 } from "@/server/campaigns/validation";
+import { parseCampaignState } from "@/features/campaign/schema";
+import { ZodError } from "zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,6 @@ async function currentUser() {
 export async function GET() {
   const user = await currentUser();
   if (!user) return authenticationRequired();
-  migrateSoleLegacyCampaign(user);
   return Response.json({
     user: {
       username: user.username,
@@ -78,8 +78,13 @@ export async function POST(request: Request) {
       { status: 413 },
     );
   }
-  const name = normaliseCampaignName(body.name, "New campaign");
-  return Response.json(createCampaign(user.userId, name, body.payload));
+  try {
+    const payload = parseCampaignState(body.payload);
+    const name = normaliseCampaignName(body.name, "New campaign");
+    return Response.json(createCampaign(user.userId, name, payload));
+  } catch (error) {
+    return invalidCampaign(error);
+  }
 }
 
 export async function PUT(request: Request) {
@@ -109,12 +114,17 @@ export async function PUT(request: Request) {
       { status: 413 },
     );
   }
-  const updatedAt = updateCampaign(
-    body.id,
-    normaliseUpdatedCampaignName(body.name),
-    body.payload,
-  );
-  return Response.json({ saved: true, updatedAt });
+  try {
+    const payload = parseCampaignState(body.payload);
+    const updatedAt = updateCampaign(
+      body.id,
+      normaliseUpdatedCampaignName(body.name),
+      payload,
+    );
+    return Response.json({ saved: true, updatedAt });
+  } catch (error) {
+    return invalidCampaign(error);
+  }
 }
 
 export async function DELETE(request: Request) {
@@ -143,4 +153,14 @@ function authenticationRequired() {
 
 function isShareRole(role: string | undefined): role is "viewer" | "editor" {
   return role === "viewer" || role === "editor";
+}
+
+function invalidCampaign(error: unknown) {
+  if (error instanceof ZodError) {
+    return Response.json(
+      { error: "Campaign data does not match the current format." },
+      { status: 400 },
+    );
+  }
+  throw error;
 }

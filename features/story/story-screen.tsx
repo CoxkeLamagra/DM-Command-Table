@@ -12,6 +12,7 @@ import type {
   CampaignState,
   StoryBeat,
 } from "@/features/campaign/types";
+import { toggleStorySession } from "./domain";
 
 const uid = createId;
 
@@ -36,11 +37,8 @@ export function Story({
     );
   }
   function toggleSession(beat: StoryBeat, sessionId: string) {
-    update(beat.id, {
-      sessionIds: beat.sessionIds.includes(sessionId)
-        ? beat.sessionIds.filter((id) => id !== sessionId)
-        : [...beat.sessionIds, sessionId],
-    });
+    const toggled = toggleStorySession(beat, sessionId);
+    update(beat.id, { sessionIds: toggled.sessionIds });
   }
   return (
     <>

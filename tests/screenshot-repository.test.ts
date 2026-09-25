@@ -17,9 +17,9 @@ test("screenshots remain local and support save, read, list, and delete", async 
   const now = Date.now();
   getDatabase()
     .prepare(
-      "INSERT INTO users (id, email, display_name, username, password_hash, is_admin, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO users (id, display_name, username, password_hash, is_admin, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
     )
-    .run("user", "user@local", "User", "user", "hash", 1, now);
+    .run("user", "User", "user", "hash", 1, now);
 
   const bytes = new Uint8Array([137, 80, 78, 71]);
   const saved = await saveScreenshot(

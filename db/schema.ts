@@ -1,21 +1,13 @@
 import { sqliteTable, text, integer, primaryKey, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-export const campaignStates = sqliteTable("campaign_states", {
-  id: text("id").primaryKey(),
-  payload: text("payload").notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-});
-
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
-  email: text("email").notNull(),
   displayName: text("display_name").notNull(),
-  username: text("username"),
-  passwordHash: text("password_hash"),
+  username: text("username").notNull(),
+  passwordHash: text("password_hash").notNull(),
   isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 }, (table) => [
-  uniqueIndex("idx_users_email").on(table.email),
   uniqueIndex("idx_users_username").on(table.username),
 ]);
 
@@ -43,13 +35,13 @@ export const campaigns = sqliteTable("campaigns", {
 export const campaignMembers = sqliteTable("campaign_members", {
   campaignId: text("campaign_id").notNull(),
   userId: text("user_id"),
-  inviteEmail: text("invite_email").notNull(),
+  memberUsername: text("member_username").notNull(),
   role: text("role", { enum: ["viewer", "editor"] }).notNull(),
   addedAt: integer("added_at", { mode: "timestamp_ms" }).notNull(),
 }, (table) => [
-  primaryKey({ columns: [table.campaignId, table.inviteEmail] }),
+  primaryKey({ columns: [table.campaignId, table.memberUsername] }),
   index("idx_campaign_members_user_id").on(table.userId),
-  index("idx_campaign_members_invite_email").on(table.inviteEmail),
+  index("idx_campaign_members_username").on(table.memberUsername),
 ]);
 
 export const screenshots = sqliteTable("screenshots", {

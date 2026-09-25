@@ -21,7 +21,6 @@ export function listUsers(): AdminUser[] {
       `SELECT id, username, display_name AS displayName, is_admin AS isAdmin,
               updated_at AS updatedAt
        FROM users
-       WHERE username IS NOT NULL AND password_hash IS NOT NULL
        ORDER BY is_admin DESC, username ASC`,
     )
     .all() as AdminUserRow[];
@@ -41,7 +40,7 @@ export function updateUser(
   const displayName = displayNameValue.trim().slice(0, 80) || username;
   const db = getDatabase();
   const existing = db
-    .prepare("SELECT username FROM users WHERE id = ? AND password_hash IS NOT NULL")
+    .prepare("SELECT username FROM users WHERE id = ?")
     .get(id) as { username: string } | undefined;
   if (!existing) return "not_found";
   const duplicate = db
@@ -55,15 +54,15 @@ export function updateUser(
        WHERE user_id = ? AND EXISTS (
          SELECT 1 FROM campaign_members pending
          WHERE pending.campaign_id = campaign_members.campaign_id
-           AND pending.invite_email = ?
+           AND pending.member_username = ?
            AND pending.user_id IS NULL
        )`,
     ).run(id, username);
     db.prepare(
-      "UPDATE campaign_members SET invite_email = ? WHERE user_id = ?",
+      "UPDATE campaign_members SET member_username = ? WHERE user_id = ?",
     ).run(username, id);
     db.prepare(
-      "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND invite_email = ?",
+      "UPDATE campaign_members SET user_id = ? WHERE user_id IS NULL AND member_username = ?",
     ).run(id, username);
     db.prepare(
       "UPDATE users SET username = ?, display_name = ?, updated_at = ? WHERE id = ?",
@@ -75,7 +74,7 @@ export function updateUser(
 export function resetUserPassword(id: string, password: string): boolean {
   const result = getDatabase()
     .prepare(
-      "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND password_hash IS NOT NULL",
+      "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
     )
     .run(hashPassword(password), Date.now(), id);
   if (result.changes) {
@@ -87,7 +86,7 @@ export function resetUserPassword(id: string, password: string): boolean {
 export function setUserAdmin(id: string, isAdmin: boolean): boolean {
   const result = getDatabase()
     .prepare(
-      "UPDATE users SET is_admin = ?, updated_at = ? WHERE id = ? AND password_hash IS NOT NULL",
+      "UPDATE users SET is_admin = ?, updated_at = ? WHERE id = ?",
     )
     .run(isAdmin ? 1 : 0, Date.now(), id);
   return result.changes > 0;
@@ -103,7 +102,7 @@ export function deleteUser(id: string): boolean {
     ).run(id);
     db.prepare("DELETE FROM campaigns WHERE owner_id = ?").run(id);
     const result = db
-      .prepare("DELETE FROM users WHERE id = ? AND password_hash IS NOT NULL")
+      .prepare("DELETE FROM users WHERE id = ?")
       .run(id);
     return result.changes > 0;
   });
@@ -112,7 +111,7 @@ export function deleteUser(id: string): boolean {
 export function countAdmins(): number {
   const row = getDatabase()
     .prepare(
-      "SELECT COUNT(*) AS count FROM users WHERE is_admin = 1 AND password_hash IS NOT NULL",
+      "SELECT COUNT(*) AS count FROM users WHERE is_admin = 1",
     )
     .get() as { count: number };
   return row.count;

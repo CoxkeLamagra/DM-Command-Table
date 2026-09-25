@@ -13,7 +13,12 @@ import {
 } from "@/lib/api/campaign-client";
 import { logout as logoutRemote } from "@/lib/api/auth-client";
 import { createEmptyCampaign, starterCampaign } from "./defaults";
-import { normaliseCampaign } from "./normalise";
+import {
+  CAMPAIGN_EXPORT_FORMAT,
+  CAMPAIGN_EXPORT_VERSION,
+  parseCampaignExport,
+  parseCampaignState,
+} from "./schema";
 import type { Campaign, CampaignState, CampaignUser } from "./types";
 
 export function useCampaignWorkspace() {
@@ -68,7 +73,7 @@ export function useCampaignWorkspace() {
           new Date(selected.updatedAt) > new Date(known?.updatedAt ?? 0))
       ) {
         setCurrentId(selected.id);
-        setData(normaliseCampaign(selected.payload));
+        setData(parseCampaignState(selected.payload));
       }
       setSaved("Synced");
       setLoaded(true);
@@ -162,7 +167,7 @@ export function useCampaignWorkspace() {
     );
     if (!selected) return;
     setCurrentId(id);
-    setData(normaliseCampaign(selected.payload));
+    setData(parseCampaignState(selected.payload));
   }, []);
 
   const deleteCampaign = useCallback(async () => {
@@ -200,8 +205,8 @@ export function useCampaignWorkspace() {
       [
         JSON.stringify(
           {
-            format: "dm-command-table",
-            version: 1,
+            format: CAMPAIGN_EXPORT_FORMAT,
+            version: CAMPAIGN_EXPORT_VERSION,
             name: selected.name,
             payload: dataRef.current,
           },
@@ -221,15 +226,11 @@ export function useCampaignWorkspace() {
 
   const importCampaign = useCallback(async (file: File) => {
     try {
-      const parsed = JSON.parse(await file.text()) as {
-        name?: string;
-        payload?: CampaignState;
-      };
-      if (!parsed.payload?.campaignName) throw new Error();
-      const payload = normaliseCampaign(parsed.payload);
+      const parsed = parseCampaignExport(JSON.parse(await file.text()));
+      const payload = parsed.payload;
       const created = await createRemoteCampaign(
         payload,
-        parsed.name ?? parsed.payload.campaignName,
+        parsed.name,
       );
       await cacheCampaign(created);
       setCampaigns((list) => [created, ...list]);

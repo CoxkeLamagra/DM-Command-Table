@@ -11,15 +11,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ScreenTitle } from "@/features/shared/ui";
-import {
-  NoteContent,
-  ScreenshotNotes,
-} from "@/features/screenshots/screenshot-notes";
+import { NoteContent } from "@/features/screenshots/screenshot-notes";
 import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import { createId } from "./id";
 import type { CampaignPatch, CampaignPlayer, CampaignState } from "./types";
+import { PlayerEditor } from "./player-editor";
 
 const uid = createId;
 
@@ -142,124 +139,23 @@ export function CampaignPlayers({
                 key={player.id}
                 className="rounded-xl border border-white/10 bg-[#12161e] p-5"
               >
-                <div className="flex items-start gap-3">
-                  <label className="min-w-0 flex-1 text-xs text-stone-500">
-                    Player name
-                    <Input
-                      className="mt-1 border-white/10 bg-black/20 font-serif text-lg text-amber-100"
-                      value={player.name}
-                      onChange={(e) =>
-                        update(player.id, { name: e.target.value })
-                      }
-                    />
-                  </label>
+                <div className="mb-3 flex justify-end">
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="mt-5 text-stone-600 hover:text-red-300"
+                    className="text-stone-600 hover:text-red-300"
                     onClick={() => deletePlayers([player.id])}
                     aria-label={`Delete ${player.name}`}
                   >
                     <Trash2 />
                   </Button>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <label className="text-xs text-stone-500">
-                    Race
-                    <Input
-                      className="mt-1 border-white/10 bg-black/20"
-                      placeholder="e.g. Human"
-                      value={player.race}
-                      onChange={(e) =>
-                        update(player.id, { race: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label className="text-xs text-stone-500">
-                    Class
-                    <Input
-                      className="mt-1 border-white/10 bg-black/20"
-                      placeholder="e.g. Paladin"
-                      value={player.className}
-                      onChange={(e) =>
-                        update(player.id, { className: e.target.value })
-                      }
-                    />
-                  </label>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-3">
-                  <label className="text-xs text-stone-500">
-                    Level
-                    <Input
-                      min="1"
-                      max="20"
-                      className="mt-1 border-white/10 bg-black/20"
-                      type="number"
-                      value={player.level ?? ""}
-                      onChange={(e) =>
-                        update(player.id, {
-                          level:
-                            e.target.value === ""
-                              ? null
-                              : Math.min(20, Math.max(1, +e.target.value)),
-                        })
-                      }
-                      onBlur={() => {
-                        if (player.level === null)
-                          update(player.id, { level: 1 });
-                      }}
-                    />
-                  </label>
-                  <label className="text-xs text-stone-500">
-                    Hit points (optional)
-                    <Input
-                      min="0"
-                      className="mt-1 border-white/10 bg-black/20"
-                      type="number"
-                      placeholder="Not set"
-                      value={player.hp ?? ""}
-                      onChange={(e) =>
-                        update(player.id, {
-                          hp:
-                            e.target.value === ""
-                              ? null
-                              : Math.max(0, +e.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="text-xs text-stone-500">
-                    Armor class (optional)
-                    <Input
-                      min="0"
-                      className="mt-1 border-white/10 bg-black/20"
-                      type="number"
-                      placeholder="Not set"
-                      value={player.ac ?? ""}
-                      onChange={(e) =>
-                        update(player.id, {
-                          ac:
-                            e.target.value === ""
-                              ? null
-                              : Math.max(0, +e.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-                <section className="mt-4 text-xs text-stone-500">
-                  <p>Player notes</p>
-                  <div className="mt-1">
-                    <ScreenshotNotes
-                      className="min-h-28"
-                      placeholder="Background, abilities, reminders, or campaign notes…"
-                      value={player.notes}
-                      onChange={(notes) => update(player.id, { notes })}
-                      screenshots={screenshots}
-                      upload={upload}
-                    />
-                  </div>
-                </section>
+                <PlayerEditor
+                  player={player}
+                  screenshots={screenshots}
+                  upload={upload}
+                  update={(part) => update(player.id, part)}
+                />
               </article>
             ))}
           </div>
@@ -343,38 +239,13 @@ export function CampaignPlayers({
                                 Edit campaign player
                               </DialogTitle>
                             </DialogHeader>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <label className="text-xs text-stone-500">
-                                Player name
-                                <Input className="mt-1 border-white/10 bg-black/20" value={player.name} onChange={(event) => update(player.id, { name: event.target.value })} />
-                              </label>
-                              <label className="text-xs text-stone-500">
-                                Race
-                                <Input className="mt-1 border-white/10 bg-black/20" value={player.race} onChange={(event) => update(player.id, { race: event.target.value })} />
-                              </label>
-                              <label className="text-xs text-stone-500">
-                                Class
-                                <Input className="mt-1 border-white/10 bg-black/20" value={player.className} onChange={(event) => update(player.id, { className: event.target.value })} />
-                              </label>
-                              <label className="text-xs text-stone-500">
-                                Level
-                                <Input min="1" max="20" className="mt-1 border-white/10 bg-black/20" type="number" value={player.level ?? ""} onChange={(event) => update(player.id, { level: event.target.value === "" ? null : Math.min(20, Math.max(1, +event.target.value)) })} />
-                              </label>
-                              <label className="text-xs text-stone-500">
-                                Hit points
-                                <Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" value={player.hp ?? ""} onChange={(event) => update(player.id, { hp: event.target.value === "" ? null : Math.max(0, +event.target.value) })} />
-                              </label>
-                              <label className="text-xs text-stone-500">
-                                Armor class
-                                <Input min="0" className="mt-1 border-white/10 bg-black/20" type="number" value={player.ac ?? ""} onChange={(event) => update(player.id, { ac: event.target.value === "" ? null : Math.max(0, +event.target.value) })} />
-                              </label>
-                            </div>
-                            <section className="text-xs text-stone-500">
-                              <p>Player notes</p>
-                              <div className="mt-1">
-                                <ScreenshotNotes className="min-h-32" value={player.notes} onChange={(notes) => update(player.id, { notes })} screenshots={screenshots} upload={upload} />
-                              </div>
-                            </section>
+                            <PlayerEditor
+                              compact
+                              player={player}
+                              screenshots={screenshots}
+                              upload={upload}
+                              update={(part) => update(player.id, part)}
+                            />
                           </DialogContent>
                         </Dialog>
                       </td>

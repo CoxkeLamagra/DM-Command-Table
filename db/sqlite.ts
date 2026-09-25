@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { applyRuntimeMigrations, RUNTIME_SCHEMA } from "./runtime-schema.ts";
+import { RUNTIME_SCHEMA } from "./runtime-schema.ts";
 
 const DEFAULT_DATABASE_PATH = path.join(
   process.cwd(),
@@ -25,7 +25,5 @@ export function getDatabase(): DatabaseSync {
   database.exec("PRAGMA foreign_keys = ON");
   database.exec("PRAGMA busy_timeout = 5000");
   database.exec(RUNTIME_SCHEMA);
-  applyRuntimeMigrations(database);
-
   return database;
 }
