@@ -11,8 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import type { Screenshot } from "@/lib/api/screenshot-client";
+import {
+  RichTextContent,
+  RichTextEditor,
+} from "@/features/rich-text/rich-text";
 import { appendScreenshotToken, parseScreenshotNotes } from "./tokens";
 
 export function ScreenshotNotes({
@@ -53,10 +56,10 @@ export function ScreenshotNotes({
 
   return (
     <div>
-      <Textarea
-        className={`${className} resize-y border-white/10 bg-black/20 leading-7`}
+      <RichTextEditor
+        className={className}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         placeholder={placeholder}
       />
       <div className="mt-2 flex flex-wrap gap-2">
@@ -148,7 +151,7 @@ export function NoteContent({
       {parts.map((part, index) => {
         if ("text" in part)
           return part.text.trim() ? (
-            <p key={index} className="whitespace-pre-wrap">{part.text.trim()}</p>
+            <RichTextContent key={index} value={part.text.trim()} />
           ) : null;
         const screenshot = records.get(part.screenshotId);
         const imageKey = `${part.screenshotId}-${index}`;
@@ -161,11 +164,12 @@ export function NoteContent({
             <button
               type="button"
               className={`block max-w-full cursor-zoom-in overflow-hidden rounded bg-black/30 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 ${expanded ? "w-full cursor-zoom-out" : "w-auto"}`}
-              onClick={() =>
+              onClick={(event) => {
+                event.stopPropagation();
                 setExpandedImage((current) =>
                   current === imageKey ? null : imageKey,
-                )
-              }
+                );
+              }}
               aria-label={`${expanded ? "Reduce" : "Enlarge"} ${screenshot.name}`}
               aria-expanded={expanded}
             >

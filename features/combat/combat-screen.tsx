@@ -22,6 +22,7 @@ import type {
   Combatant,
 } from "@/features/campaign/types";
 import { DetailSection, ScreenTitle, Stat } from "@/features/shared/ui";
+import { RichTextContent } from "@/features/rich-text/rich-text";
 import {
   createMonsterCombatants,
   createPlayerCombatants,
@@ -628,13 +629,13 @@ export function Combat({
                     <Stat label="Speed" value={monster.speed} />
                   </div>
                   <DetailSection title="Ability scores">
-                    {monster.stats}
+                    <RichTextContent value={monster.stats} />
                   </DetailSection>
                   <DetailSection title="Actions & traits">
-                    {monster.abilities}
+                    <RichTextContent value={monster.abilities} />
                   </DetailSection>
                   <DetailSection title="Spellcasting">
-                    {monster.spells}
+                    <RichTextContent value={monster.spells} />
                     <div className="mt-3 flex flex-wrap gap-2">
                       {monster.slots.map((n, i) => (
                         <span

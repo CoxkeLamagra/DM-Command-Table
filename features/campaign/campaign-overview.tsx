@@ -102,9 +102,16 @@ export function CampaignOverview({
                   >
                     {session.done ? <Check size={18} /> : index + 1}
                   </div>
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => openSession(session.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openSession(session.id);
+                      }
+                    }}
                     className="rounded-xl border border-white/10 bg-[#12161e] p-5 text-left transition hover:border-amber-300/30 hover:bg-amber-300/[.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -140,7 +147,7 @@ export function CampaignOverview({
                         No session notes yet.
                       </p>
                     )}
-                  </button>
+                  </div>
                 </article>
               ))}
             </div>

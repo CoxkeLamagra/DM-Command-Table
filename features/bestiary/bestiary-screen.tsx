@@ -30,6 +30,7 @@ import type {
   Monster,
 } from "@/features/campaign/types";
 import { ScreenTitle, Stat } from "@/features/shared/ui";
+import { richTextToPlainText } from "@/features/rich-text/rich-text";
 
 const uid = createId;
 
@@ -440,7 +441,7 @@ export function Bestiary({
                 <Stat label="Speed" value={m.speed} />
               </div>
               <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-stone-400">
-                {m.abilities.split("\n")[0]}
+                {richTextToPlainText(m.abilities).split("\n")[0]}
               </p>
             </div>
           ))}

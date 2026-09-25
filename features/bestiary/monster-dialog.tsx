@@ -9,9 +9,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import type { Monster } from "@/features/campaign/types";
 import { DetailSection, Stat } from "@/features/shared/ui";
+import {
+  RichTextContent,
+  RichTextEditor,
+} from "@/features/rich-text/rich-text";
 import {
   NoteContent,
   ScreenshotNotes,
@@ -101,30 +104,36 @@ export function MonsterDialog({
               />
             </label>
           </div>
-          <label className="text-xs text-stone-500">
-            Ability scores
-            <Textarea
-              className="mt-1 min-h-20 border-white/10 bg-black/20"
-              value={monster.stats}
-              onChange={(event) => update({ stats: event.target.value })}
-            />
-          </label>
-          <label className="text-xs text-stone-500">
-            Actions &amp; traits
-            <Textarea
-              className="mt-1 min-h-36 border-white/10 bg-black/20"
-              value={monster.abilities}
-              onChange={(event) => update({ abilities: event.target.value })}
-            />
-          </label>
-          <label className="text-xs text-stone-500">
-            Spellcasting
-            <Textarea
-              className="mt-1 min-h-28 border-white/10 bg-black/20"
-              value={monster.spells}
-              onChange={(event) => update({ spells: event.target.value })}
-            />
-          </label>
+          <section className="text-xs text-stone-500">
+            <p>Ability scores</p>
+            <div className="mt-1">
+              <RichTextEditor
+                className="min-h-20"
+                value={monster.stats}
+                onChange={(stats) => update({ stats })}
+              />
+            </div>
+          </section>
+          <section className="text-xs text-stone-500">
+            <p>Actions &amp; traits</p>
+            <div className="mt-1">
+              <RichTextEditor
+                className="min-h-36"
+                value={monster.abilities}
+                onChange={(abilities) => update({ abilities })}
+              />
+            </div>
+          </section>
+          <section className="text-xs text-stone-500">
+            <p>Spellcasting</p>
+            <div className="mt-1">
+              <RichTextEditor
+                className="min-h-28"
+                value={monster.spells}
+                onChange={(spells) => update({ spells })}
+              />
+            </div>
+          </section>
           <section>
             <p className="text-xs text-stone-500">Notes</p>
             <div className="mt-1">
@@ -181,12 +190,14 @@ export function MonsterDialog({
           <Stat label="Hit points" value={monster.hp} />
           <Stat label="Speed" value={monster.speed} />
         </div>
-        <DetailSection title="Ability scores">{monster.stats}</DetailSection>
+        <DetailSection title="Ability scores">
+          <RichTextContent value={monster.stats} />
+        </DetailSection>
         <DetailSection title="Actions & traits">
-          {monster.abilities}
+          <RichTextContent value={monster.abilities} />
         </DetailSection>
         <DetailSection title="Spellcasting">
-          {monster.spells}
+          <RichTextContent value={monster.spells} />
           <div className="mt-3 flex flex-wrap gap-3">
             {monster.slots.map((count, index) => (
               <span
