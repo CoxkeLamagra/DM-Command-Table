@@ -21,7 +21,7 @@ The application checkout and persistent data are deliberately separated:
 
 Pulling or rebuilding the Git repository does not overwrite the SQLite database.
 
-This guide applies to DM Command Table **v2.4.0** and later.
+This guide applies to DM Command Table **v3.0.0** and later.
 
 ## 1. Create the LXC
 
@@ -269,6 +269,10 @@ PORT=3000
 ```
 
 Use `DM_COMMAND_TABLE_SECURE_COOKIES=true` only after HTTPS is active.
+
+### Upgrade from v2.4 to v3.0
+
+No manual database migration is required. Back up both the SQLite database and the `uploads` directory, run `update-dm-command-table`, and verify that accounts, campaigns, embedded screenshots, and administrator access remain available after the service restarts.
 
 ## 11. Back up and restore server data
 
