@@ -4,6 +4,15 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 4.0.2 — 2026-09-25
+
+### Combat tracker
+
+- Prevented the same linked campaign player from being added to Combat more than once.
+- Disabled campaign players already in Combat and labelled them clearly in the player picker.
+- Limited **Select all players** to campaign players not yet present in Combat.
+- Kept duplicate additions unrestricted for Monsters, NPCs, and unlinked ad-hoc combatants.
+
 ## 4.0.1 — 2026-09-25
 
 ### Fixes
