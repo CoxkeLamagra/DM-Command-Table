@@ -16,7 +16,11 @@ import {
   RichTextContent,
   RichTextEditor,
 } from "@/features/rich-text/rich-text";
-import { appendScreenshotToken, parseScreenshotNotes } from "./tokens";
+import {
+  appendScreenshotToken,
+  parseScreenshotNotes,
+  screenshotToken,
+} from "./tokens";
 
 export function ScreenshotNotes({
   value,
@@ -59,13 +63,27 @@ export function ScreenshotNotes({
     }
   }
 
+  async function handlePastedImage(file: File): Promise<string | undefined> {
+    setUploading(true);
+    try {
+      const record = await upload(file);
+      toast.success("Screenshot pasted into the field");
+      return screenshotToken(record.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Screenshot could not be uploaded.");
+      return undefined;
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div>
       <RichTextEditor
         className={className}
         value={value}
         onChange={onChange}
-        onPasteImage={handleUpload}
+        onPasteImage={handlePastedImage}
         placeholder={placeholder}
       />
       <div className="mt-2 flex flex-wrap gap-2">

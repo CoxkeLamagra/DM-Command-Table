@@ -42,7 +42,7 @@ export function RichTextEditor({
 }: {
   value: string;
   onChange: (value: string) => void;
-  onPasteImage?: (file: File) => void | Promise<void>;
+  onPasteImage?: (file: File) => Promise<string | void>;
   placeholder?: string;
   className?: string;
 }) {
@@ -147,7 +147,20 @@ export function RichTextEditor({
           const file = image?.getAsFile();
           if (!file || !onPasteImage) return;
           event.preventDefault();
-          void onPasteImage(file);
+          rememberSelection();
+          void (async () => {
+            const insertion = await onPasteImage(file);
+            if (!insertion || !editor.current) return;
+            editor.current.focus();
+            const selection = document.getSelection();
+            if (selection && savedSelection.current) {
+              selection.removeAllRanges();
+              selection.addRange(savedSelection.current);
+            }
+            document.execCommand("insertText", false, insertion);
+            onChange(editor.current.innerHTML);
+            rememberSelection();
+          })();
         }}
         onBlur={(event) => {
           const safe = sanitizeRichText(event.currentTarget.innerHTML);
