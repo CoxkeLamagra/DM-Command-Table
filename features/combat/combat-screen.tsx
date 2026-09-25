@@ -296,7 +296,33 @@ export function Combat({
             const tone = colors[c.kind];
             const down = c.hp <= 0;
             const campaignPlayer = data.players.find(
-              (player) => xç«h‘éì¶»§q«^t                 >
+              (player) => player.id === c.campaignPlayerId,
+            );
+            const playerDetails = [
+              campaignPlayer?.race,
+              campaignPlayer?.className,
+            ]
+              .filter(Boolean)
+              .join(" Â· ");
+            return (
+              <button
+                key={c.id}
+                onClick={() => setSelectedId(c.id)}
+                className={`grid w-full grid-cols-[44px_1fr_auto] items-center gap-3 rounded-xl border p-3 text-left transition ${down ? "border-red-500/50 bg-red-950/20" : selected?.id === c.id ? `${tone.border} ${tone.bg}` : "border-white/10 bg-[#12161e] hover:border-white/20"} ${selected?.id === c.id && down ? "ring-1 ring-red-400/40" : ""}`}
+              >
+                <span
+                  className={`grid h-10 w-10 place-items-center rounded-full bg-black/25 font-serif text-lg ${down ? "text-red-300" : tone.text}`}
+                >
+                  {c.initiative}
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${down ? "bg-red-500" : tone.dot}`}
+                    />
+                    <span
+                      className={`truncate font-medium ${down ? "text-stone-400 line-through decoration-red-400/70" : ""}`}
+                    >
                       {c.name}
                       {c.kind !== "player" && c.number != null
                         ? ` #${c.number}`
