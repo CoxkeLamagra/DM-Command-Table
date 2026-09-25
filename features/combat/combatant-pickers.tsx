@@ -15,6 +15,7 @@ import type { CampaignPlayer, Monster } from "@/features/campaign/types";
 
 export function CampaignPlayerPicker({
   players,
+  existingPlayerIds,
   open,
   onOpenChange,
   selectedIds,
@@ -22,12 +23,16 @@ export function CampaignPlayerPicker({
   onAdd,
 }: {
   players: CampaignPlayer[];
+  existingPlayerIds: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedIds: string[];
   setSelectedIds: Dispatch<SetStateAction<string[]>>;
   onAdd: () => void;
 }) {
+  const availablePlayers = players.filter(
+    (player) => !existingPlayerIds.includes(player.id),
+  );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-amber-300 px-3 py-2 text-sm font-medium whitespace-nowrap text-black transition-all hover:bg-amber-200 [&_svg]:size-4">
@@ -45,24 +50,35 @@ export function CampaignPlayerPicker({
               <input
                 type="checkbox"
                 className="size-4 accent-amber-300"
-                checked={selectedIds.length === players.length}
+                checked={
+                  availablePlayers.length > 0 &&
+                  availablePlayers.every((player) =>
+                    selectedIds.includes(player.id),
+                  )
+                }
+                disabled={!availablePlayers.length}
                 onChange={(event) =>
                   setSelectedIds(
-                    event.target.checked ? players.map((player) => player.id) : [],
+                    event.target.checked
+                      ? availablePlayers.map((player) => player.id)
+                      : [],
                   )
                 }
               />
               Select all players
             </label>
             <div className="space-y-2">
-              {players.map((player) => (
+              {players.map((player) => {
+                const alreadyAdded = existingPlayerIds.includes(player.id);
+                return (
                 <label
                   key={player.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selectedIds.includes(player.id) ? "border-amber-300/30 bg-amber-300/[.05]" : "border-white/10 bg-black/20 hover:border-white/20"}`}
+                  className={`flex items-center gap-3 rounded-lg border p-3 transition ${alreadyAdded ? "cursor-not-allowed border-white/5 bg-black/10 opacity-50" : selectedIds.includes(player.id) ? "cursor-pointer border-amber-300/30 bg-amber-300/[.05]" : "cursor-pointer border-white/10 bg-black/20 hover:border-white/20"}`}
                 >
                   <input
                     type="checkbox"
                     className="size-4 shrink-0 accent-amber-300"
+                    disabled={alreadyAdded}
                     checked={selectedIds.includes(player.id)}
                     onChange={() =>
                       setSelectedIds((current) =>
@@ -75,6 +91,11 @@ export function CampaignPlayerPicker({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-stone-200">
                       {player.name || "Unnamed player"}
+                      {alreadyAdded && (
+                        <span className="ml-2 text-xs font-normal text-stone-500">
+                          Already in combat
+                        </span>
+                      )}
                     </p>
                     <p className="mt-1 text-xs text-stone-500">
                       {[player.race, player.className].filter(Boolean).join(" · ") ||
@@ -82,7 +103,8 @@ export function CampaignPlayerPicker({
                     </p>
                   </div>
                 </label>
-              ))}
+                );
+              })}
             </div>
             <Button
               disabled={!selectedIds.length}

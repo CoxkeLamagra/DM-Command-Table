@@ -79,6 +79,7 @@ export function Combat({
     const additions = createPlayerCombatants(
       data.players,
       selectedPlayerIds,
+      data.combatants,
       uid,
     );
     if (!additions.length) return;
@@ -201,6 +202,11 @@ export function Combat({
             </Button>
             <CampaignPlayerPicker
               players={data.players}
+              existingPlayerIds={data.combatants.flatMap((combatant) =>
+                combatant.campaignPlayerId
+                  ? [combatant.campaignPlayerId]
+                  : [],
+              )}
               open={playerPickerOpen}
               onOpenChange={(open) => {
                 setPlayerPickerOpen(open);

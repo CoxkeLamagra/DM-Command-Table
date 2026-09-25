@@ -38,11 +38,36 @@ test("campaign players retain fallback HP and AC values", () => {
   const result = createPlayerCombatants(
     [{ id: "p", name: "Hero", race: "", className: "", level: 1, hp: null, ac: null, notes: "" }],
     ["p"],
+    [],
     () => "new",
   );
   assert.equal(result[0].hp, 10);
   assert.equal(result[0].ac, 10);
   assert.equal(result[0].campaignPlayerId, "p");
+});
+
+test("a linked campaign player can only be added to combat once", () => {
+  const player = {
+    id: "p",
+    name: "Hero",
+    race: "Human",
+    className: "Fighter",
+    level: 4,
+    hp: 30,
+    ac: 17,
+    notes: "",
+  };
+  const existing = [
+    { ...combatant("linked", "player"), campaignPlayerId: player.id },
+    combatant("unlinked", "player"),
+    combatant("npc", "npc"),
+    combatant("monster", "monster"),
+  ];
+
+  assert.deepEqual(
+    createPlayerCombatants([player], [player.id], existing, () => "duplicate"),
+    [],
+  );
 });
 
 test("bestiary and prepared monsters preserve numbering and links", () => {

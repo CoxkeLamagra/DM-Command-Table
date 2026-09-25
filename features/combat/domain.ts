@@ -41,10 +41,19 @@ export function tickConditions(conditions: CombatCondition[]): CombatCondition[]
 export function createPlayerCombatants(
   players: CampaignPlayer[],
   selectedIds: string[],
+  existing: Combatant[],
   createId: IdFactory,
 ): Combatant[] {
+  const linkedPlayerIds = new Set(
+    existing.flatMap((combatant) =>
+      combatant.campaignPlayerId ? [combatant.campaignPlayerId] : [],
+    ),
+  );
   return players
-    .filter((player) => selectedIds.includes(player.id))
+    .filter(
+      (player) =>
+        selectedIds.includes(player.id) && !linkedPlayerIds.has(player.id),
+    )
     .map((player) => {
       const hp = player.hp ?? 10;
       return {
