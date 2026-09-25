@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Images } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,11 +34,16 @@ export function ScreenshotNotes({
   className?: string;
 }) {
   const input = useRef<HTMLInputElement | null>(null);
+  const currentValue = useRef(value);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  useEffect(() => {
+    currentValue.current = value;
+  }, [value]);
+
   function insert(record: Screenshot) {
-    onChange(appendScreenshotToken(value, record.id));
+    onChange(appendScreenshotToken(currentValue.current, record.id));
     setLibraryOpen(false);
   }
 
@@ -46,7 +51,7 @@ export function ScreenshotNotes({
     setUploading(true);
     try {
       insert(await upload(file));
-      toast.success("Screenshot uploaded and added to notes");
+      toast.success("Screenshot uploaded and added to the field");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Screenshot could not be uploaded.");
     } finally {
@@ -60,6 +65,7 @@ export function ScreenshotNotes({
         className={className}
         value={value}
         onChange={onChange}
+        onPasteImage={handleUpload}
         placeholder={placeholder}
       />
       <div className="mt-2 flex flex-wrap gap-2">

@@ -22,7 +22,8 @@ import type {
   Combatant,
 } from "@/features/campaign/types";
 import { DetailSection, ScreenTitle, Stat } from "@/features/shared/ui";
-import { RichTextContent } from "@/features/rich-text/rich-text";
+import { NoteContent } from "@/features/screenshots/screenshot-notes";
+import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import {
   createMonsterCombatants,
   createPlayerCombatants,
@@ -45,6 +46,7 @@ export function Combat({
   patch: CampaignPatch;
   advance: () => void;
 }) {
+  const { screenshots } = useScreenshotLibrary();
   const [selectedId, setSelectedId] = useState(ordered[0]?.id ?? "");
   const [newCondition, setNewCondition] = useState("");
   const [playerPickerOpen, setPlayerPickerOpen] = useState(false);
@@ -629,13 +631,16 @@ export function Combat({
                     <Stat label="Speed" value={monster.speed} />
                   </div>
                   <DetailSection title="Ability scores">
-                    <RichTextContent value={monster.stats} />
+                    <NoteContent value={monster.stats} screenshots={screenshots} />
                   </DetailSection>
                   <DetailSection title="Actions & traits">
-                    <RichTextContent value={monster.abilities} />
+                    <NoteContent
+                      value={monster.abilities}
+                      screenshots={screenshots}
+                    />
                   </DetailSection>
                   <DetailSection title="Spellcasting">
-                    <RichTextContent value={monster.spells} />
+                    <NoteContent value={monster.spells} screenshots={screenshots} />
                     <div className="mt-3 flex flex-wrap gap-2">
                       {monster.slots.map((n, i) => (
                         <span

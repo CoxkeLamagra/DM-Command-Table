@@ -12,10 +12,6 @@ import { Input } from "@/components/ui/input";
 import type { Monster } from "@/features/campaign/types";
 import { DetailSection, Stat } from "@/features/shared/ui";
 import {
-  RichTextContent,
-  RichTextEditor,
-} from "@/features/rich-text/rich-text";
-import {
   NoteContent,
   ScreenshotNotes,
 } from "@/features/screenshots/screenshot-notes";
@@ -107,30 +103,36 @@ export function MonsterDialog({
           <section className="text-xs text-stone-500">
             <p>Ability scores</p>
             <div className="mt-1">
-              <RichTextEditor
+              <ScreenshotNotes
                 className="min-h-20"
                 value={monster.stats}
                 onChange={(stats) => update({ stats })}
+                screenshots={screenshots}
+                upload={upload}
               />
             </div>
           </section>
           <section className="text-xs text-stone-500">
             <p>Actions &amp; traits</p>
             <div className="mt-1">
-              <RichTextEditor
+              <ScreenshotNotes
                 className="min-h-36"
                 value={monster.abilities}
                 onChange={(abilities) => update({ abilities })}
+                screenshots={screenshots}
+                upload={upload}
               />
             </div>
           </section>
           <section className="text-xs text-stone-500">
             <p>Spellcasting</p>
             <div className="mt-1">
-              <RichTextEditor
+              <ScreenshotNotes
                 className="min-h-28"
                 value={monster.spells}
                 onChange={(spells) => update({ spells })}
+                screenshots={screenshots}
+                upload={upload}
               />
             </div>
           </section>
@@ -191,13 +193,13 @@ export function MonsterDialog({
           <Stat label="Speed" value={monster.speed} />
         </div>
         <DetailSection title="Ability scores">
-          <RichTextContent value={monster.stats} />
+          <NoteContent value={monster.stats} screenshots={screenshots} />
         </DetailSection>
         <DetailSection title="Actions & traits">
-          <RichTextContent value={monster.abilities} />
+          <NoteContent value={monster.abilities} screenshots={screenshots} />
         </DetailSection>
         <DetailSection title="Spellcasting">
-          <RichTextContent value={monster.spells} />
+          <NoteContent value={monster.spells} screenshots={screenshots} />
           <div className="mt-3 flex flex-wrap gap-3">
             {monster.slots.map((count, index) => (
               <span

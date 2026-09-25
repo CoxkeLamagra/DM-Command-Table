@@ -36,11 +36,13 @@ const SAFE_COLOR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i;
 export function RichTextEditor({
   value,
   onChange,
+  onPasteImage,
   placeholder,
   className = "min-h-28",
 }: {
   value: string;
   onChange: (value: string) => void;
+  onPasteImage?: (file: File) => void | Promise<void>;
   placeholder?: string;
   className?: string;
 }) {
@@ -137,6 +139,16 @@ export function RichTextEditor({
         onInput={(event) => onChange(event.currentTarget.innerHTML)}
         onKeyUp={rememberSelection}
         onMouseUp={rememberSelection}
+        onSelect={rememberSelection}
+        onPaste={(event) => {
+          const image = Array.from(event.clipboardData.items).find(
+            (item) => item.kind === "file" && item.type.startsWith("image/"),
+          );
+          const file = image?.getAsFile();
+          if (!file || !onPasteImage) return;
+          event.preventDefault();
+          void onPasteImage(file);
+        }}
         onBlur={(event) => {
           const safe = sanitizeRichText(event.currentTarget.innerHTML);
           if (safe !== event.currentTarget.innerHTML)
