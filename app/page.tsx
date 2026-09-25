@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
+  CircleUserRound,
   Download,
   Feather,
   Library,
@@ -34,6 +35,7 @@ import { Story } from "@/features/story/story-screen";
 import { Combat } from "@/features/combat/combat-screen";
 import { Bestiary } from "@/features/bestiary/bestiary-screen";
 import { AdminScreen } from "@/features/admin/admin-screen";
+import { AccountScreen } from "@/features/account/account-screen";
 import { ScreenshotLibraryProvider } from "@/features/screenshots/use-screenshot-library";
 import {
   advanceCombatTurn,
@@ -341,6 +343,9 @@ export default function Home() {
             <NavigationItem value="story" icon={<ScrollText />}>
               Story
             </NavigationItem>
+            <NavigationItem value="account" icon={<CircleUserRound />}>
+              Account
+            </NavigationItem>
             {user?.isAdmin && (
               <NavigationItem value="admin" icon={<Settings />}>
                 Administration
@@ -399,6 +404,11 @@ export default function Home() {
           <TabsContent value="story">
             <Story data={data} patch={patch} />
           </TabsContent>
+          {user && (
+            <TabsContent value="account">
+              <AccountScreen user={user} refresh={() => refresh(true)} />
+            </TabsContent>
+          )}
           {user?.isAdmin && (
             <TabsContent value="admin">
               <AdminScreen currentUsername={user.username} />
