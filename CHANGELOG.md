@@ -4,6 +4,8 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 4.0.3 — 2026-09-27
+
 ### Security hardening
 
 - Added per-IP and per-account throttling for registration, login, password changes, administrator password resets, and screenshot uploads.
