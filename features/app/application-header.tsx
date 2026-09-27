@@ -1,8 +1,15 @@
 "use client";
 
 import type { ChangeEvent, RefObject } from "react";
-import { Download, LogOut, Menu, Plus, Save, Share2, Swords, Upload } from "lucide-react";
+import { Copy, Download, FilePlus2, LayoutTemplate, LogOut, Menu, Plus, Save, Share2, Swords, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { CampaignCopyMode } from "@/features/campaign/copy";
 import type { Campaign, CampaignUser } from "@/features/campaign/types";
 
 export function ApplicationHeader({
@@ -18,6 +25,7 @@ export function ApplicationHeader({
   selectCampaign,
   toggleMobile,
   createCampaign,
+  copyCampaign,
   exportCampaign,
   importCampaign,
   openShare,
@@ -36,6 +44,7 @@ export function ApplicationHeader({
   selectCampaign: (id: string) => void;
   toggleMobile: () => void;
   createCampaign: () => void;
+  copyCampaign: (mode: CampaignCopyMode) => void;
   exportCampaign: () => void;
   importCampaign: (file: File) => void;
   openShare: () => void;
@@ -78,6 +87,21 @@ export function ApplicationHeader({
         <Button size="sm" variant="outline" className="hidden border-white/15 bg-transparent hover:bg-white/5 sm:inline-flex" onClick={createCampaign}>
           <Plus /> Campaign
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="outline" className="border-white/15 bg-transparent" title="Copy campaign">
+              <Copy />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onSelect={() => copyCampaign("campaign")}>
+              <FilePlus2 /> Copy as new campaign
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => copyCampaign("template")}>
+              <LayoutTemplate /> Copy as template
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button size="icon" variant="outline" className="border-white/15 bg-transparent" onClick={exportCampaign} title="Export campaign"><Download /></Button>
         <Button size="icon" variant="outline" className="border-white/15 bg-transparent" onClick={() => fileInput.current?.click()} title="Import campaign"><Upload /></Button>
         {current?.role === "owner" && (

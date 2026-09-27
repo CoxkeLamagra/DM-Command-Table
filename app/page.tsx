@@ -46,6 +46,7 @@ export default function Home() {
     refresh,
     save,
     addCampaign,
+    copyCampaign,
     selectCampaign,
     deleteCampaign,
     exportCampaign,
@@ -133,6 +134,11 @@ export default function Home() {
     setActiveTab("campaign");
     setMobile(false);
   }
+  async function copyCampaignAndOpen(mode: "campaign" | "template") {
+    if (!(await copyCampaign(mode))) return;
+    setActiveTab("campaign");
+    setMobile(false);
+  }
   function createSessionAndOpen() {
     const session = createSessionNote(
       uid,
@@ -205,6 +211,7 @@ export default function Home() {
         selectCampaign={selectCampaign}
         toggleMobile={() => setMobile((open) => !open)}
         createCampaign={() => void createCampaignAndOpen()}
+        copyCampaign={(mode) => void copyCampaignAndOpen(mode)}
         exportCampaign={exportCampaign}
         importCampaign={(file) => void importCampaign(file)}
         openShare={() => setShareOpen(true)}

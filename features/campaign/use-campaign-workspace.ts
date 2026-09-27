@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/campaign-client";
 import { logout as logoutRemote } from "@/lib/api/auth-client";
 import { createEmptyCampaign, starterCampaign } from "./defaults";
+import { createCampaignCopy, type CampaignCopyMode } from "./copy";
 import {
   CAMPAIGN_EXPORT_FORMAT,
   CAMPAIGN_EXPORT_VERSION,
@@ -161,6 +162,26 @@ export function useCampaignWorkspace() {
     }
   }, []);
 
+  const copyCampaign = useCallback(async (mode: CampaignCopyMode) => {
+    try {
+      const payload = createCampaignCopy(dataRef.current, mode);
+      const created = await createRemoteCampaign(payload);
+      await cacheCampaign(created);
+      setCampaigns((list) => [created, ...list]);
+      setCurrentId(created.id);
+      setData(created.payload);
+      toast.success(
+        mode === "template"
+          ? "Campaign template created"
+          : "Campaign copy created",
+      );
+      return true;
+    } catch {
+      toast.error("Campaign could not be copied");
+      return false;
+    }
+  }, []);
+
   const selectCampaign = useCallback((id: string) => {
     const selected = campaignsRef.current.find(
       (campaign) => campaign.id === id,
@@ -301,6 +322,7 @@ export function useCampaignWorkspace() {
     refresh,
     save,
     addCampaign,
+    copyCampaign,
     selectCampaign,
     deleteCampaign,
     exportCampaign,
