@@ -11,12 +11,7 @@ import type { Combatant, Monster } from "@/features/campaign/types";
 import { DetailSection, Stat } from "@/features/shared/ui";
 import { NoteContent } from "@/features/screenshots/screenshot-notes";
 import type { Screenshot } from "@/lib/api/screenshot-client";
-
-const CONDITION_OPTIONS = [
-  "Blinded", "Charmed", "Deafened", "Frightened", "Grappled",
-  "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned",
-  "Prone", "Restrained", "Stunned", "Unconscious", "Concentrating",
-];
+import { ConditionIcon, DEFAULT_CONDITIONS } from "./condition-icons";
 
 export function HitPointEditor({
   combatant,
@@ -75,6 +70,7 @@ export function ConditionEditor({
       <div className="mt-3 flex flex-wrap gap-2">
         {combatant.conditions.length ? combatant.conditions.map((condition) => (
           <Badge key={condition.id} className="gap-1 bg-violet-400/15 py-1.5 text-violet-200">
+            <ConditionIcon name={condition.name} />
             {condition.name}
             {condition.remainingTurns !== null && <span className="text-violet-300/70">· {condition.remainingTurns} turn{condition.remainingTurns === 1 ? "" : "s"}</span>}
             <button aria-label={`Remove ${condition.name}`} onClick={() => update({ conditions: combatant.conditions.filter((entry) => entry.id !== condition.id) })}><X size={13} /></button>
@@ -83,7 +79,7 @@ export function ConditionEditor({
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Input list="condition-options" placeholder="Add a condition…" className="border-white/10 bg-black/20" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addCondition(); }} />
-        <datalist id="condition-options">{CONDITION_OPTIONS.map((option) => <option key={option} value={option} />)}</datalist>
+        <datalist id="condition-options">{DEFAULT_CONDITIONS.map((option) => <option key={option} value={option} />)}</datalist>
         <Input aria-label="Condition duration in turns" title="Duration in turns (optional)" placeholder="Turns" className="w-24 border-white/10 bg-black/20" type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addCondition(); }} />
         <Button onClick={addCondition} variant="outline" className="border-white/10"><Plus /> Add</Button>
       </div>

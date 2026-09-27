@@ -28,6 +28,7 @@ import {
 } from "./domain";
 import { BestiaryMonsterPicker, CampaignPlayerPicker } from "./combatant-pickers";
 import { ConditionEditor, HitPointEditor, MonsterStatBlock } from "./combatant-details";
+import { ConditionIcon } from "./condition-icons";
 
 const uid = createId;
 
@@ -338,6 +339,28 @@ export function Combat({
                         ? ` #${c.number}`
                         : ""}
                     </span>
+                    {c.conditions.length > 0 && (
+                      <span
+                        className="flex shrink-0 items-center gap-1 rounded-md border border-violet-400/20 bg-violet-400/10 px-1.5 py-1 text-violet-300"
+                        aria-label={`Conditions: ${c.conditions.map((condition) => condition.name).join(", ")}`}
+                        title={c.conditions
+                          .map((condition) => condition.name)
+                          .join(", ")}
+                      >
+                        {c.conditions.slice(0, 3).map((condition) => (
+                          <ConditionIcon
+                            key={condition.id}
+                            name={condition.name}
+                            size={13}
+                          />
+                        ))}
+                        {c.conditions.length > 3 && (
+                          <span className="text-[10px] font-semibold">
+                            +{c.conditions.length - 3}
+                          </span>
+                        )}
+                      </span>
+                    )}
                     {down && (
                       <Badge className="border border-red-400/30 bg-red-500/15 text-red-200">
                         Down · 0 HP
