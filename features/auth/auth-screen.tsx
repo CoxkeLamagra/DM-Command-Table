@@ -15,6 +15,7 @@ export function AuthScreen({
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [bootstrapToken, setBootstrapToken] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -23,7 +24,13 @@ export function AuthScreen({
     setSubmitting(true);
     setError("");
     try {
-      await authenticate({ action: mode, username, password, displayName });
+      await authenticate({
+        action: mode,
+        username,
+        password,
+        displayName,
+        bootstrapToken: bootstrapToken || undefined,
+      });
       onAuthenticated();
     } catch (submitError) {
       setError(
@@ -74,17 +81,29 @@ export function AuthScreen({
         </div>
         <form onSubmit={submit} className="mt-5 space-y-4">
           {mode === "register" && (
-            <label className="block text-sm text-stone-300">
-              Display name
-              <Input
-                autoComplete="name"
-                className="mt-2 border-white/10 bg-black/20"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Dungeon Master"
-                maxLength={80}
-              />
-            </label>
+            <>
+              <label className="block text-sm text-stone-300">
+                Display name
+                <Input
+                  autoComplete="name"
+                  className="mt-2 border-white/10 bg-black/20"
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  placeholder="Dungeon Master"
+                  maxLength={80}
+                />
+              </label>
+              <label className="block text-sm text-stone-300">
+                Initial setup token <span className="text-stone-500">(first account only)</span>
+                <Input
+                  autoComplete="off"
+                  className="mt-2 border-white/10 bg-black/20"
+                  type="password"
+                  value={bootstrapToken}
+                  onChange={(event) => setBootstrapToken(event.target.value)}
+                />
+              </label>
+            </>
           )}
           <label className="block text-sm text-stone-300">
             Username

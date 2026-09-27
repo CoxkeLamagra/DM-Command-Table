@@ -9,6 +9,10 @@ import {
   readJson,
   rejectCrossOrigin,
 } from "@/server/http/requests";
+import {
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/server/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +47,13 @@ export async function PATCH(request: Request) {
   }
 
   if (body?.action === "change-password") {
+    const rateLimit = consumeRateLimit(
+      `account-password:${user.userId}`,
+      5,
+      60 * 60 * 1000,
+    );
+    if (!rateLimit.allowed)
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
     const newPassword = body.newPassword ?? "";
     if (newPassword.length < 8 || newPassword.length > 128)
       return Response.json(

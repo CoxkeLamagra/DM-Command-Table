@@ -15,6 +15,8 @@ import {
 } from "@/server/campaigns/validation";
 import { parseCampaignState } from "@/features/campaign/schema";
 import { ZodError } from "zod";
+import { readJson, rejectCrossOrigin } from "@/server/http/requests";
+import { sanitizeCampaignRichText } from "@/server/security/sanitize-rich-text";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,16 +41,20 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
   const user = await currentUser();
   if (!user) return authenticationRequired();
-  const body = (await request.json()) as {
+  const body = await readJson<{
     action?: string;
     id?: string;
     name?: string;
     payload?: unknown;
     username?: string;
     role?: string;
-  };
+  }>(request);
+  if (!body)
+    return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
 
   if (body.action === "share") {
     if (!body.id || !body.username || !isShareRole(body.role)) {
@@ -79,7 +85,7 @@ export async function POST(request: Request) {
     );
   }
   try {
-    const payload = parseCampaignState(body.payload);
+    const payload = sanitizeCampaignRichText(parseCampaignState(body.payload));
     const name = normaliseCampaignName(body.name, "New campaign");
     return Response.json(createCampaign(user.userId, name, payload));
   } catch (error) {
@@ -88,13 +94,17 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
   const user = await currentUser();
   if (!user) return authenticationRequired();
-  const body = (await request.json()) as {
+  const body = await readJson<{
     id?: string;
     name?: string;
     payload?: unknown;
-  };
+  }>(request);
+  if (!body)
+    return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
   if (!body.id) {
     return Response.json(
       { error: "Campaign id is required." },
@@ -115,7 +125,7 @@ export async function PUT(request: Request) {
     );
   }
   try {
-    const payload = parseCampaignState(body.payload);
+    const payload = sanitizeCampaignRichText(parseCampaignState(body.payload));
     const updatedAt = updateCampaign(
       body.id,
       normaliseUpdatedCampaignName(body.name),
@@ -128,6 +138,8 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
   const user = await currentUser();
   if (!user) return authenticationRequired();
   const id = new URL(request.url).searchParams.get("id");

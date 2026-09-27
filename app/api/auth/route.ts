@@ -7,6 +7,12 @@ import {
 import { registerLocalUser } from "@/server/auth/registration";
 import { createSession, destroySession } from "@/server/auth/sessions";
 import { readJson, rejectCrossOrigin } from "@/server/http/requests";
+import {
+  clientAddress,
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/server/security/rate-limit";
+import { getDatabase } from "@/db/sqlite";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +25,7 @@ export async function POST(request: Request) {
     username?: string;
     password?: string;
     displayName?: string;
+    bootstrapToken?: string;
   }>(request);
   const action = body?.action;
   const username = normaliseUsername(body?.username ?? "");
@@ -34,6 +41,22 @@ export async function POST(request: Request) {
     return Response.json({ error: validationError }, { status: 400 });
 
   if (action === "register") {
+    const globalRateLimit = consumeRateLimit(
+      "register:global",
+      30,
+      60 * 60 * 1000,
+    );
+    if (!globalRateLimit.allowed)
+      return rateLimitResponse(globalRateLimit.retryAfterSeconds);
+    const rateLimit = consumeRateLimit(
+      `register:${clientAddress(request)}`,
+      5,
+      60 * 60 * 1000,
+    );
+    if (!rateLimit.allowed)
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    const registrationError = registrationPolicyError(body?.bootstrapToken);
+    if (registrationError) return registrationError;
     const displayName =
       (body?.displayName ?? username).trim().slice(0, 80) || username;
     const result = registerLocalUser({ username, displayName, password });
@@ -53,6 +76,20 @@ export async function POST(request: Request) {
   }
 
   if (action === "login") {
+    const globalRateLimit = consumeRateLimit(
+      "login:global",
+      300,
+      15 * 60 * 1000,
+    );
+    if (!globalRateLimit.allowed)
+      return rateLimitResponse(globalRateLimit.retryAfterSeconds);
+    const rateLimit = consumeRateLimit(
+      `login:${clientAddress(request)}:${username}`,
+      10,
+      15 * 60 * 1000,
+    );
+    if (!rateLimit.allowed)
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
     const user = findLocalUser(username);
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return Response.json(
@@ -74,4 +111,32 @@ export async function POST(request: Request) {
     { error: "Unsupported authentication action." },
     { status: 400 },
   );
+}
+
+function registrationPolicyError(bootstrapToken?: string): Response | null {
+  const row = getDatabase().prepare("SELECT COUNT(*) AS count FROM users").get() as {
+    count: number;
+  };
+  const firstAccount = row.count === 0;
+  const configuredToken = process.env.DM_COMMAND_TABLE_BOOTSTRAP_TOKEN;
+  if (firstAccount) {
+    if (process.env.NODE_ENV === "production" && !configuredToken) {
+      return Response.json(
+        { error: "Registration is not configured. Set DM_COMMAND_TABLE_BOOTSTRAP_TOKEN on the server first." },
+        { status: 503 },
+      );
+    }
+    if (configuredToken && bootstrapToken !== configuredToken) {
+      return Response.json({ error: "The bootstrap token is incorrect." }, { status: 403 });
+    }
+    return null;
+  }
+  const mode = process.env.DM_COMMAND_TABLE_REGISTRATION_MODE ?? "first-user";
+  if (mode !== "open") {
+    return Response.json(
+      { error: "New account registration is disabled by the administrator." },
+      { status: 403 },
+    );
+  }
+  return null;
 }

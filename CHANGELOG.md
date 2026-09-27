@@ -4,6 +4,18 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+### Security hardening
+
+- Added per-IP and per-account throttling for registration, login, password changes, administrator password resets, and screenshot uploads.
+- Protected the first administrator registration with a production bootstrap token and disabled later public registration by default.
+- Restricted screenshots to their uploader, administrators, and users with access to a campaign that references the image.
+- Added a configurable per-account screenshot storage quota and server-side image decoding and WebP re-encoding.
+- Added same-origin enforcement to all campaign-changing endpoints and strengthened forwarded-origin validation.
+- Added server-side rich-text sanitization before campaign data is stored.
+- Added Content Security Policy, frame, MIME-sniffing, referrer, permissions, and cross-origin opener response headers.
+- Updated vulnerable transitive build dependencies; the production dependency audit now reports no known vulnerabilities.
+- Expanded security regression coverage for rate limiting, rich-text sanitization, and screenshot authorization.
+
 ## 4.0.2 — 2026-09-25
 
 ### Combat tracker

@@ -137,13 +137,23 @@ Review the configuration:
 nano /etc/dm-command-table.env
 ```
 
-For the default plain-HTTP private-network deployment, keep:
+Generate a unique initial-account token and replace `REPLACE_WITH_A_LONG_RANDOM_VALUE` in the environment file:
 
-```text
-DM_COMMAND_TABLE_SECURE_COOKIES=false
+```bash
+openssl rand -base64 32
 ```
 
-The SQLite file and account schema are created automatically on the first API request. After the service starts, open the site and use **Register** to create an account with a username and password. Additional users can register their own local accounts and campaign owners can share campaigns with those usernames.
+The first registration must supply this value in the **Initial setup token** field. After the administrator exists, remove or rotate the token. Later registrations are disabled by default. To onboard another user, temporarily set `DM_COMMAND_TABLE_REGISTRATION_MODE=open`, restart the service, let that user register, and return the setting to `first-user`.
+
+For the default deployment, keep automatic HTTPS detection:
+
+```text
+DM_COMMAND_TABLE_SECURE_COOKIES=auto
+```
+
+Use `false` only for a trusted plain-HTTP network where HTTPS will not be configured.
+
+The SQLite file and account schema are created automatically on the first API request. After the service starts, open the site and use **Register** to create the initial administrator with a username, password, and the configured setup token.
 
 Each new account receives an editable example campaign. It can be renamed, changed, exported, or deleted after the user has explored the available features.
 
@@ -151,7 +161,9 @@ When upgrading an existing single-user installation, the first registered local 
 
 Passwords are salted and hashed with `scrypt`. Login sessions and password hashes remain in `/var/lib/dm-command-table/dm-command-table.sqlite`; uploaded screenshots are stored in `/var/lib/dm-command-table/uploads`. No external authentication, media, or database service is used.
 
-When the site is later served exclusively over HTTPS, change the setting to `DM_COMMAND_TABLE_SECURE_COOKIES=true` and restart the service.
+Screenshot files are validated and converted to WebP. The default quota is 100 MiB per account. Change `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB` if the server has a different storage budget.
+
+When Nginx serves HTTPS, its `X-Forwarded-Proto` header causes `auto` mode to mark session cookies secure. You may use `true` to enforce secure cookies unconditionally.
 
 ## 7. Install and start the systemd service
 
@@ -200,6 +212,12 @@ If a firewall is enabled, allow TCP port 80. Do not expose port 3000; the Node.j
 ### Optional hostname and HTTPS
 
 Replace `server_name _;` in `/etc/nginx/sites-available/dm-command-table` with the DNS hostname before configuring TLS. Use your preferred certificate solution after the DNS record points to the LXC. Keep the Node.js application bound to `127.0.0.1:3000`.
+
+For any Internet-accessible deployment, HTTPS is required. After installing the certificate, redirect port 80 to HTTPS and add this header to the TLS-enabled Nginx server block only after confirming HTTPS works:
+
+```nginx
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+```
 
 ## 9. Install the update command
 
@@ -250,12 +268,14 @@ Ensure `/etc/dm-command-table.env` contains:
 ```text
 DM_COMMAND_TABLE_DB_PATH=/var/lib/dm-command-table/dm-command-table.sqlite
 DM_COMMAND_TABLE_UPLOAD_PATH=/var/lib/dm-command-table/uploads
-DM_COMMAND_TABLE_SECURE_COOKIES=false
+DM_COMMAND_TABLE_SECURE_COOKIES=auto
+DM_COMMAND_TABLE_REGISTRATION_MODE=first-user
+DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB=100
 NODE_ENV=production
 PORT=3000
 ```
 
-Use `DM_COMMAND_TABLE_SECURE_COOKIES=true` only after HTTPS is active.
+Retain a securely generated `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` until the first administrator has registered. Automatic cookie mode uses Nginx's forwarded protocol; `true` can enforce HTTPS-only cookies after TLS is active.
 
 ### Upgrade from an earlier version to v4.0
 

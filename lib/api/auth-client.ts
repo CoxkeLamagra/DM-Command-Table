@@ -6,6 +6,7 @@ export async function authenticate(input: {
   username: string;
   password: string;
   displayName?: string;
+  bootstrapToken?: string;
 }): Promise<CampaignUser> {
   const body = await requestJson<{
     user?: CampaignUser;

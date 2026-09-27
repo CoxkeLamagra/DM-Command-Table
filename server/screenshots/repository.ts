@@ -1,14 +1,16 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import { getDatabase } from "../../db/sqlite.ts";
 
-const MIME_EXTENSIONS: Record<string, string> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-  "image/webp": ".webp",
-  "image/gif": ".gif",
-};
+const SUPPORTED_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
 export const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_SCREENSHOT_QUOTA_BYTES = 100 * 1024 * 1024;
 
 export type ScreenshotRecord = {
   id: string;
@@ -31,7 +33,21 @@ type ScreenshotRow = {
 };
 
 export function isSupportedScreenshotType(mimeType: string): boolean {
-  return Boolean(MIME_EXTENSIONS[mimeType]);
+  return SUPPORTED_MIME_TYPES.has(mimeType);
+}
+
+export function screenshotQuotaBytes(): number {
+  const configured = Number(process.env.DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB);
+  return Number.isFinite(configured) && configured > 0
+    ? Math.floor(configured * 1024 * 1024)
+    : DEFAULT_SCREENSHOT_QUOTA_BYTES;
+}
+
+export function screenshotBytesUsed(userId: string): number {
+  const row = getDatabase()
+    .prepare("SELECT COALESCE(SUM(size), 0) AS size FROM screenshots WHERE uploaded_by = ?")
+    .get(userId) as { size: number };
+  return row.size;
 }
 
 export async function saveScreenshot(
@@ -39,10 +55,23 @@ export async function saveScreenshot(
   userId: string,
 ): Promise<ScreenshotRecord> {
   const id = crypto.randomUUID();
-  const filename = `${id}${MIME_EXTENSIONS[file.type]}`;
+  const filename = `${id}.webp`;
   const directory = screenshotDirectory();
+  const source = Buffer.from(await file.arrayBuffer());
+  const bytes = await sharp(source, {
+    animated: true,
+    failOn: "warning",
+    limitInputPixels: 40_000_000,
+  })
+    .rotate()
+    .webp({ quality: 90 })
+    .toBuffer();
+  if (!bytes.length || bytes.length > MAX_SCREENSHOT_BYTES)
+    throw new Error("The processed screenshot is too large.");
+  if (screenshotBytesUsed(userId) + bytes.length > screenshotQuotaBytes())
+    throw new Error("The screenshot storage quota has been reached.");
   await mkdir(directory, { recursive: true });
-  await writeFile(path.join(/* turbopackIgnore: true */ directory, filename), Buffer.from(await file.arrayBuffer()), {
+  await writeFile(path.join(/* turbopackIgnore: true */ directory, filename), bytes, {
     flag: "wx",
   });
   const createdAt = Date.now();
@@ -51,7 +80,7 @@ export async function saveScreenshot(
       .prepare(
         "INSERT INTO screenshots (id, filename, original_name, mime_type, size, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
-      .run(id, filename, cleanName(file.name), file.type, file.size, userId, createdAt);
+      .run(id, filename, cleanName(file.name), "image/webp", bytes.length, userId, createdAt);
   } catch (error) {
     await unlink(path.join(/* turbopackIgnore: true */ directory, filename)).catch(() => undefined);
     throw error;
@@ -60,14 +89,14 @@ export async function saveScreenshot(
     id,
     filename,
     name: cleanName(file.name),
-    mimeType: file.type,
-    size: file.size,
+    mimeType: "image/webp",
+    size: bytes.length,
     uploadedBy: userId,
     createdAt,
   });
 }
 
-export function listScreenshots(): ScreenshotRecord[] {
+export function listScreenshots(userId: string, isAdmin = false): ScreenshotRecord[] {
   const rows = getDatabase()
     .prepare(
       `SELECT s.id, s.filename, s.original_name AS name, s.mime_type AS mimeType,
@@ -75,22 +104,39 @@ export function listScreenshots(): ScreenshotRecord[] {
               s.created_at AS createdAt
        FROM screenshots s
        LEFT JOIN users u ON u.id = s.uploaded_by
+       WHERE ? = 1 OR s.uploaded_by = ? OR EXISTS (
+         SELECT 1 FROM campaigns c
+         LEFT JOIN campaign_members m ON m.campaign_id = c.id AND m.user_id = ?
+         WHERE (c.owner_id = ? OR m.user_id = ?)
+           AND instr(c.payload, '[[screenshot:' || s.id || ']]') > 0
+       )
        ORDER BY s.created_at DESC`,
     )
-    .all() as ScreenshotRow[];
+    .all(isAdmin ? 1 : 0, userId, userId, userId, userId) as ScreenshotRow[];
   return rows.map(toRecord);
 }
 
-export async function readScreenshot(id: string): Promise<{
+export async function readScreenshot(id: string, userId: string, isAdmin = false): Promise<{
   bytes: Buffer;
   mimeType: string;
   name: string;
 } | null> {
   const row = getDatabase()
     .prepare(
-      "SELECT filename, original_name AS name, mime_type AS mimeType FROM screenshots WHERE id = ? LIMIT 1",
+      `SELECT s.filename, s.original_name AS name, s.mime_type AS mimeType
+       FROM screenshots s
+       WHERE s.id = ? AND (
+         ? = 1 OR s.uploaded_by = ? OR EXISTS (
+           SELECT 1 FROM campaigns c
+           LEFT JOIN campaign_members m ON m.campaign_id = c.id AND m.user_id = ?
+           WHERE (c.owner_id = ? OR m.user_id = ?)
+             AND instr(c.payload, '[[screenshot:' || s.id || ']]') > 0
+         )
+       ) LIMIT 1`,
     )
-    .get(id) as { filename: string; name: string; mimeType: string } | undefined;
+    .get(id, isAdmin ? 1 : 0, userId, userId, userId, userId) as
+    | { filename: string; name: string; mimeType: string }
+    | undefined;
   if (!row) return null;
   try {
     return {

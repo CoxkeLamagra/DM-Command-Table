@@ -4,7 +4,14 @@ import {
   listScreenshots,
   MAX_SCREENSHOT_BYTES,
   saveScreenshot,
+  screenshotBytesUsed,
+  screenshotQuotaBytes,
 } from "@/server/screenshots/repository";
+import {
+  clientAddress,
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/server/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +19,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const authorization = await authorizeRequest();
   if ("response" in authorization) return authorization.response;
-  return Response.json({ screenshots: listScreenshots() });
+  const { user } = authorization;
+  return Response.json({
+    screenshots: listScreenshots(user.userId, Boolean(user.isAdmin)),
+  });
 }
 
 export async function POST(request: Request) {
@@ -21,6 +31,13 @@ export async function POST(request: Request) {
   const authorization = await authorizeRequest();
   if ("response" in authorization) return authorization.response;
   const { user } = authorization;
+  const rateLimit = consumeRateLimit(
+    `screenshot-upload:${user.userId}:${clientAddress(request)}`,
+    30,
+    60 * 60 * 1000,
+  );
+  if (!rateLimit.allowed)
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   if (!(file instanceof File))
@@ -35,6 +52,19 @@ export async function POST(request: Request) {
       { error: "Screenshots must be no larger than 8 MB." },
       { status: 413 },
     );
-  const screenshot = await saveScreenshot(file, user.userId);
+  if (screenshotBytesUsed(user.userId) + file.size > screenshotQuotaBytes())
+    return Response.json(
+      { error: "Your screenshot storage quota has been reached." },
+      { status: 413 },
+    );
+  let screenshot;
+  try {
+    screenshot = await saveScreenshot(file, user.userId);
+  } catch {
+    return Response.json(
+      { error: "The uploaded file is not a valid supported image." },
+      { status: 415 },
+    );
+  }
   return Response.json({ screenshot }, { status: 201 });
 }

@@ -117,12 +117,14 @@ By default, screenshots are written to an `uploads` directory beside the databas
 
 DM Command Table provides its own server-local account system:
 
-- Register with a unique username and password.
+- Register the first administrator with a server-configured bootstrap token.
+- Keep later registration disabled by default, or explicitly enable it while onboarding additional users.
 - Passwords are salted and hashed with Node.js `scrypt`; plaintext passwords are never stored.
 - Login sessions use random server-side tokens. Only a SHA-256 hash of each token is stored in SQLite.
 - The browser receives an HttpOnly, `SameSite=Lax` session cookie that expires after 30 days.
 - Signing out deletes the active server-side session.
 - A newly registered account receives an editable example campaign demonstrating combatants, campaign players, bestiary monsters, session notes, and story beats.
+- Authentication, password changes, and screenshot uploads are rate-limited in the application process.
 
 Accounts and sessions exist only in the configured SQLite database. No external identity provider or account database is contacted.
 
@@ -132,9 +134,13 @@ For a plain-HTTP private network deployment, keep:
 DM_COMMAND_TABLE_SECURE_COOKIES=false
 ```
 
-After configuring HTTPS, set `DM_COMMAND_TABLE_SECURE_COOKIES=true` and restart the service. This prevents the browser from sending the session cookie over an unencrypted connection.
+The default value, `auto`, marks cookies secure whenever the trusted reverse proxy reports HTTPS through `X-Forwarded-Proto`. You can set `DM_COMMAND_TABLE_SECURE_COOKIES=true` to require secure cookies unconditionally. Use `false` only for a trusted plain-HTTP private network.
 
-Registration is open to anyone who can reach the application. Keep an HTTP deployment on a trusted private network; use HTTPS and suitable network access controls before exposing it more broadly.
+Production startup requires `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` before the first account can be created. Generate a random value, enter it in the first-account registration form, and remove or rotate it after setup. `DM_COMMAND_TABLE_REGISTRATION_MODE` defaults to `first-user`, which prevents later public registration. Temporarily set it to `open` and restart the application when another person needs to register, then return it to `first-user`.
+
+Uploaded images are decoded and re-encoded as WebP before storage. Each account has a 100 MiB quota by default; change it with `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`. Users can access their own screenshots and screenshots referenced by campaigns they can access. Administrators retain access to the complete screenshot-management library.
+
+The application sends a Content Security Policy, frame protection, MIME-sniffing protection, a restrictive permissions policy, and a referrer policy. Public deployments must use HTTPS; secure session cookies are enabled automatically when the reverse proxy reports HTTPS. Add HSTS at the HTTPS reverse proxy after confirming that the hostname is served exclusively over HTTPS.
 
 ## Technology
 
@@ -194,10 +200,11 @@ The server listens on port `3000` by default. Make sure the process can write to
 The included Docker configuration stores SQLite data in a persistent named volume:
 
 ```bash
+export DM_COMMAND_TABLE_BOOTSTRAP_TOKEN="$(openssl rand -base64 32)"
 docker compose up --build -d
 ```
 
-The application is then available at [http://localhost:3000](http://localhost:3000). Register the first local account from the sign-in screen. Accounts, campaign data, and uploaded screenshots persist in the same Docker volume.
+The application is then available at [http://localhost:3000](http://localhost:3000). Enter the generated token in the initial setup-token field when registering the first local account. Accounts, campaign data, and uploaded screenshots persist in the same Docker volume.
 
 ## Debian 13 LXC deployment
 
@@ -264,7 +271,7 @@ Feature modules keep rendering separate from testable domain operations. Combat 
 - Campaign data is stored locally in browser IndexedDB and in the server's SQLite file.
 - No external database service is used by this version.
 - Passwords and sessions are stored only in the server-local SQLite database.
-- Screenshot files remain in the configured server-local uploads directory.
+- Screenshot files remain in the configured server-local uploads directory and are only listed or served to their uploader, an administrator, or a user who can access a campaign that references them.
 - Campaigns are private unless the owner explicitly grants access to another registered username.
 - Exported JSON files contain the complete campaign payload, including players, monsters, encounters, notes, and story data.
 - Imported monster records are copied into the campaign; the application does not depend on the remote source after import.

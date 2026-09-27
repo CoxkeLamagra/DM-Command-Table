@@ -13,7 +13,12 @@ export async function GET(
 ) {
   const authorization = await authorizeRequest();
   if ("response" in authorization) return authorization.response;
-  const screenshot = await readScreenshot((await context.params).id);
+  const { user } = authorization;
+  const screenshot = await readScreenshot(
+    (await context.params).id,
+    user.userId,
+    Boolean(user.isAdmin),
+  );
   if (!screenshot)
     return Response.json({ error: "Screenshot not found." }, { status: 404 });
   return new Response(new Uint8Array(screenshot.bytes), {

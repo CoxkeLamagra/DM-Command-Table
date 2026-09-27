@@ -15,6 +15,10 @@ import {
   readJson,
   rejectCrossOrigin,
 } from "@/server/http/requests";
+import {
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/server/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +57,13 @@ export async function PATCH(request: Request) {
     if (result === "not_found")
       return Response.json({ error: "User not found." }, { status: 404 });
   } else if (body.action === "reset-password") {
+    const rateLimit = consumeRateLimit(
+      `admin-password:${user.userId}`,
+      10,
+      60 * 60 * 1000,
+    );
+    if (!rateLimit.allowed)
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
     const password = body.password ?? "";
     if (password.length < 8 || password.length > 128)
       return Response.json(

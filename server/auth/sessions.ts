@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { cookies } from "next/headers";
-import { getDatabase } from "@/db/sqlite";
+import { cookies, headers } from "next/headers";
+import { getDatabase } from "../../db/sqlite.ts";
 import type { LocalUser } from "./credentials";
 
 const COOKIE_NAME = "dmct_session";
@@ -32,10 +32,11 @@ export async function createSession(userId: string): Promise<void> {
       "INSERT INTO local_sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
     )
     .run(hashToken(token), userId, now + SESSION_SECONDS * 1000, now);
+  const secure = await secureCookieEnabled();
   (await cookies()).set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.DM_COMMAND_TABLE_SECURE_COOKIES === "true",
+    secure,
     path: "/",
     maxAge: SESSION_SECONDS,
   });
@@ -52,10 +53,17 @@ export async function destroySession(): Promise<void> {
   store.set(COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.DM_COMMAND_TABLE_SECURE_COOKIES === "true",
+    secure: await secureCookieEnabled(),
     path: "/",
     maxAge: 0,
   });
+}
+
+async function secureCookieEnabled(): Promise<boolean> {
+  const setting = process.env.DM_COMMAND_TABLE_SECURE_COOKIES ?? "auto";
+  if (setting === "true") return true;
+  if (setting === "false") return false;
+  return (await headers()).get("x-forwarded-proto")?.split(",")[0]?.trim() === "https";
 }
 
 function hashToken(token: string): string {
