@@ -42,7 +42,7 @@ export function Combat({
   ordered: Combatant[];
   update: (id: string, p: Partial<Combatant>) => void;
   patch: CampaignPatch;
-  advance: () => void;
+  advance: () => string | undefined;
 }) {
   const { screenshots } = useScreenshotLibrary();
   const [selectedId, setSelectedId] = useState(ordered[0]?.id ?? "");
@@ -58,6 +58,10 @@ export function Combat({
     (player) => player.id === selected?.campaignPlayerId,
   );
   const hasStandingCombatant = ordered.some((c) => c.hp > 0);
+  const advanceAndFocus = () => {
+    const nextCombatantId = advance();
+    if (nextCombatantId) setSelectedId(nextCombatantId);
+  };
   const add = () => {
     const id = uid();
     patch("combatants", [
@@ -289,7 +293,7 @@ export function Combat({
           </Button>
           <Button
             disabled={!hasStandingCombatant}
-            onClick={advance}
+            onClick={advanceAndFocus}
             className="bg-[#d75b42] hover:bg-[#ec6b50] disabled:bg-stone-700"
           >
             Next turn <ChevronRight />

@@ -79,6 +79,7 @@ export default function Home() {
           : combatant,
       ),
     }));
+    return nextCombatantId;
   }, [canEdit, ordered, data.turn, data.round, setData]);
   useEffect(() => {
     const context = (
