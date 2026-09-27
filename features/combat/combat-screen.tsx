@@ -300,7 +300,7 @@ export function Combat({
           </Button>
         </div>
       </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(360px,0.9fr)_minmax(420px,1.1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
         <section className="space-y-2" aria-label="Initiative tracker">
           {ordered.map((c, i) => {
             const tone = colors[c.kind];
