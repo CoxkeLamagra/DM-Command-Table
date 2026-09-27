@@ -4,6 +4,16 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 4.0.5 — 2026-09-27
+
+### Campaign copying
+
+- Added a header menu for copying the currently selected campaign.
+- Added **Copy as new campaign** to create a complete independent duplicate, including players and current progress.
+- Added **Copy as template** to preserve campaign notes, Bestiary records, Story and Session content, prepared encounters, and Story–Session links.
+- Template copies exclude campaign players and reset Session completion, Story status, and active Combat state.
+- Automatically open the new campaign after either copy operation.
+
 ## 4.0.4 — 2026-09-27
 
 ### Combat tracker

@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current version is **v4.0.4**.
+The current version is **v4.0.5**.
 
 ## Features
 
@@ -14,6 +14,8 @@ The current version is **v4.0.4**.
 - Store a device-local copy of every campaign in IndexedDB for offline access.
 - Synchronize campaign progress to a SQLite database stored on the application server.
 - Export and import complete campaigns as portable JSON files.
+- Copy a campaign as a complete independent campaign, including its players and progress.
+- Copy a campaign as a reusable template that keeps campaign content, Bestiary records, Stories, Sessions, prepared encounters, and Story–Session links while excluding players and resetting progress.
 - Share campaigns with another registered DM Command Table user by username.
 - Assign **Editor** access for collaboration or **Viewer** access for read-only use.
 - Poll for server changes every five seconds while the application is open.
@@ -287,8 +289,8 @@ Feature modules keep rendering separate from testable domain operations. Combat 
 
 ## Release
 
-- Latest stable release: [DM Command Table 4.0.4](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v4.0.4)
-- Release tag: `v4.0.4`
+- Latest stable release: [DM Command Table 4.0.5](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v4.0.5)
+- Release tag: `v4.0.5`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
