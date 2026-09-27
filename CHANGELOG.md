@@ -4,6 +4,16 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 4.0.4 — 2026-09-27
+
+### Combat tracker
+
+- Made **Next turn** automatically focus the newly active combatant in the right-side details panel.
+- Changed the desktop Combat layout to a 30% initiative list and 70% combatant-statistics split.
+- Added purple condition indicators to affected combatants in the initiative list.
+- Added distinct icons for the standard D&D conditions and a generic icon for custom conditions.
+- Added condition icons to the status-condition badges in the combatant details panel.
+
 ## 4.0.3 — 2026-09-27
 
 ### Security hardening
