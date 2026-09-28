@@ -2,6 +2,16 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+### Campaign navigation
+
+- Added typeahead search and immediate filtering to the Bestiary, Story, and Sessions screens.
+- Added Planned, Active now, and Happened statuses to Sessions while preserving existing completion data.
+- Made Sessions individually collapsible to compact title, date, and status summaries.
+- Made Story beats individually collapsible to compact title, chapter, and status summaries.
+- Added Session status labels to the linked Sessions overview inside Story beats.
+
 ## 5.0.0 — 2026-09-28
 
 ### Internal architecture

@@ -69,6 +69,7 @@ const sessionSchema = z.object({
   date: z.string(),
   body: z.string(),
   done: z.boolean(),
+  status: z.enum(["planned", "active", "happened"]).optional(),
   encounters: z.array(encounterSchema),
 });
 

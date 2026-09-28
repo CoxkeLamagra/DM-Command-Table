@@ -1,6 +1,7 @@
 import type {
   PreparedEncounter,
   PreparedEncounterMonster,
+  ProgressStatus,
   SessionNote,
 } from "@/features/campaign/types";
 
@@ -13,8 +14,19 @@ export function createSessionNote(createId: IdFactory, date: string): SessionNot
     date,
     body: "",
     done: false,
+    status: "planned",
     encounters: [],
   };
+}
+
+export function getSessionStatus(session: SessionNote): ProgressStatus {
+  return session.status ?? (session.done ? "happened" : "planned");
+}
+
+export function sessionStatusLabel(status: ProgressStatus): string {
+  if (status === "active") return "Active now";
+  if (status === "happened") return "Happened";
+  return "Planned";
 }
 
 export function createPreparedEncounter(

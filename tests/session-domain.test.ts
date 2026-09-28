@@ -4,6 +4,8 @@ import {
   addPreparedMonster,
   createPreparedEncounter,
   createSessionNote,
+  getSessionStatus,
+  sessionStatusLabel,
 } from "../features/sessions/domain.ts";
 
 test("session and encounter defaults remain stable", () => {
@@ -13,6 +15,7 @@ test("session and encounter defaults remain stable", () => {
     date: "2026-09-24",
     body: "",
     done: false,
+    status: "planned",
     encounters: [],
   });
   assert.deepEqual(createPreparedEncounter(1, () => "encounter"), {
@@ -20,6 +23,18 @@ test("session and encounter defaults remain stable", () => {
     name: "Encounter 2",
     monsters: [],
   });
+});
+
+test("session status supports current and pre-status session records", () => {
+  assert.equal(getSessionStatus({
+    id: "old", title: "Old session", date: "", body: "", done: true,
+    encounters: [],
+  }), "happened");
+  assert.equal(getSessionStatus({
+    id: "current", title: "Current", date: "", body: "", done: false,
+    status: "active", encounters: [],
+  }), "active");
+  assert.equal(sessionStatusLabel("active"), "Active now");
 });
 
 test("prepared monsters keep sequential per-type numbering", () => {

@@ -56,6 +56,8 @@ export function BestiaryList({
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
 }) {
+  const visibleIds = monsters.map((monster) => monster.id);
+  const visibleSelectedIds = selectedIds.filter((id) => visibleIds.includes(id));
   function toggle(id: string) {
     setSelectedIds(selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]);
   }
@@ -64,11 +66,18 @@ export function BestiaryList({
     <div className="overflow-hidden rounded-xl border border-white/10 bg-[#12161e]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-3">
         <label className="flex items-center gap-2 text-sm text-stone-400">
-          <input type="checkbox" className="size-4 accent-amber-300" checked={monsters.length > 0 && selectedIds.length === monsters.length} onChange={(event) => setSelectedIds(event.target.checked ? monsters.map((monster) => monster.id) : [])} />
-          Select all
+          <input
+            type="checkbox"
+            className="size-4 accent-amber-300"
+            checked={monsters.length > 0 && visibleSelectedIds.length === monsters.length}
+            onChange={(event) => setSelectedIds(event.target.checked
+              ? [...new Set([...selectedIds, ...visibleIds])]
+              : selectedIds.filter((id) => !visibleIds.includes(id)))}
+          />
+          Select all visible
         </label>
-        <Button size="sm" variant="outline" className="border-red-400/20 bg-red-400/5 text-red-200 hover:bg-red-400/10" disabled={!selectedIds.length} onClick={() => deleteMonsters(selectedIds)}>
-          <Trash2 /> Delete selected ({selectedIds.length})
+        <Button size="sm" variant="outline" className="border-red-400/20 bg-red-400/5 text-red-200 hover:bg-red-400/10" disabled={!visibleSelectedIds.length} onClick={() => deleteMonsters(visibleSelectedIds)}>
+          <Trash2 /> Delete selected ({visibleSelectedIds.length})
         </Button>
       </div>
       <div className="overflow-x-auto">

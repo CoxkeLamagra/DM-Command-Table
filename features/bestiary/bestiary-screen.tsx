@@ -7,12 +7,16 @@ import { Button } from "@/components/ui/button";
 import { createId } from "@/features/campaign/id";
 import type { CampaignPatch, CampaignState, Monster } from "@/features/campaign/types";
 import { ScreenTitle } from "@/features/shared/ui";
+import { SearchField } from "@/features/shared/search-field";
+import { matchesSearch } from "@/features/shared/search";
+import { richTextToPlainText } from "@/features/rich-text/rich-text";
 import { BestiaryImportDialog } from "./bestiary-import-dialog";
 import { BestiaryCards, BestiaryList } from "./bestiary-views";
 
 export function Bestiary({ data, patch }: { data: CampaignState; patch: CampaignPatch }) {
   const [viewMode, setViewMode] = useState<"cards" | "list">("list");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
 
   function update(id: string, part: Partial<Monster>) {
     patch("monsters", data.monsters.map((monster) => monster.id === id ? { ...monster, ...part } : monster));
@@ -39,7 +43,17 @@ export function Bestiary({ data, patch }: { data: CampaignState; patch: Campaign
     toast.success(ids.length === 1 ? "Monster deleted" : `${ids.length} monsters deleted`);
   }
 
-  const viewProps = { monsters: data.monsters, update, deleteMonsters };
+  const monsters = data.monsters.filter((monster) => matchesSearch(search, [
+    monster.name,
+    monster.type,
+    monster.cr,
+    monster.source,
+    monster.speed,
+    richTextToPlainText(monster.abilities),
+    richTextToPlainText(monster.spells),
+    richTextToPlainText(monster.notes),
+  ]));
+  const viewProps = { monsters, update, deleteMonsters };
   return (
     <>
       <ScreenTitle
@@ -57,7 +71,18 @@ export function Bestiary({ data, patch }: { data: CampaignState; patch: Campaign
           <Button onClick={add} className="bg-amber-300 text-black hover:bg-amber-200"><Plus /> New monster</Button>
         </div>}
       />
-      {viewMode === "cards" ? (
+      <SearchField
+        id="bestiary-search"
+        value={search}
+        onChange={setSearch}
+        placeholder="Search monsters by name, type, CR, source, or notes…"
+        suggestions={data.monsters.map((monster) => monster.name).filter(Boolean)}
+      />
+      {!monsters.length ? (
+        <p className="rounded-xl border border-dashed border-white/10 bg-[#12161e]/50 p-8 text-center text-sm text-stone-500">
+          No monsters match “{search}”.
+        </p>
+      ) : viewMode === "cards" ? (
         <BestiaryCards {...viewProps} />
       ) : (
         <BestiaryList {...viewProps} selectedIds={selectedIds} setSelectedIds={setSelectedIds} />

@@ -59,12 +59,15 @@ export type PreparedEncounter = {
   monsters: PreparedEncounterMonster[];
 };
 
+export type ProgressStatus = "planned" | "active" | "happened";
+
 export type SessionNote = {
   id: string;
   title: string;
   date: string;
   body: string;
   done: boolean;
+  status?: ProgressStatus;
   encounters: PreparedEncounter[];
 };
 
@@ -73,7 +76,7 @@ export type StoryBeat = {
   title: string;
   chapter: string;
   details: string;
-  status: "planned" | "active" | "happened";
+  status: ProgressStatus;
   sessionIds: string[];
 };
 

@@ -24,7 +24,7 @@ const campaign: CampaignState = {
   }],
   sessions: [{
     id: "session-1", title: "At the gate", date: "2026-09-27",
-    body: "<p>The party arrives.</p>", done: true,
+    body: "<p>The party arrives.</p>", done: true, status: "happened",
     encounters: [{
       id: "encounter-1", name: "Gate guards",
       monsters: [{ id: "slot-1", monsterId: "monster-1", number: 2 }],
@@ -56,6 +56,7 @@ test("copying as a template excludes players and resets progress", () => {
   assert.equal(result.round, 1);
   assert.equal(result.turn, 0);
   assert.equal(result.sessions[0].done, false);
+  assert.equal(result.sessions[0].status, "planned");
   assert.equal(result.story[0].status, "planned");
   assert.equal(result.sessions[0].body, campaign.sessions[0].body);
   assert.deepEqual(result.sessions[0].encounters, campaign.sessions[0].encounters);

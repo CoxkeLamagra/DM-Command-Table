@@ -73,6 +73,7 @@ If HP or AC is not set, the combat tracker uses `10` when that player is added t
 - Delete individual monsters or select several monsters for bulk deletion.
 - Import monsters from the 5etools-compatible JSON catalogue hosted at [dnd5e.lamagra.link](https://dnd5e.lamagra.link/bestiary.html).
 - Search the remote catalogue with typeahead results and compare source, CR, type, HP, and AC before importing.
+- Search the campaign Bestiary with typeahead filtering across monster names, types, CR, sources, abilities, spells, and notes.
 - Select and import multiple monsters in one operation.
 - Detect an existing monster with the same name and source, then choose whether to replace it or discard that individual import.
 - Convert imported records to the DM Command Table format and save a campaign-local copy.
@@ -82,7 +83,9 @@ Imported monster data belongs to the current campaign and remains editable after
 ### Campaign planning
 
 - Create dated session preparation and recap notes.
-- Mark session notes as completed.
+- Assign **Planned**, **Active now**, or **Happened** status to Sessions and Story beats.
+- Search Session and Story content with typeahead filtering.
+- Collapse Sessions to compact title, date, and status summaries, and Story beats to title, chapter, and status summaries.
 - Prepare multiple named encounters inside each session.
 - Add one or more instances of Bestiary monsters to every prepared encounter.
 - Assign automatic or custom monster numbers such as **Goblin #1** and **Goblin #2**.
@@ -90,6 +93,7 @@ Imported monster data belongs to the current campaign and remains editable after
 - Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
+- Review each linked Session's date and status directly from its Story beat.
 - Paste or upload screenshots into every rich-text notes field, including Campaign, Session, Story, Player, and Monster records.
 - Format rich text with lists, bold, italic, underline, and text colors.
 - Reuse uploaded screenshots from the local library; images scale automatically to the available browser width.

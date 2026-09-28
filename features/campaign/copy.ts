@@ -29,7 +29,11 @@ export function createCampaignCopy(
     turn: 0,
     combatants: [],
     players: [],
-    sessions: copy.sessions.map((session) => ({ ...session, done: false })),
+    sessions: copy.sessions.map((session) => ({
+      ...session,
+      done: false,
+      status: "planned",
+    })),
     story: copy.story.map((beat) => ({ ...beat, status: "planned" })),
   };
 }

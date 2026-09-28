@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ScreenTitle } from "@/features/shared/ui";
 import { NoteContent, ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
 import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
+import { getSessionStatus, sessionStatusLabel } from "@/features/sessions/domain";
 import type { CampaignPatch, CampaignState } from "./types";
 
 export function CampaignOverview({
@@ -109,15 +110,17 @@ export function CampaignOverview({
           </div>
           {sessions.length ? (
             <div className="relative space-y-4 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-white/10">
-              {sessions.map((session, index) => (
+              {sessions.map((session, index) => {
+                const status = getSessionStatus(session);
+                return (
                 <article
                   key={session.id}
                   className="relative grid grid-cols-[40px_1fr] gap-4"
                 >
                   <div
-                    className={`z-10 mt-5 grid h-10 w-10 place-items-center rounded-full border text-sm font-semibold ${session.done ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-300" : "border-amber-300/30 bg-[#12161e] text-amber-200"}`}
+                    className={`z-10 mt-5 grid h-10 w-10 place-items-center rounded-full border text-sm font-semibold ${status === "happened" ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-300" : status === "active" ? "border-amber-300/50 bg-amber-300/15 text-amber-200" : "border-amber-300/30 bg-[#12161e] text-amber-200"}`}
                   >
-                    {session.done ? <Check size={18} /> : index + 1}
+                    {status === "happened" ? <Check size={18} /> : index + 1}
                   </div>
                   <div
                     role="button"
@@ -143,12 +146,14 @@ export function CampaignOverview({
                       <div className="flex items-center gap-2">
                         <Badge
                           className={
-                            session.done
+                            status === "happened"
                               ? "border border-emerald-300/20 bg-emerald-300/10 text-emerald-200"
-                              : "border border-amber-300/20 bg-amber-300/10 text-amber-100"
+                              : status === "active"
+                                ? "border border-amber-300/20 bg-amber-300/10 text-amber-100"
+                                : "border border-white/10 bg-white/5 text-stone-300"
                           }
                         >
-                          {session.done ? "Completed" : "Planned"}
+                          {sessionStatusLabel(status)}
                         </Badge>
                         <ChevronRight size={17} className="text-stone-500" />
                       </div>
@@ -166,7 +171,8 @@ export function CampaignOverview({
                     )}
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-white/10 bg-[#12161e]/50 p-10 text-center">
