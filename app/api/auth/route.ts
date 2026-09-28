@@ -12,10 +12,16 @@ import {
   consumeRateLimit,
   rateLimitResponse,
 } from "@/server/security/rate-limit";
-import { getDatabase } from "@/db/sqlite";
+import { getRegistrationStatus } from "@/server/admin/registration-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export async function GET() {
+  return Response.json(getRegistrationStatus(), {
+    headers: { "cache-control": "no-store" },
+  });
+}
 
 export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
@@ -114,12 +120,9 @@ export async function POST(request: Request) {
 }
 
 function registrationPolicyError(bootstrapToken?: string): Response | null {
-  const row = getDatabase().prepare("SELECT COUNT(*) AS count FROM users").get() as {
-    count: number;
-  };
-  const firstAccount = row.count === 0;
+  const { initialSetup, registrationEnabled } = getRegistrationStatus();
   const configuredToken = process.env.DM_COMMAND_TABLE_BOOTSTRAP_TOKEN;
-  if (firstAccount) {
+  if (initialSetup) {
     if (process.env.NODE_ENV === "production" && !configuredToken) {
       return Response.json(
         { error: "Registration is not configured. Set DM_COMMAND_TABLE_BOOTSTRAP_TOKEN on the server first." },
@@ -131,8 +134,7 @@ function registrationPolicyError(bootstrapToken?: string): Response | null {
     }
     return null;
   }
-  const mode = process.env.DM_COMMAND_TABLE_REGISTRATION_MODE ?? "first-user";
-  if (mode !== "open") {
+  if (!registrationEnabled) {
     return Response.json(
       { error: "New account registration is disabled by the administrator." },
       { status: 403 },

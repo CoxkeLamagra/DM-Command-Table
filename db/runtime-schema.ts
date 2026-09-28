@@ -57,4 +57,10 @@ export const RUNTIME_SCHEMA = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_screenshots_created_at ON screenshots (created_at);
+
+  CREATE TABLE IF NOT EXISTS application_settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
 `;

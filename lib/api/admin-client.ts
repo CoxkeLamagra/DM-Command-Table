@@ -6,7 +6,24 @@ export type ManagedUser = {
   updatedAt: string;
 };
 
-type UsersResponse = { users?: ManagedUser[] };
+type UsersResponse = {
+  users?: ManagedUser[];
+  registrationEnabled?: boolean;
+};
+
+export type AdministrationState = {
+  users: ManagedUser[];
+  registrationEnabled: boolean;
+};
+
+function administrationState(body: UsersResponse): AdministrationState {
+  if (!body.users || typeof body.registrationEnabled !== "boolean")
+    throw new Error("Administration request failed.");
+  return {
+    users: body.users,
+    registrationEnabled: body.registrationEnabled,
+  };
+}
 
 async function readResponse(response: Promise<UsersResponse>): Promise<ManagedUser[]> {
   const body = await response;
@@ -18,6 +35,45 @@ export async function fetchUsers(): Promise<ManagedUser[]> {
   return readResponse(requestJson("/api/admin/users", { cache: "no-store" }, {
     fallback: "User management request failed.",
   }));
+}
+
+export async function fetchAdministration(): Promise<AdministrationState> {
+  return administrationState(
+    await requestJson<UsersResponse>(
+      "/api/admin/users",
+      { cache: "no-store" },
+      { fallback: "Administration could not be loaded." },
+    ),
+  );
+}
+
+export async function createManagedUser(input: {
+  username: string;
+  displayName: string;
+  password: string;
+}): Promise<ManagedUser[]> {
+  return readResponse(
+    requestJson(
+      "/api/admin/users",
+      jsonRequest("POST", input),
+      { fallback: "The account could not be created." },
+    ),
+  );
+}
+
+export async function setAccountRegistration(
+  registrationEnabled: boolean,
+): Promise<AdministrationState> {
+  return administrationState(
+    await requestJson<UsersResponse>(
+      "/api/admin/users",
+      jsonRequest("PATCH", {
+        action: "set-registration",
+        registrationEnabled,
+      }),
+      { fallback: "Registration settings could not be updated." },
+    ),
+  );
 }
 
 export async function updateManagedUser(input: {

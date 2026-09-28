@@ -8,12 +8,21 @@ test("first registration becomes admin and later registrations remain users", as
   const { registerLocalUser } = await import("../server/auth/registration.ts");
   const { getDatabase } = await import("../db/sqlite.ts");
   const {
+    getRegistrationStatus,
+    setRegistrationEnabled,
+  } = await import("../server/admin/registration-settings.ts");
+  const {
     countAdmins,
     deleteUser,
     resetUserPassword,
     setUserAdmin,
     updateUser,
   } = await import("../server/admin/users.ts");
+
+  assert.deepEqual(getRegistrationStatus(), {
+    initialSetup: true,
+    registrationEnabled: true,
+  });
 
   const first = registerLocalUser({
     username: "first_admin",
@@ -28,6 +37,17 @@ test("first registration becomes admin and later registrations remain users", as
 
   assert.ok("user" in first && first.user.isAdmin);
   assert.ok("user" in second && !second.user.isAdmin);
+  assert.deepEqual(getRegistrationStatus(), {
+    initialSetup: false,
+    registrationEnabled: false,
+  });
+  setRegistrationEnabled(true);
+  assert.deepEqual(getRegistrationStatus(), {
+    initialSetup: false,
+    registrationEnabled: true,
+  });
+  setRegistrationEnabled(false);
+  assert.equal(getRegistrationStatus().registrationEnabled, false);
   const campaigns = getDatabase()
     .prepare("SELECT owner_id AS ownerId FROM campaigns ORDER BY created_at")
     .all() as Array<{ ownerId: string }>;

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { authenticate } from "@/lib/api/auth-client";
+import {
+  authenticate,
+  fetchRegistrationStatus,
+  type RegistrationStatus,
+} from "@/lib/api/auth-client";
 
 export function AuthScreen({
   onAuthenticated,
@@ -18,6 +22,18 @@ export function AuthScreen({
   const [bootstrapToken, setBootstrapToken] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [registration, setRegistration] =
+    useState<RegistrationStatus | null>(null);
+
+  useEffect(() => {
+    void fetchRegistrationStatus()
+      .then(setRegistration)
+      .catch(() => setRegistration({ initialSetup: false, registrationEnabled: false }));
+  }, []);
+
+  const canRegister = Boolean(
+    registration?.initialSetup || registration?.registrationEnabled,
+  );
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -29,7 +45,10 @@ export function AuthScreen({
         username,
         password,
         displayName,
-        bootstrapToken: bootstrapToken || undefined,
+        bootstrapToken:
+          registration?.initialSetup && bootstrapToken
+            ? bootstrapToken
+            : undefined,
       });
       onAuthenticated();
     } catch (submitError) {
@@ -70,11 +89,13 @@ export function AuthScreen({
           </button>
           <button
             type="button"
+            disabled={!canRegister}
             onClick={() => {
               setMode("register");
               setError("");
             }}
-            className={`rounded-md px-3 py-2 text-sm ${mode === "register" ? "bg-amber-300 text-black" : "text-stone-400"}`}
+            title={canRegister ? "Create a local account" : "Account registration is disabled"}
+            className={`rounded-md px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${mode === "register" ? "bg-amber-300 text-black" : "text-stone-400"}`}
           >
             Register
           </button>
@@ -93,16 +114,18 @@ export function AuthScreen({
                   maxLength={80}
                 />
               </label>
-              <label className="block text-sm text-stone-300">
-                Initial setup token <span className="text-stone-500">(first account only)</span>
-                <Input
-                  autoComplete="off"
-                  className="mt-2 border-white/10 bg-black/20"
-                  type="password"
-                  value={bootstrapToken}
-                  onChange={(event) => setBootstrapToken(event.target.value)}
-                />
-              </label>
+              {registration?.initialSetup && (
+                <label className="block text-sm text-stone-300">
+                  Initial setup token
+                  <Input
+                    autoComplete="off"
+                    className="mt-2 border-white/10 bg-black/20"
+                    type="password"
+                    value={bootstrapToken}
+                    onChange={(event) => setBootstrapToken(event.target.value)}
+                  />
+                </label>
+              )}
             </>
           )}
           <label className="block text-sm text-stone-300">

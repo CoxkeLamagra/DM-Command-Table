@@ -29,3 +29,16 @@ test("runtime schema includes persistent screenshot metadata", () => {
   );
   database.close();
 });
+
+test("runtime schema includes persistent application settings", () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec(RUNTIME_SCHEMA);
+  const columns = database
+    .prepare("PRAGMA table_info(application_settings)")
+    .all() as Array<{ name: string }>;
+  assert.deepEqual(
+    columns.map((column) => column.name),
+    ["key", "value", "updated_at"],
+  );
+  database.close();
+});

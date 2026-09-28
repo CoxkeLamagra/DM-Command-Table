@@ -55,3 +55,9 @@ export const screenshots = sqliteTable("screenshots", {
 }, (table) => [
   index("idx_screenshots_created_at").on(table.createdAt),
 ]);
+
+export const applicationSettings = sqliteTable("application_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});

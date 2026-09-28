@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Pencil, Shield, ShieldCheck, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, Shield, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,18 +11,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { ScreenTitle } from "@/features/shared/ui";
 import {
+  createManagedUser,
   deleteManagedUser,
-  fetchUsers,
+  fetchAdministration,
   resetManagedUserPassword,
+  setAccountRegistration,
   setManagedUserAdmin,
   updateManagedUser,
   type ManagedUser,
 } from "@/lib/api/admin-client";
 import { ScreenshotAdmin } from "./screenshot-admin";
 
-type DialogMode = "edit" | "password" | null;
+type DialogMode = "create" | "edit" | "password" | null;
 
 export function AdminScreen({ currentUsername }: { currentUsername: string }) {
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -33,10 +36,14 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [registrationBusy, setRegistrationBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setUsers(await fetchUsers());
+      const state = await fetchAdministration();
+      setUsers(state.users);
+      setRegistrationEnabled(state.registrationEnabled);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Users could not be loaded.");
     } finally {
@@ -57,6 +64,14 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
     setMode("edit");
   }
 
+  function openCreate() {
+    setSelected(null);
+    setUsername("");
+    setDisplayName("");
+    setPassword("");
+    setMode("create");
+  }
+
   function openPassword(user: ManagedUser) {
     setSelected(user);
     setPassword("");
@@ -64,24 +79,52 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
   }
 
   async function saveDialog() {
-    if (!selected) return;
-    setWorkingId(selected.id);
+    if (mode !== "create" && !selected) return;
+    setWorkingId(selected?.id ?? "create");
     try {
       const next =
-        mode === "edit"
+        mode === "create"
+          ? await createManagedUser({ username, displayName, password })
+          : mode === "edit"
           ? await updateManagedUser({
-              id: selected.id,
+              id: selected!.id,
               username,
               displayName,
             })
-          : await resetManagedUserPassword(selected.id, password);
+          : await resetManagedUserPassword(selected!.id, password);
       setUsers(next);
       setMode(null);
-      toast.success(mode === "edit" ? "User updated" : "Password reset");
+      toast.success(
+        mode === "create"
+          ? "Account created"
+          : mode === "edit"
+            ? "User updated"
+            : "Password reset",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "User could not be updated.");
     } finally {
       setWorkingId("");
+    }
+  }
+
+  async function toggleRegistration(enabled: boolean) {
+    setRegistrationBusy(true);
+    try {
+      const state = await setAccountRegistration(enabled);
+      setUsers(state.users);
+      setRegistrationEnabled(state.registrationEnabled);
+      toast.success(
+        enabled ? "Account registration enabled" : "Account registration disabled",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Registration settings could not be updated.",
+      );
+    } finally {
+      setRegistrationBusy(false);
     }
   }
 
@@ -117,6 +160,30 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
         Manage the local accounts that can access this DM Command Table server.
         Password resets immediately sign the affected user out on every device.
       </p>
+      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-white/10 bg-[#12161e] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-medium text-stone-100">Account registration</h2>
+          <p className="mt-1 text-sm text-stone-400">
+            Allow visitors to create their own local account from the sign-in screen.
+          </p>
+        </div>
+        <label className="flex items-center gap-3 text-sm text-stone-300">
+          <Switch
+            checked={registrationEnabled}
+            disabled={loading || registrationBusy}
+            onCheckedChange={(checked) => void toggleRegistration(checked)}
+          />
+          {registrationEnabled ? "Enabled" : "Disabled"}
+        </label>
+      </div>
+      <div className="mb-4 flex justify-end">
+        <Button
+          className="bg-amber-300 text-black hover:bg-amber-200"
+          onClick={openCreate}
+        >
+          <UserPlus /> Create account
+        </Button>
+      </div>
       {loading ? (
         <p className="text-sm text-stone-400">Loading users…</p>
       ) : (
@@ -179,15 +246,25 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
         <DialogContent className="border-amber-300/20 bg-[#12161e] text-stone-100">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl text-amber-100">
-              {mode === "edit" ? "Edit user" : "Reset password"}
+              {mode === "create"
+                ? "Create account"
+                : mode === "edit"
+                  ? "Edit user"
+                  : "Reset password"}
             </DialogTitle>
           </DialogHeader>
-          {mode === "edit" ? (
+          {mode === "create" || mode === "edit" ? (
             <>
               <label className="text-sm text-stone-300">
                 Username
                 <Input className="mt-2 border-white/10 bg-black/20" value={username} onChange={(event) => setUsername(event.target.value)} minLength={3} maxLength={32} />
               </label>
+              {mode === "create" && (
+                <label className="text-sm text-stone-300">
+                  Initial password
+                  <Input autoFocus className="mt-2 border-white/10 bg-black/20" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} maxLength={128} />
+                </label>
+              )}
               <label className="text-sm text-stone-300">
                 Display name
                 <Input className="mt-2 border-white/10 bg-black/20" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} />
@@ -201,11 +278,15 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
           )}
           <Button
             className="bg-amber-300 text-black hover:bg-amber-200"
-            disabled={workingId === selected?.id || (mode === "password" && password.length < 8)}
+            disabled={
+              workingId === (selected?.id ?? "create") ||
+              ((mode === "create" || mode === "password") && password.length < 8) ||
+              ((mode === "create" || mode === "edit") && username.length < 3)
+            }
             onClick={() => void saveDialog()}
           >
-            {mode === "edit" ? <Pencil /> : <KeyRound />}
-            {mode === "edit" ? "Save user" : "Reset password"}
+            {mode === "create" ? <UserPlus /> : mode === "edit" ? <Pencil /> : <KeyRound />}
+            {mode === "create" ? "Create account" : mode === "edit" ? "Save user" : "Reset password"}
           </Button>
         </DialogContent>
       </Dialog>

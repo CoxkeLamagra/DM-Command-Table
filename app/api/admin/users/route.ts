@@ -19,6 +19,11 @@ import {
   consumeRateLimit,
   rateLimitResponse,
 } from "@/server/security/rate-limit";
+import { registerLocalUser } from "@/server/auth/registration";
+import {
+  getRegistrationStatus,
+  setRegistrationEnabled,
+} from "@/server/admin/registration-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +31,38 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const authorization = await authorizeRequest({ admin: true });
   if ("response" in authorization) return authorization.response;
-  return Response.json({ users: listUsers() });
+  return administrationResponse();
+}
+
+export async function POST(request: Request) {
+  const originError = rejectCrossOrigin(request);
+  if (originError) return originError;
+  const authorization = await authorizeRequest({ admin: true });
+  if ("response" in authorization) return authorization.response;
+  const { user } = authorization;
+  const rateLimit = consumeRateLimit(
+    `admin-create-account:${user.userId}`,
+    30,
+    60 * 60 * 1000,
+  );
+  if (!rateLimit.allowed)
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  const body = await readJson<{
+    username?: string;
+    displayName?: string;
+    password?: string;
+  }>(request);
+  const username = normaliseUsername(body?.username ?? "");
+  const password = body?.password ?? "";
+  const validation = validateCredentials(username, password);
+  if (validation)
+    return Response.json({ error: validation }, { status: 400 });
+  const displayName =
+    (body?.displayName ?? username).trim().slice(0, 80) || username;
+  const result = registerLocalUser({ username, displayName, password });
+  if ("error" in result)
+    return Response.json({ error: result.error }, { status: result.status });
+  return administrationResponse(201);
 }
 
 export async function PATCH(request: Request) {
@@ -42,7 +78,12 @@ export async function PATCH(request: Request) {
     displayName?: string;
     password?: string;
     isAdmin?: boolean;
+    registrationEnabled?: boolean;
   }>(request);
+  if (body?.action === "set-registration") {
+    setRegistrationEnabled(Boolean(body.registrationEnabled));
+    return administrationResponse();
+  }
   if (!body?.id)
     return Response.json({ error: "A user is required." }, { status: 400 });
 
@@ -88,7 +129,7 @@ export async function PATCH(request: Request) {
   } else {
     return Response.json({ error: "Unsupported admin action." }, { status: 400 });
   }
-  return Response.json({ users: listUsers() });
+  return administrationResponse();
 }
 
 export async function DELETE(request: Request) {
@@ -103,5 +144,15 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "You cannot delete your own account." }, { status: 400 });
   if (!deleteUser(id))
     return Response.json({ error: "User not found." }, { status: 404 });
-  return Response.json({ users: listUsers() });
+  return administrationResponse();
+}
+
+function administrationResponse(status = 200) {
+  return Response.json(
+    {
+      users: listUsers(),
+      registrationEnabled: getRegistrationStatus().registrationEnabled,
+    },
+    { status, headers: { "cache-control": "no-store" } },
+  );
 }

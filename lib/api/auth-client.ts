@@ -1,6 +1,19 @@
 import type { CampaignUser } from "@/features/campaign/types";
 import { jsonRequest, requestJson } from "./http-client";
 
+export type RegistrationStatus = {
+  initialSetup: boolean;
+  registrationEnabled: boolean;
+};
+
+export async function fetchRegistrationStatus(): Promise<RegistrationStatus> {
+  return requestJson<RegistrationStatus>(
+    "/api/auth",
+    { cache: "no-store" },
+    { fallback: "Registration status could not be loaded." },
+  );
+}
+
 export async function authenticate(input: {
   action: "login" | "register";
   username: string;
