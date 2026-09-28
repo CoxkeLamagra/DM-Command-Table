@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 5.0.0 — 2026-09-28
 
 ### Internal architecture
 
@@ -11,6 +11,12 @@ All notable DM Command Table releases are documented here.
 - Centralized the rich-text allowlist and color policy so browser rendering and server-side sanitization share the same rules.
 - Added shared private JSON response helpers for authenticated API routes, including explicit no-store cache controls.
 - Preserved the existing local SQLite, filesystem screenshot, IndexedDB cache, authentication, API, and user-interface behavior.
+
+### Documentation
+
+- Updated application and deployment documentation for the v5 release.
+- Removed obsolete application-upgrade instructions and legacy account-adoption guidance.
+- Documented administrator-controlled registration and account creation from the Web UI.
 
 ## 4.0.5 — 2026-09-27
 

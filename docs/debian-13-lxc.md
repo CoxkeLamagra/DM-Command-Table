@@ -21,7 +21,7 @@ The application checkout and persistent data are deliberately separated:
 
 Pulling or rebuilding the Git repository does not overwrite the SQLite database.
 
-This guide applies to DM Command Table **v4.0.0** and later.
+This guide applies to DM Command Table **v5.0.0**.
 
 ## 1. Create the LXC
 
@@ -143,7 +143,7 @@ Generate a unique initial-account token and replace `REPLACE_WITH_A_LONG_RANDOM_
 openssl rand -base64 32
 ```
 
-The first registration must supply this value in the **Initial setup token** field. After the administrator exists, remove or rotate the token. Later registrations are disabled by default. To onboard another user, temporarily set `DM_COMMAND_TABLE_REGISTRATION_MODE=open`, restart the service, let that user register, and return the setting to `first-user`.
+The first registration must supply this value in the **Initial setup token** field. After the administrator exists, remove or rotate the token. Later registrations are disabled by default. Administrators can enable or disable self-registration and create additional accounts from the **Administration** screen.
 
 For the default deployment, keep automatic HTTPS detection:
 
@@ -156,8 +156,6 @@ Use `false` only for a trusted plain-HTTP network where HTTPS will not be config
 The SQLite file and account schema are created automatically on the first API request. After the service starts, open the site and use **Register** to create the initial administrator with a username, password, and the configured setup token.
 
 Each new account receives an editable example campaign. It can be renamed, changed, exported, or deleted after the user has explored the available features.
-
-When upgrading an existing single-user installation, the first registered local account automatically adopts the existing user record and its campaigns. Use the intended owner account for this first registration.
 
 Passwords are salted and hashed with `scrypt`. Login sessions and password hashes remain in `/var/lib/dm-command-table/dm-command-table.sqlite`; uploaded screenshots are stored in `/var/lib/dm-command-table/uploads`. No external authentication, media, or database service is used.
 
@@ -243,7 +241,7 @@ The updater performs these actions:
 5. Builds the new production version.
 6. Starts the service and displays its status.
 
-If pulling, installing, or building fails, the updater leaves the service stopped so the failure is visible and an incomplete build is not started. After resolving the error, rerun `update-dm-command-table` or start the previous build manually with:
+If pulling, installing, or building fails, the updater leaves the service stopped so the failure is visible and an incomplete build is not started. After resolving the error, rerun `update-dm-command-table` or start the existing build manually with:
 
 ```bash
 systemctl start dm-command-table.service
@@ -276,20 +274,6 @@ PORT=3000
 ```
 
 Retain a securely generated `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` until the first administrator has registered. Automatic cookie mode uses Nginx's forwarded protocol; `true` can enforce HTTPS-only cookies after TLS is active.
-
-### Upgrade from an earlier version to v4.0
-
-Version 4 uses a new canonical schema and intentionally does not migrate databases from earlier versions. Stop the service, back up the existing database and uploads directory, and move the old database files before updating:
-
-```bash
-systemctl stop dm-command-table.service
-mkdir -p /var/backups/dm-command-table/v3
-mv /var/lib/dm-command-table/dm-command-table.sqlite* \
-  /var/backups/dm-command-table/v3/
-update-dm-command-table
-```
-
-Register the first v4 account after startup; it becomes the administrator. Keep the backup if you may need to return temporarily to the v3 release.
 
 ## 11. Back up and restore server data
 
@@ -348,9 +332,9 @@ runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm build
 systemctl restart dm-command-table.service
 ```
 
-If the journal mentions `Failed to set up mount namespacing` for `.next`, update the repository and reinstall the latest service template. Older templates incorrectly listed `.next` under `ReadWritePaths`, which made systemd require that directory before starting the process.
+If the journal mentions `Failed to set up mount namespacing` for `.next`, update the repository and reinstall the service template so `.next` is not required before the process starts.
 
-If an update reports `EACCES: permission denied, open '/root/.corepack.env'`, reinstall the latest updater. Older versions started Corepack from root's working directory. The current updater changes to `/opt/dm-command-table/app` and sets `HOME=/opt/dm-command-table` before pnpm and Corepack start.
+If an update reports `EACCES: permission denied, open '/root/.corepack.env'`, reinstall the updater. It runs from `/opt/dm-command-table/app` and sets `HOME=/opt/dm-command-table` before pnpm and Corepack start.
 
 ### Nginx reports `502 Bad Gateway`
 

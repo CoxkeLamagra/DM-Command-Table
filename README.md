@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current version is **v4.0.5**.
+The current version is **v5.0.0**.
 
 ## Features
 
@@ -31,6 +31,8 @@ Campaigns are private by default. Only the owner can share or delete a campaign.
 - Administrators can open **Administration** to review all registered accounts.
 - Change usernames and display names, reset passwords, or delete accounts.
 - Grant or remove administrator access for other users.
+- Enable or disable self-registration from the Web UI.
+- Create additional accounts directly from the Web UI.
 - Password resets invalidate all active sessions for the affected account.
 - Deleting an account also permanently deletes campaigns owned by that account.
 
@@ -138,7 +140,7 @@ DM_COMMAND_TABLE_SECURE_COOKIES=false
 
 The default value, `auto`, marks cookies secure whenever the trusted reverse proxy reports HTTPS through `X-Forwarded-Proto`. You can set `DM_COMMAND_TABLE_SECURE_COOKIES=true` to require secure cookies unconditionally. Use `false` only for a trusted plain-HTTP private network.
 
-Production startup requires `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` before the first account can be created. Generate a random value, enter it in the first-account registration form, and remove or rotate it after setup. `DM_COMMAND_TABLE_REGISTRATION_MODE` defaults to `first-user`, which prevents later public registration. Temporarily set it to `open` and restart the application when another person needs to register, then return it to `first-user`.
+Production startup requires `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` before the first account can be created. Generate a random value, enter it in the first-account registration form, and remove or rotate it after setup. `DM_COMMAND_TABLE_REGISTRATION_MODE` defines the initial registration state and defaults to `first-user`, which prevents later public registration. After the administrator exists, use **Administration** to enable or disable self-registration or create additional accounts directly.
 
 Uploaded images are decoded and re-encoded as WebP before storage. Each account has a 100 MiB quota by default; change it with `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`. Users can access their own screenshots and screenshots referenced by campaigns they can access. Administrators retain access to the complete screenshot-management library.
 
@@ -228,12 +230,6 @@ Alternatively, stop the application before copying the database file and its com
 
 Back up the adjacent `uploads` directory as well to preserve screenshots embedded in notes. A JSON campaign export contains screenshot references but does not include the binary image files.
 
-## Upgrading to v4.0
-
-Version 4.0 is an intentional clean break. Databases and JSON exports created by v3 or earlier are not accepted by the v4 runtime. Stop the application and move the old SQLite database out of the configured data directory before starting v4 so the canonical schema can be created from scratch.
-
-Screenshot files can remain in the uploads directory, but references to them live inside campaign data and are not imported automatically. Keep a backup of the previous database and uploads directory if you may need to run the previous release again.
-
 ## Campaign API
 
 The API is implemented in `app/api/campaigns/route.ts`:
@@ -291,8 +287,8 @@ Browser and server rich-text handling share one formatting and color policy. API
 
 ## Release
 
-- Latest stable release: [DM Command Table 4.0.5](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v4.0.5)
-- Release tag: `v4.0.5`
+- Latest stable release: [DM Command Table 5.0.0](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v5.0.0)
+- Release tag: `v5.0.0`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
