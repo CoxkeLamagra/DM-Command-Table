@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 5.0.2 — 2026-09-28
 
 ### Campaign overview
 
