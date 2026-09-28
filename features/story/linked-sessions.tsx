@@ -28,7 +28,7 @@ export function LinkedSessions({
           <Link2 size={15} className="text-amber-300/70" /> Linked sessions
         </h3>
         <select
-          className="min-w-52 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-stone-300"
+          className="min-w-52 rounded-md border border-amber-300/20 bg-[#080a0f] px-3 py-2 text-sm text-amber-100 [color-scheme:dark] [&>option]:bg-[#080a0f] [&>option]:text-stone-100"
           value=""
           onChange={(event) => event.target.value && link(event.target.value)}
           disabled={!available.length}

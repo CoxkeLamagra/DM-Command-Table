@@ -18,7 +18,7 @@ import { toggleStorySession } from "./domain";
 export function Story({ data, patch, openSession }: { data: CampaignState; patch: CampaignPatch; openSession: (id: string) => void }) {
   const { screenshots, upload } = useScreenshotLibrary();
   const [search, setSearch] = useState("");
-  const [collapsedIds, setCollapsedIds] = useState<string[]>([]);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const update = (id: string, part: Partial<StoryBeat>) =>
     patch("story", data.story.map((beat) => beat.id === id ? { ...beat, ...part } : beat));
 
@@ -37,9 +37,12 @@ export function Story({ data, patch, openSession }: { data: CampaignState; patch
     update(beat.id, { sessionIds: toggled.sessionIds });
   }
   function toggleCollapsed(id: string) {
-    setCollapsedIds((current) => current.includes(id)
+    setExpandedIds((current) => current.includes(id)
       ? current.filter((entry) => entry !== id)
       : [...current, id]);
+  }
+  function expand(id: string) {
+    setExpandedIds((current) => current.includes(id) ? current : [...current, id]);
   }
 
   const story = data.story.filter((beat) => matchesSearch(search, [
@@ -51,13 +54,17 @@ export function Story({ data, patch, openSession }: { data: CampaignState; patch
       .filter((session) => beat.sessionIds.includes(session.id))
       .flatMap((session) => [session.title, session.date]),
   ]));
+  const allExpanded = data.story.length > 0 && data.story.every((beat) => expandedIds.includes(beat.id));
 
   return (
     <>
       <ScreenTitle
         eyebrow="Campaign arc"
         title="Storyline"
-        action={
+        action={<div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" className="border-white/10" disabled={!data.story.length} onClick={() => setExpandedIds(allExpanded ? [] : data.story.map((beat) => beat.id))}>
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </Button>
           <Button
             onClick={() => patch("story", [...data.story, {
               id: createId(), title: "New story beat", chapter: "Unsorted",
@@ -67,7 +74,7 @@ export function Story({ data, patch, openSession }: { data: CampaignState; patch
           >
             <Plus /> Add story beat
           </Button>
-        }
+        </div>}
       />
       <SearchField
         id="story-search"
@@ -83,10 +90,10 @@ export function Story({ data, patch, openSession }: { data: CampaignState; patch
       ) : (
         <div className="relative space-y-4 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-white/10">
           {story.map((beat) => {
-            const collapsed = collapsedIds.includes(beat.id);
+            const collapsed = !expandedIds.includes(beat.id);
             const sequence = data.story.findIndex((entry) => entry.id === beat.id) + 1;
             return (
-              <article id={`story-${beat.id}`} tabIndex={-1} key={beat.id} className="relative grid scroll-mt-24 grid-cols-[40px_1fr] gap-4 rounded-xl outline-none focus:ring-2 focus:ring-amber-300/60">
+              <article id={`story-${beat.id}`} tabIndex={-1} key={beat.id} onFocus={(event) => event.target === event.currentTarget && expand(beat.id)} className="relative grid scroll-mt-24 grid-cols-[40px_1fr] gap-4 rounded-xl outline-none focus:ring-2 focus:ring-amber-300/60">
                 <div className={`z-10 mt-5 grid h-10 w-10 place-items-center rounded-full border ${beat.status === "happened" ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-300" : beat.status === "active" ? "border-amber-300/50 bg-amber-300/15 text-amber-200" : "border-white/15 bg-[#12161e] text-stone-600"}`}>
                   {beat.status === "happened" ? <Check size={18} /> : sequence}
                 </div>
@@ -109,7 +116,7 @@ export function Story({ data, patch, openSession }: { data: CampaignState; patch
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <select className="rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm" value={beat.status} onChange={(event) => update(beat.id, { status: event.target.value as StoryBeat["status"] })} aria-label={`Status for ${beat.title}`}>
+                      <select className="rounded-md border border-amber-300/20 bg-[#080a0f] px-3 py-2 text-sm text-amber-100 [color-scheme:dark] [&>option]:bg-[#080a0f] [&>option]:text-stone-100" value={beat.status} onChange={(event) => update(beat.id, { status: event.target.value as StoryBeat["status"] })} aria-label={`Status for ${beat.title}`}>
                         <option value="planned">Planned</option>
                         <option value="active">Active now</option>
                         <option value="happened">Happened</option>

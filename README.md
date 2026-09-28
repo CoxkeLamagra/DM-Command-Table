@@ -85,7 +85,7 @@ Imported monster data belongs to the current campaign and remains editable after
 - Create dated session preparation and recap notes.
 - Assign **Planned**, **Active now**, or **Happened** status to Sessions and Story beats.
 - Search Session and Story content with typeahead filtering.
-- Collapse Sessions to compact title, date, and status summaries, and Story beats to title, chapter, and status summaries.
+- Start with compact collapsed Sessions and Story beats, expand individual entries as needed, or expand and collapse every entry at once.
 - Prepare multiple named encounters inside each session.
 - Add one or more instances of Bestiary monsters to every prepared encounter.
 - Assign automatic or custom monster numbers such as **Goblin #1** and **Goblin #2**.

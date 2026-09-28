@@ -29,7 +29,7 @@ export function Sessions({
 }) {
   const { screenshots, upload } = useScreenshotLibrary();
   const [search, setSearch] = useState("");
-  const [collapsedIds, setCollapsedIds] = useState<string[]>([]);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   function update(id: string, part: Partial<SessionNote>) {
     patch("sessions", data.sessions.map((session) => session.id === id ? { ...session, ...part } : session));
@@ -46,9 +46,12 @@ export function Sessions({
     update(session.id, { status, done: status === "happened" });
   }
   function toggleCollapsed(id: string) {
-    setCollapsedIds((current) => current.includes(id)
+    setExpandedIds((current) => current.includes(id)
       ? current.filter((entry) => entry !== id)
       : [...current, id]);
+  }
+  function expand(id: string) {
+    setExpandedIds((current) => current.includes(id) ? current : [...current, id]);
   }
 
   const sessions = data.sessions.filter((session) => matchesSearch(search, [
@@ -62,10 +65,16 @@ export function Sessions({
     ]),
     ...data.story.filter((beat) => beat.sessionIds.includes(session.id)).map((beat) => beat.title),
   ]));
+  const allExpanded = data.sessions.length > 0 && data.sessions.every((session) => expandedIds.includes(session.id));
 
   return (
     <>
-      <ScreenTitle eyebrow="Preparation & recap" title="Session notes" action={<Button onClick={addSession} className="bg-amber-300 text-black hover:bg-amber-200"><Plus /> New session</Button>} />
+      <ScreenTitle eyebrow="Preparation & recap" title="Session notes" action={<div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="outline" className="border-white/10" disabled={!data.sessions.length} onClick={() => setExpandedIds(allExpanded ? [] : data.sessions.map((session) => session.id))}>
+          {allExpanded ? "Collapse all" : "Expand all"}
+        </Button>
+        <Button onClick={addSession} className="bg-amber-300 text-black hover:bg-amber-200"><Plus /> New session</Button>
+      </div>} />
       <SearchField
         id="session-search"
         value={search}
@@ -81,10 +90,10 @@ export function Sessions({
         <div className="space-y-5">
           {sessions.map((session) => {
             const linkedStories = data.story.filter((beat) => beat.sessionIds.includes(session.id));
-            const collapsed = collapsedIds.includes(session.id);
+            const collapsed = !expandedIds.includes(session.id);
             const status = getSessionStatus(session);
             return (
-              <article id={`session-${session.id}`} tabIndex={-1} key={session.id} className={`scroll-mt-24 rounded-xl border p-5 outline-none transition focus:ring-2 focus:ring-amber-300/60 ${status === "happened" ? "border-emerald-300/15 bg-emerald-300/[.03]" : status === "active" ? "border-amber-300/20 bg-amber-300/[.03]" : "border-white/10 bg-[#12161e]"}`}>
+              <article id={`session-${session.id}`} tabIndex={-1} key={session.id} onFocus={(event) => event.target === event.currentTarget && expand(session.id)} className={`scroll-mt-24 rounded-xl border p-5 outline-none transition focus:ring-2 focus:ring-amber-300/60 ${status === "happened" ? "border-emerald-300/15 bg-emerald-300/[.03]" : status === "active" ? "border-amber-300/20 bg-amber-300/[.03]" : "border-white/10 bg-[#12161e]"}`}>
                 <div className="flex flex-wrap items-start gap-3">
                   <Button size="icon" variant="ghost" className="shrink-0" onClick={() => toggleCollapsed(session.id)} aria-label={`${collapsed ? "Expand" : "Collapse"} ${session.title}`}>
                     {collapsed ? <ChevronRight /> : <ChevronDown />}

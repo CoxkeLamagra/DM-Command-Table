@@ -10,6 +10,8 @@ All notable DM Command Table releases are documented here.
 - Added Planned, Active now, and Happened statuses to Sessions while preserving existing completion data.
 - Made Sessions individually collapsible to compact title, date, and status summaries.
 - Made Story beats individually collapsible to compact title, chapter, and status summaries.
+- Made collapsed entries the default and added Expand all / Collapse all controls to Story and Sessions.
+- Increased contrast for the Story status and linked-Session dropdowns.
 - Added Session status labels to the linked Sessions overview inside Story beats.
 - Replaced the crowded linked-Session checkbox grid with a compact dropdown and a list containing only linked Sessions.
 - Made linked Session names open their corresponding Session entry directly.
