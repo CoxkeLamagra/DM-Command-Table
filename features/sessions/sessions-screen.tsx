@@ -86,6 +86,9 @@ export function Sessions({
             return (
               <article id={`session-${session.id}`} tabIndex={-1} key={session.id} className={`scroll-mt-24 rounded-xl border p-5 outline-none transition focus:ring-2 focus:ring-amber-300/60 ${status === "happened" ? "border-emerald-300/15 bg-emerald-300/[.03]" : status === "active" ? "border-amber-300/20 bg-amber-300/[.03]" : "border-white/10 bg-[#12161e]"}`}>
                 <div className="flex flex-wrap items-start gap-3">
+                  <Button size="icon" variant="ghost" className="shrink-0" onClick={() => toggleCollapsed(session.id)} aria-label={`${collapsed ? "Expand" : "Collapse"} ${session.title}`}>
+                    {collapsed ? <ChevronRight /> : <ChevronDown />}
+                  </Button>
                   <div className="min-w-0 flex-1">
                     {collapsed ? (
                       <>
@@ -104,9 +107,6 @@ export function Sessions({
                     <option value="active">Active now</option>
                     <option value="happened">Happened</option>
                   </select>
-                  <Button size="icon" variant="ghost" onClick={() => toggleCollapsed(session.id)} aria-label={`${collapsed ? "Expand" : "Collapse"} ${session.title}`}>
-                    {collapsed ? <ChevronRight /> : <ChevronDown />}
-                  </Button>
                   <Button size="icon" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={() => deleteSession(session)} aria-label={`Delete ${session.title}`}><Trash2 /></Button>
                 </div>
                 {!collapsed && (

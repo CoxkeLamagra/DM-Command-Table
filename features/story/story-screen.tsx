@@ -86,6 +86,9 @@ export function Story({ data, patch }: { data: CampaignState; patch: CampaignPat
                 </div>
                 <div className="rounded-xl border border-white/10 bg-[#12161e] p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Button size="icon" variant="ghost" className="shrink-0" onClick={() => toggleCollapsed(beat.id)} aria-label={`${collapsed ? "Expand" : "Collapse"} ${beat.title}`}>
+                      {collapsed ? <ChevronRight /> : <ChevronDown />}
+                    </Button>
                     <div className="min-w-0 flex-1">
                       {collapsed ? (
                         <>
@@ -105,9 +108,6 @@ export function Story({ data, patch }: { data: CampaignState; patch: CampaignPat
                         <option value="active">Active now</option>
                         <option value="happened">Happened</option>
                       </select>
-                      <Button size="icon" variant="ghost" onClick={() => toggleCollapsed(beat.id)} aria-label={`${collapsed ? "Expand" : "Collapse"} ${beat.title}`}>
-                        {collapsed ? <ChevronRight /> : <ChevronDown />}
-                      </Button>
                       <Button size="icon" variant="ghost" className="text-stone-600 hover:text-red-300" onClick={() => deleteBeat(beat)} aria-label={`Delete ${beat.title}`}><Trash2 /></Button>
                     </div>
                   </div>
