@@ -21,6 +21,7 @@ The current version is **v5.0.1**.
 - Poll for server changes every five seconds while the application is open.
 - Manage the campaign name and general campaign notes from a dedicated **Campaign** screen.
 - Review a chronological campaign timeline generated automatically from session entries.
+- Keep the Campaign screen focused with a 70% Campaign-details and 30% Timeline layout, with Session-note previews limited to 2,000 characters.
 - Select a timeline entry to open and focus its corresponding session note.
 
 Campaigns are private by default. Only the owner can share or delete a campaign. Owners and editors can save changes; viewers cannot modify campaign data.
