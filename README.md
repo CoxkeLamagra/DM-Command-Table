@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current version is **v5.0.0**.
+The current version is **v5.0.1**.
 
 ## Features
 
@@ -291,8 +291,8 @@ Browser and server rich-text handling share one formatting and color policy. API
 
 ## Release
 
-- Latest stable release: [DM Command Table 5.0.0](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v5.0.0)
-- Release tag: `v5.0.0`
+- Latest stable release: [DM Command Table 5.0.1](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v5.0.1)
+- Release tag: `v5.0.1`
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License

@@ -64,9 +64,15 @@ export function ApplicationSidebar({
           </button>
         )}
       </div>
-      <p className="px-3 pb-1 pt-3 text-[10px] text-stone-600">
+      <a
+        href="https://github.com/CoxkeLamagra/DM-Command-Table"
+        target="_blank"
+        rel="noreferrer"
+        className="px-3 pb-1 pt-3 text-[10px] text-stone-600 transition hover:text-amber-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
+        title="Open the DM Command Table GitHub repository"
+      >
         DM Command Table v{APPLICATION_VERSION}
-      </p>
+      </a>
     </aside>
   );
 }

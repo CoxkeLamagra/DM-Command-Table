@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 5.0.1 — 2026-09-28
 
 ### Campaign navigation
 
@@ -15,6 +15,7 @@ All notable DM Command Table releases are documented here.
 - Added Session status labels to the linked Sessions overview inside Story beats.
 - Replaced the crowded linked-Session checkbox grid with a compact dropdown and a list containing only linked Sessions.
 - Made linked Session names open their corresponding Session entry directly.
+- Linked the application version in the sidebar to the GitHub repository.
 
 ## 5.0.0 — 2026-09-28
 
