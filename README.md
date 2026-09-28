@@ -93,7 +93,7 @@ Imported monster data belongs to the current campaign and remains editable after
 - Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
-- Review each linked Session's date and status directly from its Story beat.
+- Link Sessions to Story beats from a compact dropdown, review linked Session dates and statuses, and open a linked Session by selecting its name.
 - Paste or upload screenshots into every rich-text notes field, including Campaign, Session, Story, Player, and Monster records.
 - Format rich text with lists, bold, italic, underline, and text colors.
 - Reuse uploaded screenshots from the local library; images scale automatically to the available browser width.

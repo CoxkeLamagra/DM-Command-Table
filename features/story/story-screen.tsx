@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, ChevronRight, Link2, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createId } from "@/features/campaign/id";
@@ -12,10 +12,10 @@ import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-libr
 import { SearchField } from "@/features/shared/search-field";
 import { matchesSearch } from "@/features/shared/search";
 import { ScreenTitle } from "@/features/shared/ui";
-import { getSessionStatus, sessionStatusLabel } from "@/features/sessions/domain";
+import { LinkedSessions } from "./linked-sessions";
 import { toggleStorySession } from "./domain";
 
-export function Story({ data, patch }: { data: CampaignState; patch: CampaignPatch }) {
+export function Story({ data, patch, openSession }: { data: CampaignState; patch: CampaignPatch; openSession: (id: string) => void }) {
   const { screenshots, upload } = useScreenshotLibrary();
   const [search, setSearch] = useState("");
   const [collapsedIds, setCollapsedIds] = useState<string[]>([]);
@@ -26,7 +26,13 @@ export function Story({ data, patch }: { data: CampaignState; patch: CampaignPat
     if (!window.confirm(`Delete the story beat "${beat.title}"?`)) return;
     patch("story", data.story.filter((entry) => entry.id !== beat.id));
   }
-  function toggleSession(beat: StoryBeat, sessionId: string) {
+  function linkSession(beat: StoryBeat, sessionId: string) {
+    if (beat.sessionIds.includes(sessionId)) return;
+    const toggled = toggleStorySession(beat, sessionId);
+    update(beat.id, { sessionIds: toggled.sessionIds });
+  }
+  function unlinkSession(beat: StoryBeat, sessionId: string) {
+    if (!beat.sessionIds.includes(sessionId)) return;
     const toggled = toggleStorySession(beat, sessionId);
     update(beat.id, { sessionIds: toggled.sessionIds });
   }
@@ -116,30 +122,13 @@ export function Story({ data, patch }: { data: CampaignState; patch: CampaignPat
                       <div className="mt-4">
                         <ScreenshotNotes className="min-h-24" value={beat.details} onChange={(details) => update(beat.id, { details })} screenshots={screenshots} upload={upload} />
                       </div>
-                      <section className="mt-4 border-t border-white/10 pt-4">
-                        <h3 className="flex items-center gap-2 text-sm font-medium text-stone-300"><Link2 size={15} className="text-amber-300/70" /> Linked sessions</h3>
-                        {data.sessions.length ? (
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            {data.sessions.map((session) => {
-                              const status = getSessionStatus(session);
-                              return (
-                                <label key={session.id} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm transition ${beat.sessionIds.includes(session.id) ? "border-amber-300/30 bg-amber-300/[.06] text-amber-100" : "border-white/10 bg-black/20 text-stone-400 hover:border-white/20"}`}>
-                                  <input type="checkbox" className="mt-0.5 size-4 accent-amber-300" checked={beat.sessionIds.includes(session.id)} onChange={() => toggleSession(beat, session.id)} />
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block truncate">{session.title || "Untitled session"}</span>
-                                    <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-stone-600">
-                                      <span>{session.date || "Date not set"}</span>
-                                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-stone-400">{sessionStatusLabel(status)}</span>
-                                    </span>
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="mt-2 text-sm italic text-stone-600">Create a session before linking it to this story beat.</p>
-                        )}
-                      </section>
+                      <LinkedSessions
+                        beat={beat}
+                        sessions={data.sessions}
+                        link={(sessionId) => linkSession(beat, sessionId)}
+                        unlink={(sessionId) => unlinkSession(beat, sessionId)}
+                        openSession={openSession}
+                      />
                     </>
                   )}
                 </div>

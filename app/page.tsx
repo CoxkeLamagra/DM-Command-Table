@@ -266,7 +266,7 @@ export default function Home() {
             />
           </TabsContent>
           <TabsContent value="story">
-            <Story data={data} patch={patch} />
+            <Story data={data} patch={patch} openSession={openSession} />
           </TabsContent>
           {user && (
             <TabsContent value="account">
