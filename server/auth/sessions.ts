@@ -63,7 +63,17 @@ async function secureCookieEnabled(): Promise<boolean> {
   const setting = process.env.DM_COMMAND_TABLE_SECURE_COOKIES ?? "auto";
   if (setting === "true") return true;
   if (setting === "false") return false;
-  return (await headers()).get("x-forwarded-proto")?.split(",")[0]?.trim() === "https";
+  const requestHeaders = await headers();
+  const forwardedProtocols = requestHeaders
+    .get("x-forwarded-proto")
+    ?.split(",")
+    .map((protocol) => protocol.trim());
+  if (forwardedProtocols?.includes("https")) return true;
+  try {
+    return new URL(requestHeaders.get("origin") ?? "").protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function hashToken(token: string): string {

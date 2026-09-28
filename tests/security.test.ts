@@ -29,7 +29,7 @@ test("server-side rich text sanitization keeps formatting and removes executable
   assert.doesNotMatch(safe, /script|onclick|position/i);
 });
 
-test("origin checks include forwarded scheme and host", () => {
+test("origin checks retain host validation behind a TLS-terminating proxy", () => {
   const valid = new Request("http://internal/api/campaigns", {
     headers: {
       origin: "https://dm.example.test",
@@ -39,14 +39,14 @@ test("origin checks include forwarded scheme and host", () => {
   });
   assert.equal(rejectCrossOrigin(valid), null);
 
-  const wrongScheme = new Request("http://internal/api/campaigns", {
+  const translatedScheme = new Request("http://internal/api/campaigns", {
     headers: {
-      origin: "http://dm.example.test",
-      "x-forwarded-host": "dm.example.test",
-      "x-forwarded-proto": "https",
+      origin: "https://dm.example.test",
+      host: "dm.example.test",
+      "x-forwarded-proto": "http",
     },
   });
-  assert.equal(rejectCrossOrigin(wrongScheme)?.status, 403);
+  assert.equal(rejectCrossOrigin(translatedScheme), null);
 
   const wrongHost = new Request("http://internal/api/campaigns", {
     headers: {
@@ -56,4 +56,12 @@ test("origin checks include forwarded scheme and host", () => {
     },
   });
   assert.equal(rejectCrossOrigin(wrongHost)?.status, 403);
+
+  const wrongPort = new Request("http://internal/api/campaigns", {
+    headers: {
+      origin: "https://dm.example.test:444",
+      host: "dm.example.test",
+    },
+  });
+  assert.equal(rejectCrossOrigin(wrongPort)?.status, 403);
 });
