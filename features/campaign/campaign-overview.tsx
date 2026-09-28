@@ -77,7 +77,7 @@ export function CampaignOverview({
                 onChange={(value) => patch("campaignNotes", value)}
                 screenshots={screenshots}
                 upload={upload}
-                placeholder="Campaign premise, locations, factions, house rules, long-term remindersâ¦"
+                placeholder="Campaign premise, locations, factions, house rules, long-term reminders…"
               />
               </div>
             </div>
@@ -163,7 +163,7 @@ export function CampaignOverview({
                     </div>
                     {preview.text ? (
                       <p className="mt-4 whitespace-pre-line break-words text-sm leading-6 text-stone-400">
-                        {preview.text}{preview.truncated ? "â¦" : ""}
+                        {preview.text}{preview.truncated ? "…" : ""}
                       </p>
                     ) : (
                       <p className="mt-4 text-sm italic text-stone-600">
