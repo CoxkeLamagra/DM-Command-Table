@@ -2,6 +2,13 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+### Campaign overview
+
+- Changed the desktop Campaign layout to a 70% Campaign-details and 30% Timeline split.
+- Limited Timeline Session-note previews to the first 2,000 plain-text characters.
+
 ## 5.0.1 — 2026-09-28
 
 ### Campaign navigation
