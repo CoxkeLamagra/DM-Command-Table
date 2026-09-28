@@ -1,5 +1,6 @@
 import sanitizeHtml from "sanitize-html";
-import type { CampaignState } from "@/features/campaign/types";
+import type { CampaignState } from "../../features/campaign/types.ts";
+import { RICH_TEXT_TAGS, safeColorPatterns } from "../../features/rich-text/policy.ts";
 
 const RICH_TEXT_KEYS = new Set([
   "campaignNotes",
@@ -29,32 +30,14 @@ function sanitizeValue(value: unknown, key: string): unknown {
 
 export function sanitizeRichText(value: string): string {
   return sanitizeHtml(value, {
-    allowedTags: [
-      "b",
-      "br",
-      "div",
-      "em",
-      "font",
-      "i",
-      "li",
-      "ol",
-      "p",
-      "span",
-      "strong",
-      "u",
-      "ul",
-    ],
+    allowedTags: [...RICH_TEXT_TAGS],
     allowedAttributes: {
       font: ["color"],
       span: ["style"],
     },
     allowedStyles: {
       "*": {
-        color: [
-          /^#[0-9a-f]{3,8}$/i,
-          /^rgba?\([\d\s,.%]+\)$/i,
-          /^[a-z]+$/i,
-        ],
+        color: safeColorPatterns(),
       },
     },
     disallowedTagsMode: "discard",

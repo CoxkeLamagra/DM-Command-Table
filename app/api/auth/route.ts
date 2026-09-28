@@ -13,14 +13,13 @@ import {
   rateLimitResponse,
 } from "@/server/security/rate-limit";
 import { getRegistrationStatus } from "@/server/admin/registration-settings";
+import { privateJson } from "@/server/http/responses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return Response.json(getRegistrationStatus(), {
-    headers: { "cache-control": "no-store" },
-  });
+  return privateJson(getRegistrationStatus());
 }
 
 export async function POST(request: Request) {

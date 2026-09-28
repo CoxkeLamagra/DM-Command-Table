@@ -1,20 +1,18 @@
 import type { LocalUser } from "../auth/credentials.ts";
 import { getLocalUser } from "../auth/sessions.ts";
+import { jsonError } from "./responses.ts";
 export { rejectCrossOrigin } from "./origin.ts";
 
 export async function authorizeRequest(options: { admin?: boolean } = {}) {
   const user = await getLocalUser();
   if (!user) {
     return {
-      response: Response.json({ error: "Sign in required." }, { status: 401 }),
+      response: jsonError("Sign in required.", 401),
     } as const;
   }
   if (options.admin && !user.isAdmin) {
     return {
-      response: Response.json(
-        { error: "Administrator access required." },
-        { status: 403 },
-      ),
+      response: jsonError("Administrator access required.", 403),
     } as const;
   }
   return { user } as { user: LocalUser };

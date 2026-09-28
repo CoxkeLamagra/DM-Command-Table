@@ -266,7 +266,9 @@ Dockerfile             Multi-stage production container build
 compose.yaml           Local container deployment with persistent storage
 ```
 
-Feature modules keep rendering separate from testable domain operations. Combat advancement and numbering, prepared encounters, story/session relationships, Bestiary catalogue access and imports, screenshot-token parsing, and strict campaign validation live outside their screen components. API routes are thin adapters over local server services and repositories. A single authenticated screenshot provider shares the server-local media library across all rich-text fields and Administration.
+Feature modules keep orchestration, focused interface components, and testable domain operations separate. Bestiary catalogue importing and views, prepared encounter editing, Combat initiative and combatant details, and administrator account controls live in focused components rather than monolithic screens. Campaign file handling, Combat advancement and numbering, story/session relationships, screenshot-token parsing, and strict campaign validation live outside their screen components.
+
+Browser and server rich-text handling share one formatting and color policy. API routes remain thin adapters over local server services and repositories, and authenticated JSON responses explicitly prevent private data from being cached. A single authenticated screenshot provider shares the server-local media library across all rich-text fields and Administration. These internal boundaries do not introduce cloud services or change the local-only storage model.
 
 ## Data and privacy
 

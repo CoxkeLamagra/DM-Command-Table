@@ -1,17 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Pencil, Shield, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, Pencil, Shield, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { ScreenTitle } from "@/features/shared/ui";
 import {
   createManagedUser,
@@ -23,16 +15,16 @@ import {
   updateManagedUser,
   type ManagedUser,
 } from "@/lib/api/admin-client";
+import { AccountDialog, type AccountDialogMode } from "./account-dialog";
+import { RegistrationControls } from "./registration-controls";
 import { ScreenshotAdmin } from "./screenshot-admin";
-
-type DialogMode = "create" | "edit" | "password" | null;
 
 export function AdminScreen({ currentUsername }: { currentUsername: string }) {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
   const [selected, setSelected] = useState<ManagedUser | null>(null);
-  const [mode, setMode] = useState<DialogMode>(null);
+  const [mode, setMode] = useState<AccountDialogMode>(null);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -160,30 +152,12 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
         Manage the local accounts that can access this DM Command Table server.
         Password resets immediately sign the affected user out on every device.
       </p>
-      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-white/10 bg-[#12161e] p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-medium text-stone-100">Account registration</h2>
-          <p className="mt-1 text-sm text-stone-400">
-            Allow visitors to create their own local account from the sign-in screen.
-          </p>
-        </div>
-        <label className="flex items-center gap-3 text-sm text-stone-300">
-          <Switch
-            checked={registrationEnabled}
-            disabled={loading || registrationBusy}
-            onCheckedChange={(checked) => void toggleRegistration(checked)}
-          />
-          {registrationEnabled ? "Enabled" : "Disabled"}
-        </label>
-      </div>
-      <div className="mb-4 flex justify-end">
-        <Button
-          className="bg-amber-300 text-black hover:bg-amber-200"
-          onClick={openCreate}
-        >
-          <UserPlus /> Create account
-        </Button>
-      </div>
+      <RegistrationControls
+        enabled={registrationEnabled}
+        disabled={loading || registrationBusy}
+        setEnabled={(enabled) => void toggleRegistration(enabled)}
+        createAccount={openCreate}
+      />
       {loading ? (
         <p className="text-sm text-stone-400">Loading users…</p>
       ) : (
@@ -242,54 +216,19 @@ export function AdminScreen({ currentUsername }: { currentUsername: string }) {
           })}
         </div>
       )}
-      <Dialog open={mode !== null} onOpenChange={(open) => !open && setMode(null)}>
-        <DialogContent className="border-amber-300/20 bg-[#12161e] text-stone-100">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-2xl text-amber-100">
-              {mode === "create"
-                ? "Create account"
-                : mode === "edit"
-                  ? "Edit user"
-                  : "Reset password"}
-            </DialogTitle>
-          </DialogHeader>
-          {mode === "create" || mode === "edit" ? (
-            <>
-              <label className="text-sm text-stone-300">
-                Username
-                <Input className="mt-2 border-white/10 bg-black/20" value={username} onChange={(event) => setUsername(event.target.value)} minLength={3} maxLength={32} />
-              </label>
-              {mode === "create" && (
-                <label className="text-sm text-stone-300">
-                  Initial password
-                  <Input autoFocus className="mt-2 border-white/10 bg-black/20" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} maxLength={128} />
-                </label>
-              )}
-              <label className="text-sm text-stone-300">
-                Display name
-                <Input className="mt-2 border-white/10 bg-black/20" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} />
-              </label>
-            </>
-          ) : (
-            <label className="text-sm text-stone-300">
-              New password for {selected?.username}
-              <Input autoFocus className="mt-2 border-white/10 bg-black/20" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} maxLength={128} />
-            </label>
-          )}
-          <Button
-            className="bg-amber-300 text-black hover:bg-amber-200"
-            disabled={
-              workingId === (selected?.id ?? "create") ||
-              ((mode === "create" || mode === "password") && password.length < 8) ||
-              ((mode === "create" || mode === "edit") && username.length < 3)
-            }
-            onClick={() => void saveDialog()}
-          >
-            {mode === "create" ? <UserPlus /> : mode === "edit" ? <Pencil /> : <KeyRound />}
-            {mode === "create" ? "Create account" : mode === "edit" ? "Save user" : "Reset password"}
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <AccountDialog
+        mode={mode}
+        selected={selected}
+        username={username}
+        displayName={displayName}
+        password={password}
+        busy={workingId === (selected?.id ?? "create")}
+        setUsername={setUsername}
+        setDisplayName={setDisplayName}
+        setPassword={setPassword}
+        close={() => setMode(null)}
+        save={() => void saveDialog()}
+      />
       <ScreenshotAdmin />
     </>
   );

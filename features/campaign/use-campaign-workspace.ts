@@ -14,12 +14,8 @@ import {
 import { logout as logoutRemote } from "@/lib/api/auth-client";
 import { createEmptyCampaign, starterCampaign } from "./defaults";
 import { createCampaignCopy, type CampaignCopyMode } from "./copy";
-import {
-  CAMPAIGN_EXPORT_FORMAT,
-  CAMPAIGN_EXPORT_VERSION,
-  parseCampaignExport,
-  parseCampaignState,
-} from "./schema";
+import { downloadCampaignExport, readCampaignExport } from "./campaign-file";
+import { parseCampaignState } from "./schema";
 import type { Campaign, CampaignState, CampaignUser } from "./types";
 
 export function useCampaignWorkspace() {
@@ -222,32 +218,12 @@ export function useCampaignWorkspace() {
   const exportCampaign = useCallback(() => {
     const selected = currentRef.current;
     if (!selected) return;
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            format: CAMPAIGN_EXPORT_FORMAT,
-            version: CAMPAIGN_EXPORT_VERSION,
-            name: selected.name,
-            payload: dataRef.current,
-          },
-          null,
-          2,
-        ),
-      ],
-      { type: "application/json" },
-    );
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${selected.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "campaign"}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadCampaignExport(selected.name, dataRef.current);
   }, []);
 
   const importCampaign = useCallback(async (file: File) => {
     try {
-      const parsed = parseCampaignExport(JSON.parse(await file.text()));
+      const parsed = await readCampaignExport(file);
       const payload = parsed.payload;
       const created = await createRemoteCampaign(
         payload,

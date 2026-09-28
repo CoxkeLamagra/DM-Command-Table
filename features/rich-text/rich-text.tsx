@@ -15,23 +15,9 @@ import {
   RemoveFormatting,
   Underline,
 } from "lucide-react";
+import { isSafeColor, RICH_TEXT_TAGS } from "./policy";
 
-const ALLOWED_TAGS = new Set([
-  "B",
-  "BR",
-  "DIV",
-  "EM",
-  "FONT",
-  "I",
-  "LI",
-  "OL",
-  "P",
-  "SPAN",
-  "STRONG",
-  "U",
-  "UL",
-]);
-const SAFE_COLOR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i;
+const ALLOWED_TAGS = new Set(RICH_TEXT_TAGS.map((tag) => tag.toUpperCase()));
 
 export function RichTextEditor({
   value,
@@ -256,7 +242,7 @@ function sanitizeRichText(value: string): string {
       (element as HTMLElement).style.color || element.getAttribute("color") || "";
     for (const attribute of Array.from(element.attributes))
       element.removeAttribute(attribute.name);
-    if (color && SAFE_COLOR.test(color))
+    if (color && isSafeColor(color))
       (element as HTMLElement).style.color = color;
   }
   return documentValue.body.innerHTML;

@@ -24,6 +24,7 @@ import {
   getRegistrationStatus,
   setRegistrationEnabled,
 } from "@/server/admin/registration-settings";
+import { privateJson } from "@/server/http/responses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -148,11 +149,11 @@ export async function DELETE(request: Request) {
 }
 
 function administrationResponse(status = 200) {
-  return Response.json(
+  return privateJson(
     {
       users: listUsers(),
       registrationEnabled: getRegistrationStatus().registrationEnabled,
     },
-    { status, headers: { "cache-control": "no-store" } },
+    status,
   );
 }

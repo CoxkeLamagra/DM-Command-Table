@@ -17,6 +17,7 @@ import { parseCampaignState } from "@/features/campaign/schema";
 import { ZodError } from "zod";
 import { readJson, rejectCrossOrigin } from "@/server/http/requests";
 import { sanitizeCampaignRichText } from "@/server/security/sanitize-rich-text";
+import { jsonError, privateJson } from "@/server/http/responses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ async function currentUser() {
 export async function GET() {
   const user = await currentUser();
   if (!user) return authenticationRequired();
-  return Response.json({
+  return privateJson({
     user: {
       username: user.username,
       displayName: user.displayName,
@@ -160,7 +161,7 @@ export async function DELETE(request: Request) {
 }
 
 function authenticationRequired() {
-  return Response.json({ error: "Authentication required." }, { status: 401 });
+  return jsonError("Authentication required.", 401);
 }
 
 function isShareRole(role: string | undefined): role is "viewer" | "editor" {

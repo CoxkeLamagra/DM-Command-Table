@@ -4,6 +4,14 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+### Internal architecture
+
+- Split the Bestiary catalogue importer, Bestiary views, prepared encounters, Combat initiative list, Combat details panel, administrator registration controls, and administrator account dialog into focused components.
+- Moved campaign file export and import handling into a dedicated module with regression coverage.
+- Centralized the rich-text allowlist and color policy so browser rendering and server-side sanitization share the same rules.
+- Added shared private JSON response helpers for authenticated API routes, including explicit no-store cache controls.
+- Preserved the existing local SQLite, filesystem screenshot, IndexedDB cache, authentication, API, and user-interface behavior.
+
 ## 4.0.5 — 2026-09-27
 
 ### Campaign copying
