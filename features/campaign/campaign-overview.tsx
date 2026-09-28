@@ -5,10 +5,12 @@ import { Check, ChevronRight, Feather, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { richTextToPlainText } from "@/features/rich-text/rich-text";
 import { ScreenTitle } from "@/features/shared/ui";
-import { NoteContent, ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
+import { ScreenshotNotes } from "@/features/screenshots/screenshot-notes";
 import { useScreenshotLibrary } from "@/features/screenshots/use-screenshot-library";
 import { getSessionStatus, sessionStatusLabel } from "@/features/sessions/domain";
+import { createTimelinePreview } from "./timeline-preview";
 import type { CampaignPatch, CampaignState } from "./types";
 
 export function CampaignOverview({
@@ -50,7 +52,7 @@ export function CampaignOverview({
         eyebrow="Campaign overview"
         title={data.campaignName || "Unnamed campaign"}
       />
-      <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(440px,1.2fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(280px,3fr)]">
         <section className="space-y-5">
           <article className="rounded-xl border border-white/10 bg-[#12161e] p-5">
             <h2 className="font-serif text-xl text-amber-100">
@@ -75,7 +77,7 @@ export function CampaignOverview({
                 onChange={(value) => patch("campaignNotes", value)}
                 screenshots={screenshots}
                 upload={upload}
-                placeholder="Campaign premise, locations, factions, house rules, long-term reminders…"
+                placeholder="Campaign premise, locations, factions, house rules, long-term remindersâ¦"
               />
               </div>
             </div>
@@ -112,6 +114,7 @@ export function CampaignOverview({
             <div className="relative space-y-4 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-white/10">
               {sessions.map((session, index) => {
                 const status = getSessionStatus(session);
+                const preview = createTimelinePreview(richTextToPlainText(session.body));
                 return (
                 <article
                   key={session.id}
@@ -158,12 +161,10 @@ export function CampaignOverview({
                         <ChevronRight size={17} className="text-stone-500" />
                       </div>
                     </div>
-                    {session.body ? (
-                      <NoteContent
-                        value={session.body}
-                        screenshots={screenshots}
-                        className="mt-4 text-stone-400"
-                      />
+                    {preview.text ? (
+                      <p className="mt-4 whitespace-pre-line break-words text-sm leading-6 text-stone-400">
+                        {preview.text}{preview.truncated ? "â¦" : ""}
+                      </p>
                     ) : (
                       <p className="mt-4 text-sm italic text-stone-600">
                         No session notes yet.
