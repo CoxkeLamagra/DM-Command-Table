@@ -6,6 +6,7 @@ import { getV6User, registrationStatus, setRegistrationEnabled } from "@/server/
 import { PublicApiError } from "@/server/v6/errors";
 import { apiError, apiJson, jsonBody } from "@/server/v6/http";
 import { enforceV6RateLimit } from "@/server/v6/request-security";
+import { getV6ServerSettings, saveV6ServerSettings, serverSettingsSchema } from "@/server/v6/server-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,11 @@ async function admin() {
   return { database, user };
 }
 function state(database: ReturnType<typeof getV6Database>) {
-  return { users: listV6Users(database), registrationEnabled: registrationStatus(database).registrationEnabled };
+  return {
+    users: listV6Users(database),
+    registrationEnabled: registrationStatus(database).registrationEnabled,
+    serverSettings: getV6ServerSettings(database),
+  };
 }
 
 export async function GET() {
@@ -48,11 +53,13 @@ async function mutate(request: Request, operation: "create" | "update" | "delete
       return apiJson(state(database));
     }
     const input = z.object({
-      action: z.enum(["update", "set-registration"]), id: z.string().optional(),
+      action: z.enum(["update", "set-registration", "set-server-settings"]), id: z.string().optional(),
       username: z.string().optional(), displayName: z.string().optional(), password: z.string().optional(),
       isAdmin: z.boolean().optional(), registrationEnabled: z.boolean().optional(),
+      serverSettings: serverSettingsSchema.optional(),
     }).parse(await jsonBody(request));
     if (input.action === "set-registration") setRegistrationEnabled(database, Boolean(input.registrationEnabled));
+    else if (input.action === "set-server-settings") saveV6ServerSettings(database, input.serverSettings);
     else {
       if (!input.id) throw new PublicApiError("A user is required.");
       updateV6ManagedUser(database, input.id, input, user.userId);
