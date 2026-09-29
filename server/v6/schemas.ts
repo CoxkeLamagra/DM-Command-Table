@@ -80,13 +80,13 @@ export const preparedEncounterSchema = z.object({
   monsters: z.array(preparedMonsterSchema).max(10_000),
 });
 
-const combatConditionSchema = z.object({
+export const combatConditionSchema = z.object({
   id: idSchema,
   name: z.string().min(1).max(120),
   remainingTurns: z.number().int().positive().nullable(),
 });
 
-const combatantSchema = z.object({
+export const combatantSchema = z.object({
   id: idSchema,
   playerId: idSchema.nullable(),
   monsterId: idSchema.nullable(),

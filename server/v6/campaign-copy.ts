@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { PublicApiError } from "./errors.ts";
 import { requireCampaignRead } from "./access.ts";
 import { createBestiaryRepository } from "./bestiary-repository.ts";
 import { createV6CampaignRepository, type V6Campaign } from "./campaign-repository.ts";
@@ -11,7 +12,7 @@ export function copyV6Campaign(database: DatabaseSync, sourceId: string, actorId
   requireCampaignRead(database, sourceId, actorId);
   const campaigns = createV6CampaignRepository(database);
   const source = campaigns.get(sourceId, actorId);
-  if (!source) throw new Error("Campaign not found.");
+  if (!source) throw new PublicApiError("Campaign not found.", 404);
   const target = campaigns.create(actorId, { name: copyName(source.name, mode), notes: source.notes });
   const content = createContentRepository(database);
   const bestiary = createBestiaryRepository(database);

@@ -73,3 +73,23 @@ test("combat saves history, prevents duplicate linked players, and supports undo
   assert.equal(undone.combatants.length, 0);
   database.close();
 });
+
+test("combat history retains only the configured number of undo states", () => {
+  const previous = process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT;
+  process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT = "2";
+  const { database, campaign, encounters } = fixture();
+  try {
+    let combat = encounters.getCombat(campaign.id, "owner");
+    for (let round = 2; round <= 5; round += 1) {
+      combat = encounters.saveCombat(campaign.id, "owner", combat.revision, {
+        name: "Bounded", round, turn: 0, combatants: [],
+      });
+    }
+    const count = database.prepare("SELECT COUNT(*) AS count FROM combat_history").get() as { count: number };
+    assert.equal(count.count, 2);
+  } finally {
+    if (previous === undefined) delete process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT;
+    else process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT = previous;
+    database.close();
+  }
+});

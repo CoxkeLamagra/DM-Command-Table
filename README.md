@@ -132,7 +132,10 @@ DM Command Table provides its own server-local account system:
 - The browser receives an HttpOnly, `SameSite=Lax` session cookie that expires after 30 days.
 - Signing out deletes the active server-side session.
 - A newly registered account receives an editable example campaign demonstrating combatants, campaign players, bestiary monsters, session notes, and story beats.
-- Authentication, password changes, and screenshot uploads are rate-limited in the application process.
+- Authentication, account administration, campaign writes and imports, password changes, and screenshot operations use SQLite-backed rate limits that survive application restarts.
+- Campaign imports are schema-validated, size-limited, sanitized, and committed atomically.
+- Screenshot storage has per-account and server-wide quotas with atomic allocation.
+- Combat undo history and campaign audit events use configurable retention limits.
 
 Accounts and sessions exist only in the configured SQLite database. No external identity provider or account database is contacted.
 

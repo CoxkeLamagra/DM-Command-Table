@@ -7,6 +7,7 @@ import {
   validateCredentials,
   verifyPassword,
 } from "../auth/credentials.ts";
+import { PublicApiError } from "./errors.ts";
 
 const COOKIE_NAME = "dmct_v6_session";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
@@ -53,16 +54,16 @@ export function registerV6User(
 ): V6User {
   const username = normaliseUsername(input.username);
   const validation = validateCredentials(username, input.password);
-  if (validation) throw new Error(validation);
+  if (validation) throw new PublicApiError(validation);
   const status = registrationStatus(database);
-  if (!status.registrationEnabled) throw new Error("Account registration is disabled.");
+  if (!status.registrationEnabled) throw new PublicApiError("Account registration is disabled.", 403);
   if (status.initialSetup && process.env.NODE_ENV === "production") {
     const expected = process.env.DM_COMMAND_TABLE_BOOTSTRAP_TOKEN ?? "";
     if (!expected || !safeEqual(input.bootstrapToken ?? "", expected))
-      throw new Error("The initial setup token is invalid.");
+      throw new PublicApiError("The initial setup token is invalid.", 403);
   }
   if (database.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE").get(username))
-    throw new Error("That username is already registered.");
+    throw new PublicApiError("That username is already registered.", 409);
   const user: V6User = {
     userId: crypto.randomUUID(),
     username,

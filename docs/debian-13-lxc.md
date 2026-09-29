@@ -159,7 +159,9 @@ Each new account receives an editable example campaign. It can be renamed, chang
 
 Passwords are salted and hashed with `scrypt`. Accounts, sessions, campaign records, and audit history are stored in `/var/lib/dm-command-table/dm-command-table-v6.sqlite`; screenshots are stored in `/var/lib/dm-command-table/uploads-v6`. No external authentication, media, or database service is used.
 
-Screenshot files are validated and converted to WebP. The default quota is 100 MiB per account. Change `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB` if the server has a different storage budget.
+Screenshot files are validated and converted to WebP. The default quota is 100 MiB per account and 1,024 MiB across the server. Change `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB` and `DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB` if the server has a different storage budget.
+
+Combat undo history defaults to 100 snapshots per encounter, while audit history defaults to 10,000 events per campaign. These local database retention limits can be changed with `DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT` and `DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT`.
 
 When Nginx serves HTTPS, its `X-Forwarded-Proto` header causes `auto` mode to mark session cookies secure. You may use `true` to enforce secure cookies unconditionally.
 

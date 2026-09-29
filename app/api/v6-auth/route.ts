@@ -10,7 +10,8 @@ import {
   registrationStatus,
 } from "@/server/v6/auth";
 import { apiError, apiJson, jsonBody } from "@/server/v6/http";
-import { clientAddress, consumeRateLimit, rateLimitResponse } from "@/server/security/rate-limit";
+import { clientAddress, rateLimitResponse } from "@/server/security/rate-limit";
+import { consumePersistentRateLimit } from "@/server/security/sqlite-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,10 +40,18 @@ export async function POST(request: Request) {
       await destroyV6Session(database);
       return apiJson({ signedOut: true });
     }
-    const rateLimit = consumeRateLimit(
+    const globalLimit = consumePersistentRateLimit(
+      database,
+      `v6-auth:${input.action}:global`,
+      input.action === "login" ? 300 : 30,
+      input.action === "login" ? 15 * 60 * 1000 : 60 * 60 * 1000,
+    );
+    if (!globalLimit.allowed) return rateLimitResponse(globalLimit.retryAfterSeconds);
+    const rateLimit = consumePersistentRateLimit(
+      database,
       `v6-auth:${input.action}:${clientAddress(request)}:${(input.username ?? "").toLowerCase()}`,
       input.action === "login" ? 10 : 5,
-      15 * 60 * 1000,
+      input.action === "login" ? 15 * 60 * 1000 : 60 * 60 * 1000,
     );
     if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
     if (input.action === "register") {
@@ -63,4 +72,3 @@ export async function POST(request: Request) {
     return apiError(error);
   }
 }
-

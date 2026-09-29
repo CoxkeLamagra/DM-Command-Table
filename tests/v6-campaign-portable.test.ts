@@ -75,3 +75,35 @@ test("portable v6 campaign exports round-trip with remapped relationships", () =
   assert.equal(importedCombat.combatants[0]?.conditions[0]?.remainingTurns, 3);
   database.close();
 });
+
+test("portable imports sanitize rich text and roll back completely on failure", () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec("PRAGMA foreign_keys = ON");
+  runMigrations(database);
+  const now = Date.now();
+  database.prepare(
+    "INSERT INTO users (id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES ('owner','Owner','owner','hash',1,?,?)",
+  ).run(now, now);
+
+  const base = {
+    format: "dm-command-table-v6",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    campaign: { name: "Safe import", notes: "<p onclick='bad()'>Hello<script>bad()</script></p>" },
+    tags: [], monsters: [], players: [], sessions: [], story: [], combat: null,
+  };
+  const imported = importV6Campaign(database, "owner", base);
+  assert.equal(imported.notes, "<p>Hello</p>");
+
+  assert.throws(() => importV6Campaign(database, "owner", {
+    ...base,
+    campaign: { name: "Rolled back", notes: "" },
+    tags: [
+      { id: crypto.randomUUID(), name: "Duplicate", color: null },
+      { id: crypto.randomUUID(), name: "duplicate", color: null },
+    ],
+  }));
+  const count = database.prepare("SELECT COUNT(*) AS count FROM campaigns WHERE name LIKE 'Rolled back%'").get() as { count: number };
+  assert.equal(count.count, 0);
+  database.close();
+});

@@ -2,6 +2,19 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+### Security hardening
+
+- Added strict, bounded runtime validation and rich-text sanitization for portable v6 campaign imports.
+- Made campaign imports fully transactional so failed imports leave no partial records.
+- Persisted authentication and write-operation rate limits in local SQLite.
+- Made screenshot quota allocation atomic and added a configurable server-wide storage ceiling.
+- Bounded Combat undo history and campaign audit history with configurable retention limits.
+- Replaced inline-script CSP allowances with per-request nonces and `strict-dynamic`.
+- Retired the unused pre-v6 API endpoints with explicit `410 Gone` responses.
+- Added bounded JSON request parsing and generic responses for unexpected server failures.
+
 ## 6.1.0 — 2026-09-29
 
 ### Combat tracker

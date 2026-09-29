@@ -86,7 +86,8 @@ export async function handleV6Api(
       }
     }
 
-    if (segments[1] === "import" && method === "POST") return apiJson({ campaign: importV6Campaign(database, context.userId, await jsonBody(request)) }, 201);
+    if (segments[1] === "import" && method === "POST")
+      return apiJson({ campaign: importV6Campaign(database, context.userId, await jsonBody(request, 10 * 1024 * 1024)) }, 201);
     const campaignId = idSchema.parse(segments[1]);
     if (segments.length === 2) {
       if (method === "GET") return apiJson({ campaign: campaigns.get(campaignId, context.userId) });

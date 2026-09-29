@@ -3,6 +3,7 @@ import { runTransaction } from "../../db/transaction.ts";
 import { requireCampaignOwner } from "./access.ts";
 import { recordAuditEvent } from "./audit.ts";
 import { ResourceNotFoundError } from "./conflicts.ts";
+import { PublicApiError } from "./errors.ts";
 
 export type CampaignMember = {
   userId: string;
@@ -59,7 +60,7 @@ export function createMembershipRepository(database: DatabaseSync) {
         .prepare("SELECT owner_id AS ownerId FROM campaigns WHERE id = ?")
         .get(campaignId) as { ownerId: string };
       if (target.id === owner.ownerId)
-        throw new Error("The campaign owner already has full access.");
+        throw new PublicApiError("The campaign owner already has full access.");
       const now = Date.now();
       database
         .prepare(

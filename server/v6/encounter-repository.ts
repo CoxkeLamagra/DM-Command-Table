@@ -161,6 +161,7 @@ export function createEncounterRepository(database: DatabaseSync) {
             (encounter_id, actor_user_id, action, before_state, created_at)
            VALUES (?, ?, ?, ?, ?)`,
         ).run(current.id, actorUserId, action, JSON.stringify(current), Date.now());
+        pruneCombatHistory(database, current.id);
         const result = database.prepare(
           `UPDATE combat_encounters SET name = ?, round = ?, turn = ?,
              revision = revision + 1, updated_at = ?
@@ -195,6 +196,18 @@ export function createEncounterRepository(database: DatabaseSync) {
       return getCombat(database, current.id);
     },
   };
+}
+
+function pruneCombatHistory(database: DatabaseSync, encounterId: string): void {
+  const configured = Number(process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT);
+  const limit = Number.isInteger(configured) && configured >= 1
+    ? Math.min(configured, 1_000)
+    : 100;
+  const cutoff = database.prepare(
+    "SELECT id FROM combat_history WHERE encounter_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
+  ).get(encounterId, limit) as { id: number } | undefined;
+  if (cutoff)
+    database.prepare("DELETE FROM combat_history WHERE encounter_id = ? AND id <= ?").run(encounterId, cutoff.id);
 }
 
 function replacePreparedMonsters(

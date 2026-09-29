@@ -26,5 +26,25 @@ export function recordAuditEvent(
       input.details === undefined ? null : JSON.stringify(input.details),
       Date.now(),
     );
+  pruneAuditEvents(database, input.campaignId ?? null, input.actorUserId ?? null);
 }
 
+function pruneAuditEvents(
+  database: DatabaseSync,
+  campaignId: string | null,
+  actorUserId: string | null,
+): void {
+  const configured = Number(process.env.DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT);
+  const limit = Number.isInteger(configured) && configured >= 100
+    ? Math.min(configured, 100_000)
+    : 10_000;
+  const campaign = campaignId !== null;
+  const owner = campaignId ?? actorUserId;
+  if (!owner) return;
+  const column = campaign ? "campaign_id" : "actor_user_id";
+  const cutoff = database.prepare(
+    `SELECT id FROM audit_events WHERE ${column} = ? ORDER BY id DESC LIMIT 1 OFFSET ?`,
+  ).get(owner, limit) as { id: number } | undefined;
+  if (cutoff)
+    database.prepare(`DELETE FROM audit_events WHERE ${column} = ? AND id <= ?`).run(owner, cutoff.id);
+}

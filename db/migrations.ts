@@ -284,6 +284,20 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE combatants ADD COLUMN notes TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    version: 3,
+    name: "persistent-security-rate-limits",
+    sql: `
+      CREATE TABLE security_rate_limits (
+        key TEXT PRIMARY KEY NOT NULL,
+        count INTEGER NOT NULL CHECK (count > 0),
+        resets_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX idx_security_rate_limits_resets_at
+        ON security_rate_limits (resets_at);
+    `,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {

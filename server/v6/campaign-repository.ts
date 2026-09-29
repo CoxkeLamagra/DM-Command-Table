@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { RevisionConflictError, ResourceNotFoundError } from "./conflicts.ts";
+import { PublicApiError } from "./errors.ts";
 
 export type V6CampaignRole = "owner" | "editor" | "viewer";
 
@@ -121,7 +122,7 @@ export function createV6CampaignRepository(database: DatabaseSync) {
     delete(id: string, actorUserId: string): void {
       const campaign = get(database, id, actorUserId);
       if (!campaign) throw new ResourceNotFoundError("campaign", id);
-      if (campaign.role !== "owner") throw new Error("Only the campaign owner can delete it.");
+      if (campaign.role !== "owner") throw new PublicApiError("Only the campaign owner can delete it.", 403);
       database.prepare("DELETE FROM campaigns WHERE id = ? AND owner_id = ?").run(id, actorUserId);
     },
   };
@@ -182,4 +183,13 @@ function writeAudit(
       event.action,
       Date.now(),
     );
+  const configured = Number(process.env.DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT);
+  const limit = Number.isInteger(configured) && configured >= 100
+    ? Math.min(configured, 100_000)
+    : 10_000;
+  const cutoff = database.prepare(
+    "SELECT id FROM audit_events WHERE campaign_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
+  ).get(event.campaignId, limit) as { id: number } | undefined;
+  if (cutoff)
+    database.prepare("DELETE FROM audit_events WHERE campaign_id = ? AND id <= ?").run(event.campaignId, cutoff.id);
 }

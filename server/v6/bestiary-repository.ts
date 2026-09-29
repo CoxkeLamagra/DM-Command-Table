@@ -3,6 +3,7 @@ import { runTransaction } from "../../db/transaction.ts";
 import { requireCampaignEdit, requireCampaignRead } from "./access.ts";
 import { recordAuditEvent } from "./audit.ts";
 import { ResourceNotFoundError, RevisionConflictError } from "./conflicts.ts";
+import { PublicApiError } from "./errors.ts";
 
 export type V6Monster = {
   id: string;
@@ -125,7 +126,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
         if (!result.changes) throw new ResourceNotFoundError("monster", id);
       } catch (error) {
         if (error instanceof Error && error.message.includes("FOREIGN KEY"))
-          throw new Error("This monster is used by a prepared encounter.");
+          throw new PublicApiError("This monster is used by a prepared encounter.", 409);
         throw error;
       }
       touch(database, campaignId, actorUserId, id, "deleted");
@@ -139,7 +140,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
     ): Tag {
       requireCampaignEdit(database, campaignId, actorUserId);
       const tag = { id: crypto.randomUUID(), name: input.name.trim(), color: input.color ?? null };
-      if (!tag.name) throw new Error("A tag name is required.");
+      if (!tag.name) throw new PublicApiError("A tag name is required.");
       database.prepare(
         "INSERT INTO tags (id, campaign_id, name, color) VALUES (?, ?, ?, ?)",
       ).run(tag.id, campaignId, tag.name, tag.color);
