@@ -4,6 +4,10 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 6.2.1 — 2026-09-29
+
+### Administration
+
 - Added local administrator-managed server settings for cookie security, session lifetime, screenshot upload and storage limits, Combat undo retention, and audit retention.
 
 ## 6.2.0 — 2026-09-29
