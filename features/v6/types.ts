@@ -80,6 +80,20 @@ export type V6Combat = {
 };
 export type V6SearchResult = { resourceType: string; resourceId: string; title: string; excerpt: string; rank: number };
 export type ManagedV6User = { id: string; username: string; displayName: string; isAdmin: boolean; createdAt: string };
+export type V6ServerSettings = {
+  secureCookieMode: "auto" | "always" | "never";
+  sessionLifetimeDays: number;
+  uploadLimitMb: number;
+  screenshotQuotaMb: number;
+  screenshotGlobalQuotaMb: number;
+  combatHistoryLimit: number;
+  auditEventLimit: number;
+};
+export type V6Administration = {
+  users: ManagedV6User[];
+  registrationEnabled: boolean;
+  serverSettings: V6ServerSettings;
+};
 export type V6Screenshot = { id: string; name: string; size: number; uploadedBy: string; createdAt: string; url: string };
 export type V6SessionTemplate = { id: string; ownerId: string; name: string; content: string; createdAt: string; updatedAt: string };
 

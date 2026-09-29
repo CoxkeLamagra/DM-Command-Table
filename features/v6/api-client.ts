@@ -1,4 +1,4 @@
-import type { CampaignMember, ManagedV6User, V6Campaign, V6Combat, V6Monster, V6Player, V6PreparedEncounter, V6Screenshot, V6SearchResult, V6Session, V6SessionTemplate, V6StoryBeat, V6User } from "./types";
+import type { CampaignMember, V6Administration, V6Campaign, V6Combat, V6Monster, V6Player, V6PreparedEncounter, V6Screenshot, V6SearchResult, V6ServerSettings, V6Session, V6SessionTemplate, V6StoryBeat, V6User } from "./types";
 import { V6ApiError } from "./types";
 
 type AuthStatus = {
@@ -266,11 +266,12 @@ export async function undoV6Combat(campaignId: string): Promise<V6Combat> {
 }
 export async function searchV6Campaign(campaignId: string, query: string): Promise<V6SearchResult[]> { return (await v6Request<{ results: V6SearchResult[] }>(`/api/v6/campaigns/${campaignId}/search?q=${encodeURIComponent(query)}`)).results; }
 export async function updateV6Account(input: { action: "rename"; username: string; displayName?: string } | { action: "change-password"; currentPassword: string; newPassword: string }): Promise<void> { await v6Request("/api/v6-account", json("PATCH", input)); }
-export async function getV6Administration(): Promise<{ users: ManagedV6User[]; registrationEnabled: boolean }> { return v6Request("/api/v6-admin"); }
-export async function createV6ManagedAccount(input: { username: string; displayName: string; password: string }) { return v6Request<{ users: ManagedV6User[]; registrationEnabled: boolean }>("/api/v6-admin", json("POST", input)); }
-export async function updateV6ManagedAccount(input: { action: "update"; id: string; username?: string; displayName?: string; password?: string; isAdmin?: boolean }) { return v6Request<{ users: ManagedV6User[]; registrationEnabled: boolean }>("/api/v6-admin", json("PATCH", input)); }
-export async function setV6Registration(registrationEnabled: boolean) { return v6Request<{ users: ManagedV6User[]; registrationEnabled: boolean }>("/api/v6-admin", json("PATCH", { action: "set-registration", registrationEnabled })); }
-export async function deleteV6ManagedAccount(id: string) { return v6Request<{ users: ManagedV6User[]; registrationEnabled: boolean }>(`/api/v6-admin?id=${encodeURIComponent(id)}`, { method: "DELETE" }); }
+export async function getV6Administration(): Promise<V6Administration> { return v6Request("/api/v6-admin"); }
+export async function createV6ManagedAccount(input: { username: string; displayName: string; password: string }) { return v6Request<V6Administration>("/api/v6-admin", json("POST", input)); }
+export async function updateV6ManagedAccount(input: { action: "update"; id: string; username?: string; displayName?: string; password?: string; isAdmin?: boolean }) { return v6Request<V6Administration>("/api/v6-admin", json("PATCH", input)); }
+export async function setV6Registration(registrationEnabled: boolean) { return v6Request<V6Administration>("/api/v6-admin", json("PATCH", { action: "set-registration", registrationEnabled })); }
+export async function setV6ServerSettings(serverSettings: V6ServerSettings) { return v6Request<V6Administration>("/api/v6-admin", json("PATCH", { action: "set-server-settings", serverSettings })); }
+export async function deleteV6ManagedAccount(id: string) { return v6Request<V6Administration>(`/api/v6-admin?id=${encodeURIComponent(id)}`, { method: "DELETE" }); }
 export async function uploadV6Screenshot(file: File): Promise<string> { const form = new FormData(); form.set("file", file); return (await v6Request<{ screenshot: { url: string } }>("/api/v6-screenshots", { method: "POST", body: form })).screenshot.url; }
 export async function listV6Screenshots(): Promise<V6Screenshot[]> { return (await v6Request<{ screenshots: V6Screenshot[] }>("/api/v6-screenshots")).screenshots; }
 export async function deleteV6Screenshot(id: string): Promise<void> { await v6Request(`/api/v6-screenshots/${id}`, { method: "DELETE" }); }
