@@ -22,7 +22,13 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
 
   useEffect(() => {
     let live = true;
-    void Promise.all([listPreparedEncounters(campaignId, sessionId), listV6Monsters(campaignId)]).then(([value, bestiary]) => { if (live) { setItems(value); setMonsters(bestiary); } }).catch(report);
+    void Promise.all([listPreparedEncounters(campaignId, sessionId), listV6Monsters(campaignId)]).then(([value, bestiary]) => {
+      if (live) {
+        setItems(value);
+        setMonsters(bestiary);
+        setOpen(value.length > 0);
+      }
+    }).catch(report);
     return () => { live = false; };
   }, [campaignId, sessionId]);
 
@@ -70,7 +76,7 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
 
   return <div className="mt-5 border-t border-white/10 pt-4">
     <div className="flex items-center justify-between">
-      <button type="button" className="flex items-center gap-2 text-sm font-medium" onClick={() => setOpen((value) => !value)}>{open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />} Prepared encounters ({items.length})</button>
+      <button type="button" aria-expanded={open} className="flex items-center gap-2 text-sm font-medium" onClick={() => setOpen((value) => !value)}>{open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />} Prepared encounters ({items.length})</button>
       {editable && <Button size="sm" variant="outline" disabled={busy} onClick={add}><Plus /> Encounter</Button>}
     </div>
     {open && <div className="mt-3 space-y-3">{items.length === 0 ? <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-stone-600">No encounters prepared yet.</p> : items.map((item) => <div key={item.id} className="rounded-lg border border-white/10 bg-black/20 p-4">
