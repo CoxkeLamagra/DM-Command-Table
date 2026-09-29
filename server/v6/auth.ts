@@ -8,9 +8,9 @@ import {
   verifyPassword,
 } from "../auth/credentials.ts";
 import { PublicApiError } from "./errors.ts";
+import { getV6ServerSettings } from "./server-settings.ts";
 
 const COOKIE_NAME = "dmct_v6_session";
-const SESSION_SECONDS = 60 * 60 * 24 * 30;
 
 export type V6User = {
   userId: string;
@@ -116,15 +116,16 @@ export async function createV6Session(userId: string, database = getV6Database()
   const { cookies } = await import("next/headers");
   const token = randomBytes(32).toString("base64url");
   const now = Date.now();
+  const sessionSeconds = getV6ServerSettings(database).sessionLifetimeDays * 24 * 60 * 60;
   database.prepare(
     "INSERT INTO local_sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-  ).run(hashToken(token), userId, now + SESSION_SECONDS * 1000, now);
+  ).run(hashToken(token), userId, now + sessionSeconds * 1000, now);
   (await cookies()).set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: await secureCookieEnabled(),
+    secure: await secureCookieEnabled(database),
     path: "/",
-    maxAge: SESSION_SECONDS,
+    maxAge: sessionSeconds,
   });
 }
 
@@ -135,7 +136,7 @@ export async function destroyV6Session(database = getV6Database()): Promise<void
   if (token)
     database.prepare("DELETE FROM local_sessions WHERE token_hash = ?").run(hashToken(token));
   store.set(COOKIE_NAME, "", {
-    httpOnly: true, sameSite: "lax", secure: await secureCookieEnabled(),
+    httpOnly: true, sameSite: "lax", secure: await secureCookieEnabled(database),
     path: "/", maxAge: 0,
   });
 }
@@ -159,10 +160,10 @@ function safeEqual(value: string, expected: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-async function secureCookieEnabled(): Promise<boolean> {
-  const setting = process.env.DM_COMMAND_TABLE_SECURE_COOKIES ?? "auto";
-  if (setting === "true") return true;
-  if (setting === "false") return false;
+async function secureCookieEnabled(database: DatabaseSync): Promise<boolean> {
+  const setting = getV6ServerSettings(database).secureCookieMode;
+  if (setting === "always") return true;
+  if (setting === "never") return false;
   const { headers } = await import("next/headers");
   const requestHeaders = await headers();
   return requestHeaders.get("x-forwarded-proto")?.split(",").some((value) => value.trim() === "https") ?? false;

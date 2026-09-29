@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { RevisionConflictError, ResourceNotFoundError } from "./conflicts.ts";
 import { PublicApiError } from "./errors.ts";
+import { getV6ServerSettings } from "./server-settings.ts";
 
 export type V6CampaignRole = "owner" | "editor" | "viewer";
 
@@ -183,10 +184,7 @@ function writeAudit(
       event.action,
       Date.now(),
     );
-  const configured = Number(process.env.DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT);
-  const limit = Number.isInteger(configured) && configured >= 100
-    ? Math.min(configured, 100_000)
-    : 10_000;
+  const limit = getV6ServerSettings(database).auditEventLimit;
   const cutoff = database.prepare(
     "SELECT id FROM audit_events WHERE campaign_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
   ).get(event.campaignId, limit) as { id: number } | undefined;

@@ -4,12 +4,15 @@ import sharp from "sharp";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
 import { PublicApiError } from "./errors.ts";
+import { getV6ServerSettings } from "./server-settings.ts";
 export type V6Screenshot = { id: string; name: string; size: number; uploadedBy: string; createdAt: string; url: string };
-const MAX = 8 * 1024 * 1024; const TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 export function listV6Screenshots(database: DatabaseSync, userId: string, admin: boolean): V6Screenshot[] { const rows = database.prepare(`SELECT s.id, s.original_name AS name, s.size, u.username AS uploadedBy, s.created_at AS createdAt FROM screenshots s JOIN users u ON u.id=s.uploaded_by WHERE ?=1 OR s.uploaded_by=? ORDER BY s.created_at DESC`).all(admin ? 1 : 0, userId) as Array<Omit<V6Screenshot,"createdAt"|"url"> & {createdAt:number}>; return rows.map((row) => ({ ...row, createdAt: new Date(row.createdAt).toISOString(), url: `/api/v6-screenshots/${row.id}` })); }
 export async function saveV6Screenshot(database: DatabaseSync, file: File, userId: string): Promise<V6Screenshot> {
-  if (!TYPES.has(file.type) || file.size < 1 || file.size > MAX)
-    throw new PublicApiError("Select a PNG, JPEG, WebP, or GIF image no larger than 8 MB.");
+  const settings = getV6ServerSettings(database);
+  const uploadLimit = settings.uploadLimitMb * 1024 * 1024;
+  if (!TYPES.has(file.type) || file.size < 1 || file.size > uploadLimit)
+    throw new PublicApiError(`Select a PNG, JPEG, WebP, or GIF image no larger than ${settings.uploadLimitMb} MB.`);
   const id = crypto.randomUUID();
   const filename = `${id}.webp`;
   let bytes: Buffer;
@@ -21,10 +24,8 @@ export async function saveV6Screenshot(database: DatabaseSync, file: File, userI
   } catch {
     throw new PublicApiError("The uploaded file is not a valid supported image.", 415);
   }
-  const configured = Number(process.env.DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB);
-  const quota = (Number.isFinite(configured) && configured > 0 ? configured : 100) * 1024 * 1024;
-  const globalConfigured = Number(process.env.DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB);
-  const globalQuota = (Number.isFinite(globalConfigured) && globalConfigured > 0 ? globalConfigured : 1024) * 1024 * 1024;
+  const quota = settings.screenshotQuotaMb * 1024 * 1024;
+  const globalQuota = settings.screenshotGlobalQuotaMb * 1024 * 1024;
   const directory = uploadDirectory();
   await mkdir(directory, { recursive: true });
   const now = Date.now();

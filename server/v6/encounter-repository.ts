@@ -3,6 +3,7 @@ import { runTransaction } from "../../db/transaction.ts";
 import { requireCampaignEdit, requireCampaignRead } from "./access.ts";
 import { recordAuditEvent } from "./audit.ts";
 import { ResourceNotFoundError, RevisionConflictError } from "./conflicts.ts";
+import { getV6ServerSettings } from "./server-settings.ts";
 
 export type PreparedMonster = {
   id: string;
@@ -199,10 +200,7 @@ export function createEncounterRepository(database: DatabaseSync) {
 }
 
 function pruneCombatHistory(database: DatabaseSync, encounterId: string): void {
-  const configured = Number(process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT);
-  const limit = Number.isInteger(configured) && configured >= 1
-    ? Math.min(configured, 1_000)
-    : 100;
+  const limit = getV6ServerSettings(database).combatHistoryLimit;
   const cutoff = database.prepare(
     "SELECT id FROM combat_history WHERE encounter_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
   ).get(encounterId, limit) as { id: number } | undefined;

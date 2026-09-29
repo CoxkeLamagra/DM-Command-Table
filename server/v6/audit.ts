@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { getV6ServerSettings } from "./server-settings.ts";
 
 export function recordAuditEvent(
   database: DatabaseSync,
@@ -34,10 +35,7 @@ function pruneAuditEvents(
   campaignId: string | null,
   actorUserId: string | null,
 ): void {
-  const configured = Number(process.env.DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT);
-  const limit = Number.isInteger(configured) && configured >= 100
-    ? Math.min(configured, 100_000)
-    : 10_000;
+  const limit = getV6ServerSettings(database).auditEventLimit;
   const campaign = campaignId !== null;
   const owner = campaignId ?? actorUserId;
   if (!owner) return;
