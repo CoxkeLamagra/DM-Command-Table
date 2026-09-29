@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 6.2.0 — 2026-09-29
 
 ### Security hardening
 
