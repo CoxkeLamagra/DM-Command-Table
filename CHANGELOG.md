@@ -2,7 +2,24 @@
 
 All notable DM Command Table releases are documented here.
 
-## 6.0.0 — Unreleased
+## 6.1.0 — 2026-09-29
+
+### Combat tracker
+
+- Restored the detailed v5-style Combat layout with individual initiative cards, HP bars, structured statistics, condition controls, and a 30/70 list-to-status-pane split.
+- Color-coded Players in green, Monsters in red, and NPCs in blue.
+- Added one-time custom Monsters that do not require or create a Bestiary record.
+- Displayed complete linked Bestiary information in the status pane, including ability scores, actions, spellcasting, spell slots, notes, source, and tags.
+- Added rich-text, encounter-local notes to Players, Monsters, and NPCs without modifying their source Player or Bestiary records.
+- Distinguished the active turn with an amber border and the combatant shown in the status pane with a blue **Viewing** indicator.
+
+### Interface and fixes
+
+- Automatically expanded saved prepared encounters when reopening their Session while retaining manual collapse controls.
+- Standardized all primary workspace screens on the same 1,500-pixel maximum width as Combat.
+- Added a tri-state **Select all visible monsters** checkbox to the Bestiary for filtered bulk deletion.
+
+## 6.0.0 — 2026-09-29
 
 ### Clean-slate application architecture
 

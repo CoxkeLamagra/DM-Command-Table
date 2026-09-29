@@ -30,7 +30,7 @@ export function CampaignScreen({ campaign, saving, saveLabel, onSave, onCopy, on
   async function addSession() { const session = await createV6Session(campaign.id, { title: "New session", date: new Date().toISOString().slice(0, 10), notes: "", status: "planned", sortOrder: sessions.length }); onOpenSession(session.id); }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="mx-auto w-full max-w-[1500px] space-y-5">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Campaign workspace</p>
