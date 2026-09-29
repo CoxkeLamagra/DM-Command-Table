@@ -34,6 +34,7 @@ export function sanitizeRichText(value: string): string {
     allowedAttributes: {
       font: ["color"],
       span: ["style"],
+      img: ["src", "alt"],
     },
     allowedStyles: {
       "*": {
@@ -41,5 +42,8 @@ export function sanitizeRichText(value: string): string {
       },
     },
     disallowedTagsMode: "discard",
+    exclusiveFilter(frame) {
+      return frame.tag === "img" && !/^\/api\/(?:v6-)?screenshots\/[0-9a-f-]+$/i.test(frame.attribs.src ?? "");
+    },
   });
 }

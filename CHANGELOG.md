@@ -2,6 +2,22 @@
 
 All notable DM Command Table releases are documented here.
 
+## 6.0.0 — Unreleased
+
+### Clean-slate application architecture
+
+- Replaced the monolithic campaign snapshot with a normalized SQLite model for campaigns, memberships, players, monsters, tags, Sessions, Story beats, prepared encounters, Combat, screenshots, templates, search, and audit history.
+- Made the rebuilt interface the application root and retained the complete campaign-management, planning, rich-text, screenshot, import, collaboration, administration, and Combat workflows.
+- Added record revisions and explicit conflict responses so stale writes cannot silently overwrite newer changes.
+- Added portable v6 campaign export/import with relationship remapping and campaign/template copying.
+- Added SQLite FTS search, reusable Session templates, Bestiary tags, Combat history, and structured campaign audit events.
+
+### Deployment and operations
+
+- Added ordered, transactional schema migrations and a readiness endpoint that reports schema health.
+- Hardened the standalone Docker image, Compose service, Debian systemd unit, and Nginx configuration while retaining one persistent local data volume.
+- Updated the documentation for a single local-only v6 data model and removed the retired dual-database deployment instructions.
+
 ## 5.0.2 — 2026-09-28
 
 ### Campaign overview

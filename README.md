@@ -4,21 +4,20 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current version is **v5.0.2**.
+The current development line is **v6**.
 
 ## Features
 
 ### Campaigns and sharing
 
 - Create, switch between, and delete multiple campaigns.
-- Store a device-local copy of every campaign in IndexedDB for offline access.
-- Synchronize campaign progress to a SQLite database stored on the application server.
+- Store normalized campaign records in SQLite on the local application server.
 - Export and import complete campaigns as portable JSON files.
 - Copy a campaign as a complete independent campaign, including its players and progress.
 - Copy a campaign as a reusable template that keeps campaign content, Bestiary records, Stories, Sessions, prepared encounters, and Story–Session links while excluding players and resetting progress.
 - Share campaigns with another registered DM Command Table user by username.
 - Assign **Editor** access for collaboration or **Viewer** access for read-only use.
-- Poll for server changes every five seconds while the application is open.
+- Detect same-browser changes immediately and poll revisions for changes from other devices.
 - Manage the campaign name and general campaign notes from a dedicated **Campaign** screen.
 - Review a chronological campaign timeline generated automatically from session entries.
 - Keep the Campaign screen focused with a 70% Campaign-details and 30% Timeline layout, with Session-note previews limited to 2,000 characters.
@@ -57,8 +56,8 @@ An administrator cannot delete their own account or remove their own administrat
 
 - Save reusable player records per campaign.
 - Record name, race, class, level, optional HP, optional AC, and notes.
-- Use card or compact list views.
-- Delete individual players or select several players for bulk deletion.
+- Open and edit players directly from the searchable list.
+- Delete individual players.
 - Add saved players to an encounter without entering their information again.
 
 Player-character management is available from the dedicated **Players** navigation entry.
@@ -70,8 +69,8 @@ If HP or AC is not set, the combat tracker uses `10` when that player is added t
 - Create monsters manually and assign a name.
 - Record type, challenge rating, AC, HP, speed, ability scores, actions and traits, spellcasting details, and spell slots.
 - Open a monster's full stat block and edit every field.
-- Use card or compact list views.
-- Delete individual monsters or select several monsters for bulk deletion.
+- Open and edit monsters directly from the searchable list.
+- Delete individual monsters.
 - Import monsters from the 5etools-compatible JSON catalogue hosted at [dnd5e.lamagra.link](https://dnd5e.lamagra.link/bestiary.html).
 - Search the remote catalogue with typeahead results and compare source, CR, type, HP, and AC before importing.
 - Search the campaign Bestiary with typeahead filtering across monster names, types, CR, sources, abilities, spells, and notes.
@@ -101,24 +100,24 @@ Imported monster data belongs to the current campaign and remains editable after
 
 ## Storage architecture
 
-DM Command Table uses a local-first model with no external database service:
+DM Command Table uses a local-server model with no external database service:
 
-1. The browser caches campaigns in IndexedDB.
-2. The Node.js application stores central campaign data in a server-local SQLite file.
+1. The browser communicates only with the self-hosted Node.js application.
+2. The application stores normalized campaign data in server-local SQLite.
 3. SQLite runs in WAL mode with foreign-key checks and a five-second busy timeout.
-4. If the server is temporarily unavailable, an existing browser cache remains available.
-5. Uploaded screenshots are stored in an `uploads` directory beside the SQLite database.
+4. The interface detects connectivity loss and never silently overwrites unsaved editor contents.
+5. Uploaded screenshots are stored in an `uploads-v6` directory beside the SQLite database.
 6. JSON export provides portable campaign data, while server backups preserve uploaded screenshots.
 
 The SQLite database contains local accounts, password hashes, login sessions, campaign ownership, campaign payloads, and Viewer or Editor memberships. The default location is:
 
 ```text
-./data/dm-command-table.sqlite
+./data/dm-command-table-v6.sqlite
 ```
 
-Set `DM_COMMAND_TABLE_DB_PATH` to use a different location. The directory is created automatically, and the schema is initialized when the database is first opened.
+Set `DM_COMMAND_TABLE_V6_DB_PATH` to use a different location. The directory is created automatically, and migrations run when the database is opened.
 
-By default, screenshots are written to an `uploads` directory beside the database. Set `DM_COMMAND_TABLE_UPLOAD_PATH` to override that location. Screenshot references are stored in campaign notes, while the image files remain in the server-side screenshot library.
+By default, screenshots are written to an `uploads-v6` directory beside the database. Set `DM_COMMAND_TABLE_V6_UPLOAD_PATH` to override that location.
 
 > The remote monster catalogue is an import source, not a campaign database. Imported monsters are copied into the local campaign data.
 
@@ -158,7 +157,7 @@ The application sends a Content Security Policy, frame protection, MIME-sniffing
 - Tailwind CSS 4 with shadcn-based UI components
 - Node's built-in SQLite driver
 - Drizzle schema definitions
-- Browser IndexedDB for the local campaign cache
+- SQLite FTS5 for local campaign search
 
 ## Requirements
 
@@ -202,7 +201,7 @@ Start the Node.js server:
 pnpm start
 ```
 
-The server listens on port `3000` by default. Make sure the process can write to the directory configured by `DM_COMMAND_TABLE_DB_PATH`.
+The server listens on port `3000` by default. Make sure the process can write to the directories configured by `DM_COMMAND_TABLE_V6_DB_PATH` and `DM_COMMAND_TABLE_V6_UPLOAD_PATH`.
 
 ## Docker
 
@@ -213,7 +212,15 @@ export DM_COMMAND_TABLE_BOOTSTRAP_TOKEN="$(openssl rand -base64 32)"
 docker compose up --build -d
 ```
 
-The application is then available at [http://localhost:3000](http://localhost:3000). Enter the generated token in the initial setup-token field when registering the first local account. Accounts, campaign data, and uploaded screenshots persist in the same Docker volume.
+The application is then available at [http://localhost:3000](http://localhost:3000). Enter the generated token in the initial setup-token field when registering the first local account. The v6 SQLite database and uploaded screenshots persist in `/data`.
+
+The container runs as the unprivileged `node` user, drops Linux capabilities, uses a read-only root filesystem, and exposes a readiness health check through `/api/health`. By default Compose binds port 3000 only to `127.0.0.1`; set `DMCT_BIND_ADDRESS` deliberately when another host must connect directly:
+
+```bash
+DMCT_BIND_ADDRESS=0.0.0.0 docker compose up --build -d
+docker compose ps
+docker compose exec dm-command-table node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.text()).then(console.log)"
+```
 
 ## Debian 13 LXC deployment
 
@@ -228,35 +235,36 @@ Reusable configuration templates are available under `deploy/debian-13/`.
 The live database can have `-wal` and `-shm` companion files. For a consistent backup, use SQLite's backup command rather than copying only the main file while the application is running:
 
 ```bash
-sqlite3 ./data/dm-command-table.sqlite ".backup './data/dm-command-table-backup.sqlite'"
+sqlite3 ./data/dm-command-table-v6.sqlite ".backup './data/dm-command-table-v6-backup.sqlite'"
 ```
 
 Alternatively, stop the application before copying the database file and its companion files.
 
-Back up the adjacent `uploads` directory as well to preserve screenshots embedded in notes. A JSON campaign export contains screenshot references but does not include the binary image files.
+Back up the adjacent `uploads-v6` directory as well to preserve screenshots embedded in notes. A JSON campaign export contains screenshot references but does not include the binary image files.
 
 ## Campaign API
 
-The API is implemented in `app/api/campaigns/route.ts`:
+The authenticated API is exposed below `/api/v6`:
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/campaigns` | Load campaigns available to the authenticated user. |
-| `POST` | `/api/campaigns` | Create a campaign or grant campaign access. |
-| `PUT` | `/api/campaigns` | Save a campaign when the user is its owner or an editor. |
-| `DELETE` | `/api/campaigns?id=...` | Delete a campaign owned by the authenticated user. |
+| `GET`, `POST` | `/api/v6/campaigns` | List or create campaigns. |
+| `GET`, `PATCH`, `DELETE` | `/api/v6/campaigns/:id` | Read, update, or delete a campaign. |
+| `POST` | `/api/v6/campaigns/:id/copy` | Copy a complete campaign or create a reusable template. |
+| `GET` | `/api/v6/campaigns/:id/export` | Download a portable campaign JSON document. |
+| `POST` | `/api/v6/campaigns/import` | Import a portable campaign JSON document. |
+| `GET`, `POST`, `PATCH`, `DELETE` | `/api/v6/campaigns/:id/{players,sessions,story,monsters,encounters}` | Manage normalized campaign records. |
 
-Local registration, login, and logout use `POST /api/auth` with the corresponding `action` value.
+Local registration, login, and logout use `/api/v6-auth`. Account and Administration operations use `/api/v6-account` and `/api/v6-admin`.
 
 ## Project structure
 
 ```text
 app/                  Next.js entry points and local API route adapters
 components/ui/        Reusable interface primitives
-db/                   SQLite connection and Drizzle schema definitions
-drizzle/              Historical and schema-generation migration metadata
+db/                   SQLite connection, schema, and ordered migrations
 features/              Campaign, Combat, Bestiary, Session, Story, and Auth modules
-lib/                   IndexedDB cache, shared HTTP client, and typed local API clients
+lib/                   Shared HTTP client, version data, and typed local API clients
 server/                Local HTTP guards, authentication services, and SQLite repositories
 tests/                 Domain, schema, registration, administration, and storage tests
 public/                Favicons and static assets
@@ -273,28 +281,26 @@ Browser and server rich-text handling share one formatting and color policy. API
 
 ## Data and privacy
 
-- Campaign data is stored locally in browser IndexedDB and in the server's SQLite file.
+- Campaign data is stored in the self-hosted application's server-local SQLite file.
 - No external database service is used by this version.
 - Passwords and sessions are stored only in the server-local SQLite database.
 - Screenshot files remain in the configured server-local uploads directory and are only listed or served to their uploader, an administrator, or a user who can access a campaign that references them.
 - Campaigns are private unless the owner explicitly grants access to another registered username.
-- Exported JSON files contain the complete campaign payload, including players, monsters, encounters, notes, and story data.
+- Exported JSON files contain the complete campaign payload, including players, monsters, prepared encounters, active combat, notes, and story data.
 - Imported monster records are copied into the campaign; the application does not depend on the remote source after import.
 - SQLite files, environment files, dependencies, and build output are excluded from version control.
 
 ## Current limitations
 
-- Collaboration synchronizes complete campaign snapshots and does not provide presence indicators, record locking, or conflict merging.
+- Collaboration does not provide presence indicators or live cursor sharing; revision checks prevent silent stale writes.
 - SQLite is intended for one application instance with persistent local storage. Multiple application instances must not write independent copies of the database.
 - A campaign invite is managed by granting access again with the desired role; the interface does not yet include a membership-management screen.
 - Monster importing depends on the external catalogue being reachable and retaining its compatible JSON structure.
-- Campaign JSON exports contain screenshot references but not the uploaded image files; include the server `uploads` directory in backups.
+- Campaign JSON exports contain screenshot references but not the uploaded image files; include the server `uploads-v6` directory in backups.
 
-## Release
+## Release history
 
-- Latest stable release: [DM Command Table 5.0.2](https://github.com/CoxkeLamagra/DM-Command-Table/releases/tag/v5.0.2)
-- Release tag: `v5.0.2`
-- Release history: [CHANGELOG.md](CHANGELOG.md)
+See [CHANGELOG.md](CHANGELOG.md). The version shown in the lower-left corner of the application links to the GitHub repository.
 
 ## License
 

@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* Standard Node.js server deployment with persistent local storage. */
+  output: "standalone",
+  poweredByHeader: false,
   async headers() {
     return [
       {

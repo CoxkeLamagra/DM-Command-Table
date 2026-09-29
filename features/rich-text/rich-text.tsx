@@ -143,7 +143,7 @@ export function RichTextEditor({
               selection.removeAllRanges();
               selection.addRange(savedSelection.current);
             }
-            document.execCommand("insertText", false, insertion);
+            document.execCommand(insertion.startsWith("/api/") ? "insertImage" : "insertText", false, insertion);
             onChange(editor.current.innerHTML);
             rememberSelection();
           })();
@@ -171,8 +171,9 @@ export function RichTextContent({
   if (!html) return null;
   return (
     <div
-      className={`rich-text text-sm leading-7 text-stone-300 [&_ol]:ml-6 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:ml-6 [&_ul]:list-disc ${className}`}
+      className={`rich-text text-sm leading-7 text-stone-300 [&_img]:my-2 [&_img]:max-h-48 [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-lg [&_img]:object-contain [&_img.expanded]:max-h-[70vh] [&_img.expanded]:cursor-zoom-out [&_ol]:ml-6 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:ml-6 [&_ul]:list-disc ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
+      onClick={(event) => { const target = event.target; if (target instanceof HTMLImageElement) target.classList.toggle("expanded"); }}
     />
   );
 }
@@ -240,8 +241,11 @@ function sanitizeRichText(value: string): string {
     }
     const color =
       (element as HTMLElement).style.color || element.getAttribute("color") || "";
+    const imageSource = element.tagName === "IMG" ? element.getAttribute("src") ?? "" : "";
+    const imageAlt = element.tagName === "IMG" ? element.getAttribute("alt") ?? "" : "";
     for (const attribute of Array.from(element.attributes))
       element.removeAttribute(attribute.name);
+    if (element.tagName === "IMG" && /^\/api\/(?:v6-)?screenshots\/[0-9a-f-]+$/i.test(imageSource)) { element.setAttribute("src", imageSource); element.setAttribute("alt", imageAlt); }
     if (color && isSafeColor(color))
       (element as HTMLElement).style.color = color;
   }

@@ -21,7 +21,7 @@ The application checkout and persistent data are deliberately separated:
 
 Pulling or rebuilding the Git repository does not overwrite the SQLite database.
 
-This guide applies to DM Command Table **v5.0.0**.
+This guide covers the normalized v6 application served at `/`.
 
 ## 1. Create the LXC
 
@@ -157,7 +157,7 @@ The SQLite file and account schema are created automatically on the first API re
 
 Each new account receives an editable example campaign. It can be renamed, changed, exported, or deleted after the user has explored the available features.
 
-Passwords are salted and hashed with `scrypt`. Login sessions and password hashes remain in `/var/lib/dm-command-table/dm-command-table.sqlite`; uploaded screenshots are stored in `/var/lib/dm-command-table/uploads`. No external authentication, media, or database service is used.
+Passwords are salted and hashed with `scrypt`. Accounts, sessions, campaign records, and audit history are stored in `/var/lib/dm-command-table/dm-command-table-v6.sqlite`; screenshots are stored in `/var/lib/dm-command-table/uploads-v6`. No external authentication, media, or database service is used.
 
 Screenshot files are validated and converted to WebP. The default quota is 100 MiB per account. Change `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB` if the server has a different storage budget.
 
@@ -182,8 +182,10 @@ journalctl -u dm-command-table.service -n 100 --no-pager
 Test the application directly from inside the LXC:
 
 ```bash
-curl -I http://127.0.0.1:3000
+curl --fail --silent --show-error http://127.0.0.1:3000/api/health
 ```
+
+The response must report `"status":"ready"` and matching schema versions before Nginx is enabled.
 
 ## 8. Configure Nginx
 
@@ -264,8 +266,8 @@ systemctl status dm-command-table.service --no-pager
 Ensure `/etc/dm-command-table.env` contains:
 
 ```text
-DM_COMMAND_TABLE_DB_PATH=/var/lib/dm-command-table/dm-command-table.sqlite
-DM_COMMAND_TABLE_UPLOAD_PATH=/var/lib/dm-command-table/uploads
+DM_COMMAND_TABLE_V6_DB_PATH=/var/lib/dm-command-table/dm-command-table-v6.sqlite
+DM_COMMAND_TABLE_V6_UPLOAD_PATH=/var/lib/dm-command-table/uploads-v6
 DM_COMMAND_TABLE_SECURE_COOKIES=auto
 DM_COMMAND_TABLE_REGISTRATION_MODE=first-user
 DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB=100
@@ -281,10 +283,10 @@ Create a consistent live backup:
 
 ```bash
 mkdir -p /var/backups/dm-command-table
-sqlite3 /var/lib/dm-command-table/dm-command-table.sqlite \
-  ".backup '/var/backups/dm-command-table/dm-command-table-$(date +%F).sqlite'"
+sqlite3 /var/lib/dm-command-table/dm-command-table-v6.sqlite \
+  ".backup '/var/backups/dm-command-table/dm-command-table-v6-$(date +%F).sqlite'"
 tar -C /var/lib/dm-command-table -czf \
-  "/var/backups/dm-command-table/uploads-$(date +%F).tar.gz" uploads
+  "/var/backups/dm-command-table/uploads-v6-$(date +%F).tar.gz" uploads-v6
 ```
 
 List available backups:
@@ -297,10 +299,10 @@ To restore a backup, stop the service first:
 
 ```bash
 systemctl stop dm-command-table.service
-cp /var/backups/dm-command-table/dm-command-table-YYYY-MM-DD.sqlite \
-  /var/lib/dm-command-table/dm-command-table.sqlite
+cp /var/backups/dm-command-table/dm-command-table-v6-YYYY-MM-DD.sqlite \
+  /var/lib/dm-command-table/dm-command-table-v6.sqlite
 tar -C /var/lib/dm-command-table -xzf \
-  /var/backups/dm-command-table/uploads-YYYY-MM-DD.tar.gz
+  /var/backups/dm-command-table/uploads-v6-YYYY-MM-DD.tar.gz
 chown -R dmct:dmct /var/lib/dm-command-table
 systemctl start dm-command-table.service
 ```
