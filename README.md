@@ -31,6 +31,7 @@ Campaigns are private by default. Only the owner can share or delete a campaign.
 - Administrators can open **Administration** to review all registered accounts.
 - Change usernames and display names, reset passwords, or delete accounts.
 - Grant or remove administrator access for other users.
+- Manage server-wide cookie security, session lifetime, screenshot upload and storage limits, Combat undo retention, and audit retention from the Web UI.
 - Enable or disable self-registration from the Web UI.
 - Create additional accounts directly from the Web UI.
 - Password resets invalidate all active sessions for the affected account.
