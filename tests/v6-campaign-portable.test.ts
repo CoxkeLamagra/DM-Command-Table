@@ -50,7 +50,7 @@ test("portable v6 campaign exports round-trip with remapped relationships", () =
     name: "Tower", round: 2, turn: 0,
     combatants: [{
       id: crypto.randomUUID(), playerId: player.id, monsterId: null, name: player.name,
-      displayNumber: null, kind: "player", initiative: 18, hitPoints: 20,
+      displayNumber: null, kind: "player", notes: "Keep Ireena safe", initiative: 18, hitPoints: 20,
       maximumHitPoints: 24, armorClass: 14, sortOrder: 0, revision: 1,
       conditions: [{ id: crypto.randomUUID(), name: "Blessed", remainingTurns: 3 }],
     }],

@@ -67,7 +67,7 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
       const survivors = combat.combatants.filter(({ kind }) => kind !== "monster");
       const additions = item.monsters.flatMap((entry) => {
         const monster = monsters.find(({ id }) => id === entry.monsterId); if (!monster) return [];
-        return Array.from({ length: entry.quantity }, (_, offset) => ({ id: crypto.randomUUID(), playerId: null, monsterId: monster.id, name: monster.name, displayNumber: (entry.displayNumber ?? 1) + offset, kind: "monster" as const, initiative: 10, hitPoints: monster.hitPoints, maximumHitPoints: monster.hitPoints, armorClass: monster.armorClass, sortOrder: survivors.length + offset, conditions: [], revision: 1 }));
+        return Array.from({ length: entry.quantity }, (_, offset) => ({ id: crypto.randomUUID(), playerId: null, monsterId: monster.id, name: monster.name, displayNumber: (entry.displayNumber ?? 1) + offset, kind: "monster" as const, notes: "", initiative: 10, hitPoints: monster.hitPoints, maximumHitPoints: monster.hitPoints, armorClass: monster.armorClass, sortOrder: survivors.length + offset, conditions: [], revision: 1 }));
       });
       await saveV6Combat(campaignId, { ...combat, name: item.name || "Prepared encounter", round: 1, turn: 0, combatants: [...survivors, ...additions] }, "prepared_encounter_loaded");
       toast.success("Prepared encounter loaded"); onOpenCombat();

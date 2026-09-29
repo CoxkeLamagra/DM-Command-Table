@@ -70,6 +70,7 @@ export type V6CombatCondition = { id: string; name: string; remainingTurns: numb
 export type V6Combatant = {
   id: string; playerId: string | null; monsterId: string | null; name: string;
   displayNumber: number | null; kind: "player" | "monster" | "npc";
+  notes: string;
   initiative: number; hitPoints: number; maximumHitPoints: number;
   armorClass: number; sortOrder: number; conditions: V6CombatCondition[]; revision: number;
 };

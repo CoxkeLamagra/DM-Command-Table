@@ -37,6 +37,7 @@ export type V6Combatant = {
   name: string;
   displayNumber: number | null;
   kind: "player" | "monster" | "npc";
+  notes: string;
   initiative: number;
   hitPoints: number;
   maximumHitPoints: number;
@@ -230,9 +231,9 @@ function replaceCombatants(
   const insertCombatant = database.prepare(
     `INSERT INTO combatants
       (id, encounter_id, player_id, monster_id, name, display_number, kind,
-       initiative, hit_points, maximum_hit_points, armor_class, sort_order,
-       revision, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       notes, initiative, hit_points, maximum_hit_points, armor_class,
+       sort_order, revision, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertCondition = database.prepare(
     `INSERT INTO combat_conditions
@@ -244,7 +245,7 @@ function replaceCombatants(
     insertCombatant.run(
       combatantId, encounterId, combatant.playerId,
       combatant.monsterId, combatant.name, combatant.displayNumber,
-      combatant.kind, combatant.initiative, combatant.hitPoints,
+      combatant.kind, combatant.notes ?? "", combatant.initiative, combatant.hitPoints,
       combatant.maximumHitPoints, combatant.armorClass, combatant.sortOrder,
       combatant.revision || 1, now, now,
     );
@@ -293,7 +294,7 @@ function getCombat(database: DatabaseSync, id: string): V6CombatEncounter {
 function combatFromRow(database: DatabaseSync, row: CombatRow): V6CombatEncounter {
   const combatants = database.prepare(
     `SELECT id, player_id AS playerId, monster_id AS monsterId, name,
-            display_number AS displayNumber, kind, initiative,
+            display_number AS displayNumber, kind, notes, initiative,
             hit_points AS hitPoints, maximum_hit_points AS maximumHitPoints,
             armor_class AS armorClass, sort_order AS sortOrder, revision
        FROM combatants WHERE encounter_id = ? ORDER BY sort_order, id`,

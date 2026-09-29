@@ -277,6 +277,13 @@ export const migrations: readonly Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: "encounter-local-combatant-notes",
+    sql: `
+      ALTER TABLE combatants ADD COLUMN notes TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {
@@ -308,4 +315,3 @@ export function runMigrations(database: DatabaseSync): void {
     }
   }
 }
-

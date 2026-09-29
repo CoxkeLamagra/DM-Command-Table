@@ -52,6 +52,8 @@ test("v6 migrations create the normalized local-only schema", () => {
     )
     .get() as { sql: string };
   assert.match(duplicatePlayer.sql, /WHERE player_id IS NOT NULL/);
+  const combatantColumns = database.prepare("PRAGMA table_info(combatants)").all() as Array<{ name: string }>;
+  assert.equal(combatantColumns.some(({ name }) => name === "notes"), true);
   database.close();
 });
 

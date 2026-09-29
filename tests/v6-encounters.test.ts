@@ -56,7 +56,7 @@ test("combat saves history, prevents duplicate linked players, and supports undo
   });
   const combatant: V6Combatant = {
     id: crypto.randomUUID(), playerId: player.id, monsterId: null, name: player.name,
-    displayNumber: null, kind: "player", initiative: 18, hitPoints: 65,
+    displayNumber: null, kind: "player", notes: "Hold the bridge", initiative: 18, hitPoints: 65,
     maximumHitPoints: 65, armorClass: 15, sortOrder: 0, revision: 1,
     conditions: [{ id: crypto.randomUUID(), name: "Blessed", remainingTurns: 2 }],
   };
@@ -65,6 +65,7 @@ test("combat saves history, prevents duplicate linked players, and supports undo
     name: "Bridge", round: 1, turn: 0, combatants: [combatant],
   }, "combatant_added");
   assert.equal(saved.combatants[0]?.conditions[0]?.remainingTurns, 2);
+  assert.equal(saved.combatants[0]?.notes, "Hold the bridge");
   assert.throws(() => encounters.saveCombat(campaign.id, "owner", saved.revision, {
     ...saved, combatants: [combatant, { ...combatant, id: crypto.randomUUID() }],
   }));
@@ -72,4 +73,3 @@ test("combat saves history, prevents duplicate linked players, and supports undo
   assert.equal(undone.combatants.length, 0);
   database.close();
 });
-

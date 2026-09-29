@@ -93,6 +93,7 @@ const combatantSchema = z.object({
   name: z.string().max(200),
   displayNumber: z.number().int().positive().nullable(),
   kind: z.enum(["player", "monster", "npc"]),
+  notes: z.string().max(1_000_000).default(""),
   initiative: z.number().finite(),
   hitPoints: z.number().finite(),
   maximumHitPoints: z.number().finite().nonnegative(),
