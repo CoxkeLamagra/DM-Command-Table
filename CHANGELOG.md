@@ -4,6 +4,14 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 6.2.3 — 2026-10-03
+
+### Encounters
+
+- Added quantity controls when selecting Bestiary monsters for the Combat tracker and prepared Session encounters.
+- Automatically creates and sequentially numbers the requested number of monster combatants.
+- Updated prepared-encounter monster totals to include all configured quantities.
+
 ## 6.2.2 — 2026-10-03
 
 ### Fixes
