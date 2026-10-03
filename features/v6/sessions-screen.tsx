@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, ChevronsUpDown, FilePlus, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,13 +20,18 @@ export function SessionsScreen({ campaignId, editable, initialOpenId, onOpenStor
   const [busy, setBusy] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templates, setTemplates] = useState<V6SessionTemplate[]>([]);
+  const encounterSavers = useRef(new Map<string, () => Promise<void>>());
 
   useEffect(() => { let live = true; void Promise.all([listV6Sessions(campaignId), listV6Story(campaignId)]).then(([nextSessions, nextStory]) => { if (live) { setSessions(nextSessions); setStory(nextStory); } }).catch(report); return () => { live = false; }; }, [campaignId]);
   function report(error: unknown) { toast.error(error instanceof Error ? error.message : "Session update failed."); }
   const visible = useMemo(() => { const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean); return sessions.filter((item) => terms.every((term) => `${item.title} ${item.date} ${richTextToPlainText(item.notes)}`.toLowerCase().includes(term))); }, [query, sessions]);
   function patch(id: string, values: Partial<V6Session>) { setSessions((all) => all.map((item) => item.id === id ? { ...item, ...values } : item)); }
   async function add() { setBusy(true); try { const item = await createV6Session(campaignId, { title: "New session", date: new Date().toISOString().slice(0, 10), notes: "", status: "planned", sortOrder: sessions.length }); setSessions((all) => [item, ...all]); setExpanded(new Set([item.id])); } catch (error) { report(error); } finally { setBusy(false); } }
-  async function save(item: V6Session) { setBusy(true); try { const saved = await updateV6Session(campaignId, item); patch(saved.id, saved); toast.success("Session saved"); } catch (error) { report(error); } finally { setBusy(false); } }
+  const registerEncounterSaver = useCallback((sessionId: string, saver: () => Promise<void>) => {
+    encounterSavers.current.set(sessionId, saver);
+    return () => { if (encounterSavers.current.get(sessionId) === saver) encounterSavers.current.delete(sessionId); };
+  }, []);
+  async function save(item: V6Session) { setBusy(true); try { await encounterSavers.current.get(item.id)?.(); const saved = await updateV6Session(campaignId, item); patch(saved.id, saved); toast.success("Session and prepared encounters saved"); } catch (error) { report(error); } finally { setBusy(false); } }
   async function remove(item: V6Session) { if (!window.confirm(`Delete ${item.title}?`)) return; setBusy(true); try { await deleteV6Session(campaignId, item.id); setSessions((all) => all.filter(({ id }) => id !== item.id)); setStory((all) => all.map((beat) => ({ ...beat, sessionIds: beat.sessionIds.filter((id) => id !== item.id) }))); } catch (error) { report(error); } finally { setBusy(false); } }
   function toggle(id: string) { setExpanded((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
   const allOpen = visible.length > 0 && visible.every(({ id }) => expanded.has(id));
@@ -41,7 +46,7 @@ export function SessionsScreen({ campaignId, editable, initialOpenId, onOpenStor
         <div className="grid gap-3 sm:grid-cols-[1fr_11rem_10rem]"><Input value={item.title} disabled={!editable} onChange={(event) => patch(item.id, { title: event.target.value })} /><Input type="date" value={item.date} disabled={!editable} onChange={(event) => patch(item.id, { date: event.target.value })} /><StatusSelect value={item.status} disabled={!editable} onChange={(status) => patch(item.id, { status })} /></div>
         <div className="mt-4">{editable ? <RichTextEditor value={item.notes} onChange={(notes) => patch(item.id, { notes })} onPasteImage={uploadV6Screenshot} placeholder="Session notes…" className="min-h-48" /> : <RichTextContent value={item.notes} />}</div>
         {!!linked.length && <div className="mt-4 flex flex-wrap items-center gap-2"><span className="text-xs text-stone-500">Linked story:</span>{linked.map((beat) => <button className="rounded-full bg-violet-400/10 px-3 py-1 text-xs text-violet-300 hover:bg-violet-400/20" key={beat.id} onClick={() => onOpenStory(beat.id)}>{beat.title}</button>)}</div>}
-        <PreparedEncounters campaignId={campaignId} sessionId={item.id} editable={editable} onOpenCombat={onOpenCombat} />
+        <PreparedEncounters campaignId={campaignId} sessionId={item.id} editable={editable} onOpenCombat={onOpenCombat} registerSave={registerEncounterSaver} />
         {editable && <div className="mt-4 flex justify-end gap-2"><Button variant="ghost" onClick={() => saveTemplate(item)}><FilePlus /> Save template</Button><Button variant="ghost" onClick={() => remove(item)} disabled={busy}><Trash2 /> Delete</Button><Button onClick={() => save(item)} disabled={busy}><Save /> Save</Button></div>}
       </div>}
     </article>; })}

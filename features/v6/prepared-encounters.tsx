@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Play, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,9 @@ import { RichTextContent, RichTextEditor } from "@/features/rich-text/rich-text"
 import { createPreparedEncounter, deletePreparedEncounter, getV6Combat, listPreparedEncounters, listV6Monsters, saveV6Combat, updatePreparedEncounter, uploadV6Screenshot } from "./api-client";
 import type { V6Monster, V6PreparedEncounter } from "./types";
 
-export function PreparedEncounters({ campaignId, sessionId, editable, onOpenCombat }: { campaignId: string; sessionId: string; editable: boolean; onOpenCombat: () => void }) {
+export function PreparedEncounters({ campaignId, sessionId, editable, onOpenCombat, registerSave }: { campaignId: string; sessionId: string; editable: boolean; onOpenCombat: () => void; registerSave?: (sessionId: string, saver: () => Promise<void>) => () => void }) {
   const [items, setItems] = useState<V6PreparedEncounter[]>([]);
+  const itemsRef = useRef<V6PreparedEncounter[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
@@ -25,12 +26,15 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
     void Promise.all([listPreparedEncounters(campaignId, sessionId), listV6Monsters(campaignId)]).then(([value, bestiary]) => {
       if (live) {
         setItems(value);
+        itemsRef.current = value;
         setMonsters(bestiary);
         setOpen(value.length > 0);
       }
     }).catch(report);
     return () => { live = false; };
   }, [campaignId, sessionId]);
+
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   function report(reason: unknown) { toast.error(reason instanceof Error ? reason.message : "Encounter update failed."); }
   async function add() {
@@ -41,6 +45,17 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
     setBusy(true); try { const saved = await updatePreparedEncounter(campaignId, item); setItems((all) => all.map((entry) => entry.id === saved.id ? saved : entry)); toast.success("Encounter saved"); }
     catch (error) { report(error); } finally { setBusy(false); }
   }
+  const saveAll = useCallback(async () => {
+    setBusy(true);
+    try {
+      for (const item of itemsRef.current) {
+        const saved = await updatePreparedEncounter(campaignId, item);
+        itemsRef.current = itemsRef.current.map((entry) => entry.id === saved.id ? saved : entry);
+        setItems(itemsRef.current);
+      }
+    } finally { setBusy(false); }
+  }, [campaignId]);
+  useEffect(() => registerSave?.(sessionId, saveAll), [registerSave, saveAll, sessionId]);
   async function remove(item: V6PreparedEncounter) {
     if (!window.confirm(`Delete ${item.name}?`)) return;
     setBusy(true); try { await deletePreparedEncounter(campaignId, item); setItems((all) => all.filter(({ id }) => id !== item.id)); }
