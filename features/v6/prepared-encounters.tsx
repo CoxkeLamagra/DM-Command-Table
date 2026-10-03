@@ -19,6 +19,7 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
   const [addingTo, setAddingTo] = useState<string>();
   const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -67,12 +68,12 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
     setItems((all) => all.map((item) => {
       if (item.id !== addingTo) return item;
       const additions = [...chosen].map((monsterId, offset) => {
-        const existing = item.monsters.filter((entry) => entry.monsterId === monsterId).map(({ displayNumber }) => displayNumber ?? 0);
-        return { id: crypto.randomUUID(), monsterId, displayNumber: Math.max(0, ...existing) + 1, quantity: 1, sortOrder: item.monsters.length + offset };
+        const existing = item.monsters.filter((entry) => entry.monsterId === monsterId).map(({ displayNumber, quantity }) => (displayNumber ?? 1) + quantity - 1);
+        return { id: crypto.randomUUID(), monsterId, displayNumber: Math.max(0, ...existing) + 1, quantity: quantities[monsterId] ?? 1, sortOrder: item.monsters.length + offset };
       });
       return { ...item, monsters: [...item.monsters, ...additions] };
     }));
-    setAddingTo(undefined); setChosen(new Set()); setQuery("");
+    setAddingTo(undefined); setChosen(new Set()); setQuantities({}); setQuery("");
   }
   async function loadInCombat(item: V6PreparedEncounter) {
     if (!window.confirm(`Load "${item.name}" in Combat? Current monsters will be replaced; players and NPCs remain.`)) return;
@@ -97,10 +98,10 @@ export function PreparedEncounters({ campaignId, sessionId, editable, onOpenComb
     {open && <div className="mt-3 space-y-3">{items.length === 0 ? <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-stone-600">No encounters prepared yet.</p> : items.map((item) => <div key={item.id} className="rounded-lg border border-white/10 bg-black/20 p-4">
       <div className="flex gap-2"><Input value={item.name} disabled={!editable} onChange={(event) => patch(item.id, { name: event.target.value })} /><Button size="icon" variant="ghost" disabled={!editable || busy} onClick={() => save(item)}><Save /></Button><Button size="icon" variant="ghost" disabled={!editable || busy} onClick={() => remove(item)}><Trash2 /></Button></div>
       <div className="mt-3">{editable ? <RichTextEditor value={item.notes} onChange={(notes) => patch(item.id, { notes })} onPasteImage={uploadV6Screenshot} placeholder="Encounter tactics and notes…" className="min-h-24" /> : <RichTextContent value={item.notes} />}</div>
-      <div className="mt-3 flex items-center justify-between"><p className="text-xs font-medium uppercase tracking-wider text-stone-500">Monsters ({item.monsters.length})</p>{editable && <Button size="sm" variant="outline" onClick={() => setAddingTo(item.id)}><Plus /> Add monsters</Button>}</div>
+      <div className="mt-3 flex items-center justify-between"><p className="text-xs font-medium uppercase tracking-wider text-stone-500">Monsters ({item.monsters.reduce((total, entry) => total + entry.quantity, 0)})</p>{editable && <Button size="sm" variant="outline" onClick={() => setAddingTo(item.id)}><Plus /> Add monsters</Button>}</div>
       <div className="mt-2 space-y-1">{item.monsters.map((entry) => { const monster = monsters.find(({ id }) => id === entry.monsterId); return <div key={entry.id} className="flex items-center gap-2 rounded bg-white/5 px-3 py-2 text-sm"><span className="min-w-0 flex-1 truncate">{monster?.name ?? "Missing monster"}{entry.displayNumber ? ` #${entry.displayNumber}` : ""}</span><span className="text-xs text-stone-500">× {entry.quantity}</span>{editable && <Button size="icon-xs" variant="ghost" onClick={() => patch(item.id, { monsters: item.monsters.filter(({ id }) => id !== entry.id) })}><Trash2 /></Button>}</div>; })}</div>
       {editable && <Button className="mt-3 w-full" disabled={!item.monsters.length || busy} onClick={() => loadInCombat(item)}><Play /> Load in Combat</Button>}
     </div>)}</div>}
-    <Dialog open={!!addingTo} onOpenChange={(value) => { if (!value) { setAddingTo(undefined); setChosen(new Set()); } }}><DialogContent className="border-white/10 bg-[#151820] text-stone-100"><DialogHeader><DialogTitle>Add bestiary monsters</DialogTitle></DialogHeader><Input type="search" placeholder="Search by name, type, or CR…" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="max-h-72 space-y-1 overflow-y-auto">{monsters.filter((monster) => `${monster.name} ${monster.type} ${monster.challengeRating}`.toLowerCase().includes(query.toLowerCase())).map((monster) => <label key={monster.id} className="flex cursor-pointer items-center gap-3 rounded px-3 py-2 hover:bg-white/5"><Checkbox checked={chosen.has(monster.id)} onCheckedChange={(checked) => setChosen((current) => { const next = new Set(current); if (checked) next.add(monster.id); else next.delete(monster.id); return next; })} /><span className="flex-1">{monster.name}</span><span className="text-xs text-stone-500">{monster.type} · CR {monster.challengeRating}</span></label>)}</div><Button disabled={!chosen.size} onClick={addChosen}>Add selected ({chosen.size})</Button></DialogContent></Dialog>
+    <Dialog open={!!addingTo} onOpenChange={(value) => { if (!value) { setAddingTo(undefined); setChosen(new Set()); setQuantities({}); } }}><DialogContent className="border-white/10 bg-[#151820] text-stone-100"><DialogHeader><DialogTitle>Add bestiary monsters</DialogTitle></DialogHeader><Input type="search" placeholder="Search by name, type, or CR…" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="max-h-72 space-y-1 overflow-y-auto">{monsters.filter((monster) => `${monster.name} ${monster.type} ${monster.challengeRating}`.toLowerCase().includes(query.toLowerCase())).map((monster) => { const checked = chosen.has(monster.id); return <div key={monster.id} className="flex items-center gap-3 rounded px-3 py-2 hover:bg-white/5"><Checkbox aria-label={`Select ${monster.name}`} checked={checked} onCheckedChange={(value) => setChosen((current) => { const next = new Set(current); if (value) next.add(monster.id); else next.delete(monster.id); return next; })} /><span className="min-w-0 flex-1 truncate">{monster.name}</span><span className="shrink-0 text-xs text-stone-500">{monster.type} · CR {monster.challengeRating}</span><Input aria-label={`Quantity for ${monster.name}`} title={`Quantity for ${monster.name}`} className="h-8 w-20 text-center" type="number" min={1} max={99} value={quantities[monster.id] ?? 1} onFocus={() => setChosen((current) => new Set(current).add(monster.id))} onChange={(event) => { const quantity = Math.max(1, Math.min(99, Number.parseInt(event.target.value, 10) || 1)); setQuantities((current) => ({ ...current, [monster.id]: quantity })); setChosen((current) => new Set(current).add(monster.id)); }} /></div>; })}</div><Button disabled={!chosen.size} onClick={addChosen}>Add selected ({[...chosen].reduce((total, id) => total + (quantities[id] ?? 1), 0)})</Button></DialogContent></Dialog>
   </div>;
 }
