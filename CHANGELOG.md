@@ -4,6 +4,13 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 6.2.2 — 2026-10-03
+
+### Fixes
+
+- Fixed focus loss while editing Player Notes and the Bestiary rich-text fields.
+- Made the Session-level **Save** action persist all prepared encounters belonging to that Session, including encounter notes and monster selections.
+
 ## 6.2.1 — 2026-09-29
 
 ### Administration
