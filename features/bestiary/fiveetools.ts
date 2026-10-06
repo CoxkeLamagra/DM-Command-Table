@@ -1,4 +1,18 @@
-import type { Monster } from "@/features/campaign/types";
+export type ConvertedMonster = {
+  id: string;
+  name: string;
+  source?: string;
+  type: string;
+  cr: string;
+  ac: number;
+  hp: number;
+  speed: string;
+  stats: string;
+  abilities: string;
+  spells: string;
+  notes: string;
+  slots: number[];
+};
 
 export const BESTIARY_BASE = "https://dnd5e.lamagra.link";
 
@@ -29,7 +43,7 @@ export type FiveEToolsMonster = {
 };
 
 export function monsterIdentity(
-  monster: Pick<Monster, "name" | "source">,
+  monster: Pick<ConvertedMonster, "name" | "source">,
 ): string {
   return `${monster.name.trim().toLowerCase()}::${(monster.source ?? "").trim().toLowerCase()}`;
 }
@@ -88,7 +102,7 @@ export function getRemoteSummary(remote: FiveEToolsMonster) {
 export function convertRemoteMonster(
   remote: FiveEToolsMonster,
   createId: () => string,
-): Monster {
+): ConvertedMonster {
   const summary = getRemoteSummary(remote);
   const speed =
     Object.entries(remote.speed ?? {})

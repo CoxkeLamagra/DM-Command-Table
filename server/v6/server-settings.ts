@@ -25,21 +25,60 @@ const keys: Record<keyof V6ServerSettings, string> = {
 
 export function getV6ServerSettings(database: DatabaseSync): V6ServerSettings {
   const stored = new Map(
-    (database.prepare("SELECT key, value FROM application_settings WHERE key LIKE 'server.%'").all() as Array<{ key: string; value: string }>)
-      .map(({ key, value }) => [key, value]),
+    (
+      database
+        .prepare(
+          "SELECT key, value FROM application_settings WHERE key LIKE 'server.%'",
+        )
+        .all() as Array<{ key: string; value: string }>
+    ).map(({ key, value }) => [key, value]),
   );
   return serverSettingsSchema.parse({
-    secureCookieMode: stored.get(keys.secureCookieMode) ?? cookieModeFromEnvironment(),
-    sessionLifetimeDays: integer(stored.get(keys.sessionLifetimeDays), undefined, 30, 1, 365),
+    secureCookieMode:
+      stored.get(keys.secureCookieMode) ?? cookieModeFromEnvironment(),
+    sessionLifetimeDays: integer(
+      stored.get(keys.sessionLifetimeDays),
+      undefined,
+      30,
+      1,
+      365,
+    ),
     uploadLimitMb: integer(stored.get(keys.uploadLimitMb), undefined, 8, 1, 50),
-    screenshotQuotaMb: integer(stored.get(keys.screenshotQuotaMb), process.env.DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB, 100, 1, 10_000),
-    screenshotGlobalQuotaMb: integer(stored.get(keys.screenshotGlobalQuotaMb), process.env.DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB, 1024, 1, 100_000),
-    combatHistoryLimit: integer(stored.get(keys.combatHistoryLimit), process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT, 100, 1, 1_000),
-    auditEventLimit: integer(stored.get(keys.auditEventLimit), process.env.DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT, 10_000, 100, 100_000),
+    screenshotQuotaMb: integer(
+      stored.get(keys.screenshotQuotaMb),
+      process.env.DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB,
+      100,
+      1,
+      10_000,
+    ),
+    screenshotGlobalQuotaMb: integer(
+      stored.get(keys.screenshotGlobalQuotaMb),
+      process.env.DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB,
+      1024,
+      1,
+      100_000,
+    ),
+    combatHistoryLimit: integer(
+      stored.get(keys.combatHistoryLimit),
+      process.env.DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT,
+      100,
+      1,
+      1_000,
+    ),
+    auditEventLimit: integer(
+      stored.get(keys.auditEventLimit),
+      process.env.DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT,
+      10_000,
+      100,
+      100_000,
+    ),
   });
 }
 
-export function saveV6ServerSettings(database: DatabaseSync, input: unknown): V6ServerSettings {
+export function saveV6ServerSettings(
+  database: DatabaseSync,
+  input: unknown,
+): V6ServerSettings {
   const settings = serverSettingsSchema.parse(input);
   const statement = database.prepare(
     `INSERT INTO application_settings (key, value, updated_at) VALUES (?, ?, ?)
@@ -48,7 +87,9 @@ export function saveV6ServerSettings(database: DatabaseSync, input: unknown): V6
   const now = Date.now();
   database.exec("BEGIN IMMEDIATE");
   try {
-    for (const [property, key] of Object.entries(keys) as Array<[keyof V6ServerSettings, string]>)
+    for (const [property, key] of Object.entries(keys) as Array<
+      [keyof V6ServerSettings, string]
+    >)
       statement.run(key, String(settings[property]), now);
     database.exec("COMMIT");
   } catch (error) {
@@ -58,9 +99,17 @@ export function saveV6ServerSettings(database: DatabaseSync, input: unknown): V6
   return settings;
 }
 
-function integer(stored: string | undefined, environment: string | undefined, fallback: number, minimum: number, maximum: number): number {
+function integer(
+  stored: string | undefined,
+  environment: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
   const value = Number(stored ?? environment);
-  return Number.isInteger(value) && value >= minimum && value <= maximum ? value : fallback;
+  return Number.isInteger(value) && value >= minimum && value <= maximum
+    ? value
+    : fallback;
 }
 
 function cookieModeFromEnvironment(): V6ServerSettings["secureCookieMode"] {

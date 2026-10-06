@@ -29,9 +29,13 @@ export function getV6Database(): DatabaseSync {
   return database;
 }
 
-export function currentV6SchemaVersion(databaseValue = getV6Database()): number {
+export function currentV6SchemaVersion(
+  databaseValue = getV6Database(),
+): number {
   const row = databaseValue
-    .prepare("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations")
+    .prepare(
+      "SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations",
+    )
     .get() as { version: number };
   return row.version;
 }
@@ -51,9 +55,10 @@ function verifySchema(databaseValue: DatabaseSync): void {
   const actual = currentV6SchemaVersion(databaseValue);
   const expected = expectedV6SchemaVersion();
   if (actual !== expected)
-    throw new Error(`V6 database schema ${actual} does not match expected version ${expected}.`);
+    throw new Error(
+      `V6 database schema ${actual} does not match expected version ${expected}.`,
+    );
   const violations = databaseValue.prepare("PRAGMA foreign_key_check").all();
   if (violations.length)
     throw new Error("V6 database contains foreign-key violations.");
 }
-

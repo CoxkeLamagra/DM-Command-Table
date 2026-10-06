@@ -25,10 +25,7 @@ export class ResourceNotFoundError extends Error {
   readonly resourceType: string;
   readonly resourceId: string;
 
-  constructor(
-    resourceType: string,
-    resourceId: string,
-  ) {
+  constructor(resourceType: string, resourceId: string) {
     super(`${resourceType} ${resourceId} was not found.`);
     this.name = "ResourceNotFoundError";
     this.resourceType = resourceType;

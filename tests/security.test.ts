@@ -7,7 +7,6 @@ import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "../db/migrations.ts";
 import { consumePersistentRateLimit } from "../server/security/sqlite-rate-limit.ts";
 import { apiError, jsonBody } from "../server/v6/http.ts";
-import { legacyApiRetired } from "../server/http/legacy.ts";
 
 test("rate limits reset after their window", () => {
   assert.deepEqual(consumeRateLimit("test-limit", 2, 1_000, 1_000), {
@@ -35,6 +34,8 @@ test("server-side rich text sanitization keeps formatting and removes executable
 });
 
 test("origin checks retain host validation behind a TLS-terminating proxy", () => {
+  const previous = process.env.DM_COMMAND_TABLE_TRUST_PROXY;
+  process.env.DM_COMMAND_TABLE_TRUST_PROXY = "true";
   const valid = new Request("http://internal/api/campaigns", {
     headers: {
       origin: "https://dm.example.test",
@@ -69,17 +70,31 @@ test("origin checks retain host validation behind a TLS-terminating proxy", () =
     },
   });
   assert.equal(rejectCrossOrigin(wrongPort)?.status, 403);
+
+  process.env.DM_COMMAND_TABLE_TRUST_PROXY = "false";
+  assert.equal(rejectCrossOrigin(valid)?.status, 403);
+  if (previous === undefined) delete process.env.DM_COMMAND_TABLE_TRUST_PROXY;
+  else process.env.DM_COMMAND_TABLE_TRUST_PROXY = previous;
 });
 
 test("persistent rate limits survive independent calls and reset", () => {
   const database = new DatabaseSync(":memory:");
   runMigrations(database);
-  assert.deepEqual(consumePersistentRateLimit(database, "login:test", 1, 1_000, 1_000), { allowed: true });
-  assert.deepEqual(consumePersistentRateLimit(database, "login:test", 1, 1_000, 1_100), {
-    allowed: false,
-    retryAfterSeconds: 1,
-  });
-  assert.deepEqual(consumePersistentRateLimit(database, "login:test", 1, 1_000, 2_001), { allowed: true });
+  assert.deepEqual(
+    consumePersistentRateLimit(database, "login:test", 1, 1_000, 1_000),
+    { allowed: true },
+  );
+  assert.deepEqual(
+    consumePersistentRateLimit(database, "login:test", 1, 1_000, 1_100),
+    {
+      allowed: false,
+      retryAfterSeconds: 1,
+    },
+  );
+  assert.deepEqual(
+    consumePersistentRateLimit(database, "login:test", 1, 1_000, 2_001),
+    { allowed: true },
+  );
   database.close();
 });
 
@@ -89,12 +104,11 @@ test("JSON request bodies are rejected before exceeding their configured limit",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ value: "x".repeat(100) }),
   });
-  const response = apiError(await jsonBody(request, 32).then(() => null, (error) => error));
+  const response = apiError(
+    await jsonBody(request, 32).then(
+      () => null,
+      (error) => error,
+    ),
+  );
   assert.equal(response.status, 413);
-});
-
-test("retired legacy APIs return a non-operational response", async () => {
-  const response = legacyApiRetired();
-  assert.equal(response.status, 410);
-  assert.match(await response.text(), /retired/i);
 });

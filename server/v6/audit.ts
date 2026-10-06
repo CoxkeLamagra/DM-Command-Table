@@ -27,7 +27,11 @@ export function recordAuditEvent(
       input.details === undefined ? null : JSON.stringify(input.details),
       Date.now(),
     );
-  pruneAuditEvents(database, input.campaignId ?? null, input.actorUserId ?? null);
+  pruneAuditEvents(
+    database,
+    input.campaignId ?? null,
+    input.actorUserId ?? null,
+  );
 }
 
 function pruneAuditEvents(
@@ -40,9 +44,13 @@ function pruneAuditEvents(
   const owner = campaignId ?? actorUserId;
   if (!owner) return;
   const column = campaign ? "campaign_id" : "actor_user_id";
-  const cutoff = database.prepare(
-    `SELECT id FROM audit_events WHERE ${column} = ? ORDER BY id DESC LIMIT 1 OFFSET ?`,
-  ).get(owner, limit) as { id: number } | undefined;
+  const cutoff = database
+    .prepare(
+      `SELECT id FROM audit_events WHERE ${column} = ? ORDER BY id DESC LIMIT 1 OFFSET ?`,
+    )
+    .get(owner, limit) as { id: number } | undefined;
   if (cutoff)
-    database.prepare(`DELETE FROM audit_events WHERE ${column} = ? AND id <= ?`).run(owner, cutoff.id);
+    database
+      .prepare(`DELETE FROM audit_events WHERE ${column} = ? AND id <= ?`)
+      .run(owner, cutoff.id);
 }

@@ -25,7 +25,8 @@ function fixture() {
 function request(path: string, method = "GET", body?: unknown): Request {
   return new Request(`http://localhost/api/v6/${path}`, {
     method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    headers:
+      body === undefined ? undefined : { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
@@ -38,8 +39,13 @@ test("v6 API creates campaigns and returns private responses", async () => {
     { userId: ownerId, isAdmin: false },
   );
   assert.equal(response.status, 201);
-  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0");
-  const body = await response.json() as { campaign: { name: string; revision: number } };
+  assert.equal(
+    response.headers.get("cache-control"),
+    "private, no-store, max-age=0",
+  );
+  const body = (await response.json()) as {
+    campaign: { name: string; revision: number };
+  };
   assert.equal(body.campaign.name, "Icewind Dale");
   assert.equal(body.campaign.revision, 1);
   database.close();
@@ -52,7 +58,7 @@ test("v6 API maps invalid input and stale revisions", async () => {
     database,
     { userId: ownerId, isAdmin: false },
   );
-  const { campaign } = await created.json() as { campaign: { id: string } };
+  const { campaign } = (await created.json()) as { campaign: { id: string } };
   const invalid = await handleV6Api(
     request(`campaigns/${campaign.id}/players`, "POST", { name: "Incomplete" }),
     database,
@@ -61,18 +67,27 @@ test("v6 API maps invalid input and stale revisions", async () => {
   assert.equal(invalid.status, 400);
 
   const playerInput = {
-    name: "Shadowheart", race: "Half-Elf", className: "Cleric", level: 5,
-    hitPoints: 40, armorClass: 18, notes: "",
+    name: "Shadowheart",
+    race: "Half-Elf",
+    className: "Cleric",
+    level: 5,
+    hitPoints: 40,
+    armorClass: 18,
+    notes: "",
   };
   const playerResponse = await handleV6Api(
     request(`campaigns/${campaign.id}/players`, "POST", playerInput),
     database,
     { userId: ownerId, isAdmin: false },
   );
-  const { player } = await playerResponse.json() as { player: { id: string } };
+  const { player } = (await playerResponse.json()) as {
+    player: { id: string };
+  };
   const first = await handleV6Api(
     request(`campaigns/${campaign.id}/players/${player.id}`, "PATCH", {
-      ...playerInput, revision: 1, level: 6,
+      ...playerInput,
+      revision: 1,
+      level: 6,
     }),
     database,
     { userId: ownerId, isAdmin: false },
@@ -80,13 +95,18 @@ test("v6 API maps invalid input and stale revisions", async () => {
   assert.equal(first.status, 200);
   const stale = await handleV6Api(
     request(`campaigns/${campaign.id}/players/${player.id}`, "PATCH", {
-      ...playerInput, revision: 1, level: 7,
+      ...playerInput,
+      revision: 1,
+      level: 7,
     }),
     database,
     { userId: ownerId, isAdmin: false },
   );
   assert.equal(stale.status, 409);
-  assert.equal((await stale.json() as { code: string }).code, "revision_conflict");
+  assert.equal(
+    ((await stale.json()) as { code: string }).code,
+    "revision_conflict",
+  );
   database.close();
 });
 
@@ -97,15 +117,22 @@ test("v6 API enforces viewer permissions", async () => {
     database,
     { userId: ownerId, isAdmin: false },
   );
-  const { campaign } = await created.json() as { campaign: { id: string } };
+  const { campaign } = (await created.json()) as { campaign: { id: string } };
   await handleV6Api(
-    request(`campaigns/${campaign.id}/members`, "POST", { username: "viewer", role: "viewer" }),
+    request(`campaigns/${campaign.id}/members`, "POST", {
+      username: "viewer",
+      role: "viewer",
+    }),
     database,
     { userId: ownerId, isAdmin: false },
   );
   const denied = await handleV6Api(
     request(`campaigns/${campaign.id}/sessions`, "POST", {
-      title: "No", date: "", notes: "", status: "planned", sortOrder: 0,
+      title: "No",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 0,
     }),
     database,
     { userId: viewerId, isAdmin: false },
@@ -113,4 +140,3 @@ test("v6 API enforces viewer permissions", async () => {
   assert.equal(denied.status, 403);
   database.close();
 });
-

@@ -21,7 +21,7 @@ The application checkout and persistent data are deliberately separated:
 
 Pulling or rebuilding the Git repository does not overwrite the SQLite database.
 
-This guide covers the normalized v6 application served at `/`.
+This guide covers the v7 application, using its stable normalized v6 storage format, served at `/`.
 
 ## 1. Create the LXC
 
@@ -270,7 +270,9 @@ Ensure `/etc/dm-command-table.env` contains:
 ```text
 DM_COMMAND_TABLE_V6_DB_PATH=/var/lib/dm-command-table/dm-command-table-v6.sqlite
 DM_COMMAND_TABLE_V6_UPLOAD_PATH=/var/lib/dm-command-table/uploads-v6
+DM_COMMAND_TABLE_BACKUP_PATH=/var/lib/dm-command-table/backups
 DM_COMMAND_TABLE_SECURE_COOKIES=auto
+DM_COMMAND_TABLE_TRUST_PROXY=true
 DM_COMMAND_TABLE_REGISTRATION_MODE=first-user
 DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB=100
 NODE_ENV=production
@@ -281,30 +283,31 @@ Retain a securely generated `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` until the first a
 
 ## 11. Back up and restore server data
 
-Create a consistent live backup:
+Create a consistent live backup as the service account:
 
 ```bash
-mkdir -p /var/backups/dm-command-table
-sqlite3 /var/lib/dm-command-table/dm-command-table-v6.sqlite \
-  ".backup '/var/backups/dm-command-table/dm-command-table-v6-$(date +%F).sqlite'"
-tar -C /var/lib/dm-command-table -czf \
-  "/var/backups/dm-command-table/uploads-v6-$(date +%F).tar.gz" uploads-v6
+cd /opt/dm-command-table/app
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table \
+  pnpm backup
+runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table \
+  pnpm check:storage
 ```
 
 List available backups:
 
 ```bash
-ls -lh /var/backups/dm-command-table
+find /var/lib/dm-command-table/backups -maxdepth 2 -type f -printf '%TY-%Tm-%Td %TH:%TM %p\n'
 ```
 
 To restore a backup, stop the service first:
 
 ```bash
 systemctl stop dm-command-table.service
-cp /var/backups/dm-command-table/dm-command-table-v6-YYYY-MM-DD.sqlite \
+cp /var/lib/dm-command-table/backups/TIMESTAMP/dm-command-table-v6.sqlite \
   /var/lib/dm-command-table/dm-command-table-v6.sqlite
-tar -C /var/lib/dm-command-table -xzf \
-  /var/backups/dm-command-table/uploads-v6-YYYY-MM-DD.tar.gz
+rm -rf /var/lib/dm-command-table/uploads-v6
+cp -a /var/lib/dm-command-table/backups/TIMESTAMP/uploads-v6 \
+  /var/lib/dm-command-table/uploads-v6
 chown -R dmct:dmct /var/lib/dm-command-table
 systemctl start dm-command-table.service
 ```

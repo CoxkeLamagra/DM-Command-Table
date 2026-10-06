@@ -3,7 +3,9 @@ export function rejectCrossOrigin(request: Request): Response | null {
   if (!origin) return null;
   const requestHost =
     request.headers.get("host") ||
-    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+    (process.env.DM_COMMAND_TABLE_TRUST_PROXY === "true"
+      ? request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
+      : null);
   if (!requestHost) return invalidOrigin();
   try {
     const originUrl = new URL(origin);

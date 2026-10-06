@@ -32,12 +32,18 @@ function fixture() {
 test("owners can grant, change, and revoke campaign access", () => {
   const { database, campaign, memberships } = fixture();
   let members = memberships.grant(campaign.id, "owner", "viewer", "viewer");
-  assert.deepEqual(members.map(({ username, role }) => ({ username, role })), [
-    { username: "owner", role: "owner" },
-    { username: "viewer", role: "viewer" },
-  ]);
+  assert.deepEqual(
+    members.map(({ username, role }) => ({ username, role })),
+    [
+      { username: "owner", role: "owner" },
+      { username: "viewer", role: "viewer" },
+    ],
+  );
   members = memberships.grant(campaign.id, "owner", "viewer", "editor");
-  assert.equal(members.find(({ username }) => username === "viewer")?.role, "editor");
+  assert.equal(
+    members.find(({ username }) => username === "viewer")?.role,
+    "editor",
+  );
   members = memberships.revoke(campaign.id, "owner", "viewer");
   assert.equal(members.length, 1);
   database.close();
@@ -47,9 +53,17 @@ test("ownership transfer keeps the previous owner as an editor", () => {
   const { database, campaign, memberships } = fixture();
   memberships.grant(campaign.id, "owner", "editor", "editor");
   const members = memberships.transferOwnership(campaign.id, "owner", "editor");
-  assert.equal(members.find(({ username }) => username === "editor")?.role, "owner");
-  assert.equal(members.find(({ username }) => username === "owner")?.role, "editor");
-  assert.throws(() => memberships.list(campaign.id, "owner"), AuthorizationError);
+  assert.equal(
+    members.find(({ username }) => username === "editor")?.role,
+    "owner",
+  );
+  assert.equal(
+    members.find(({ username }) => username === "owner")?.role,
+    "editor",
+  );
+  assert.throws(
+    () => memberships.list(campaign.id, "owner"),
+    AuthorizationError,
+  );
   database.close();
 });
-

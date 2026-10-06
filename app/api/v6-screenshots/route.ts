@@ -14,7 +14,9 @@ export async function GET() {
   const database = getV6Database();
   const user = await getV6User(database);
   if (!user) return apiJson({ error: "Authentication required." }, 401);
-  return apiJson({ screenshots: listV6Screenshots(database, user.userId, user.isAdmin) });
+  return apiJson({
+    screenshots: listV6Screenshots(database, user.userId, user.isAdmin),
+  });
 }
 
 export async function POST(request: Request) {
@@ -25,16 +27,47 @@ export async function POST(request: Request) {
     const user = await getV6User(database);
     if (!user) return apiJson({ error: "Authentication required." }, 401);
     const limited = enforceV6RateLimit(
-      database, request, "v6-screenshot-upload", user.userId, 30, 60 * 60 * 1000,
+      database,
+      request,
+      "v6-screenshot-upload",
+      user.userId,
+      30,
+      60 * 60 * 1000,
     );
     if (limited) return limited;
-    const declared = Number(request.headers.get("content-length"));
-    const maximumBytes = getV6ServerSettings(database).uploadLimitMb * 1024 * 1024;
-    if (Number.isFinite(declared) && declared > maximumBytes + 1024 * 1024)
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.toLowerCase().startsWith("multipart/form-data;"))
+      throw new PublicApiError(
+        "Content-Type must be multipart/form-data.",
+        415,
+      );
+    const contentLength = request.headers.get("content-length");
+    if (!contentLength)
+      return apiJson(
+        { error: "A bounded Content-Length is required for uploads." },
+        411,
+      );
+    const declared = Number(contentLength);
+    const maximumBytes =
+      getV6ServerSettings(database).uploadLimitMb * 1024 * 1024;
+    if (
+      !Number.isSafeInteger(declared) ||
+      declared < 1 ||
+      declared > maximumBytes + 1024 * 1024
+    )
       return apiJson({ error: "The upload is too large." }, 413);
-    const file = (await request.formData()).get("file");
-    if (!(file instanceof File)) throw new PublicApiError("Select an image to upload.");
-    return apiJson({ screenshot: await saveV6Screenshot(database, file, user.userId) }, 201);
+    const form = await request.formData();
+    if ([...form.keys()].some((key) => key !== "file"))
+      throw new PublicApiError(
+        "The upload request contains unsupported fields.",
+      );
+    const file = form.get("file");
+    if (!(file instanceof File))
+      throw new PublicApiError("Select an image to upload.");
+    return apiJson(
+      { screenshot: await saveV6Screenshot(database, file, user.userId) },
+      201,
+    );
   } catch (error) {
     return apiError(error);
   }

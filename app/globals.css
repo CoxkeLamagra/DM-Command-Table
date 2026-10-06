@@ -90,8 +90,9 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -136,4 +137,6 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
-.font-serif { font-family: Georgia, "Times New Roman", serif; }
+.font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}

@@ -21,7 +21,9 @@ test("v6 migrations create the normalized local-only schema", () => {
   const tables = new Set(
     (
       database
-        .prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type IN ('table', 'view')",
+        )
         .all() as Array<{ name: string }>
     ).map(({ name }) => name),
   );
@@ -52,8 +54,13 @@ test("v6 migrations create the normalized local-only schema", () => {
     )
     .get() as { sql: string };
   assert.match(duplicatePlayer.sql, /WHERE player_id IS NOT NULL/);
-  const combatantColumns = database.prepare("PRAGMA table_info(combatants)").all() as Array<{ name: string }>;
-  assert.equal(combatantColumns.some(({ name }) => name === "notes"), true);
+  const combatantColumns = database
+    .prepare("PRAGMA table_info(combatants)")
+    .all() as Array<{ name: string }>;
+  assert.equal(
+    combatantColumns.some(({ name }) => name === "notes"),
+    true,
+  );
   database.close();
 });
 

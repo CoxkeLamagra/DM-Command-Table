@@ -40,15 +40,9 @@ export function apiError(error: unknown): Response {
       409,
     );
   if (error instanceof ResourceNotFoundError)
-    return apiJson(
-      { error: error.message, code: "not_found" },
-      404,
-    );
+    return apiJson({ error: error.message, code: "not_found" }, 404);
   if (error instanceof AuthorizationError)
-    return apiJson(
-      { error: error.message, code: "forbidden" },
-      403,
-    );
+    return apiJson({ error: error.message, code: "forbidden" }, 403);
   if (error instanceof SyntaxError)
     return apiJson({ error: "The request body is not valid JSON." }, 400);
   if (error instanceof PublicApiError)

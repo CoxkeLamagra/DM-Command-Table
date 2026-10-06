@@ -16,7 +16,7 @@ async function handle(request: Request): Promise<Response> {
   const database = getV6Database();
   const user = await getV6User(database);
   if (!user) return apiJson({ error: "Authentication required." }, 401);
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+  if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
     const pathname = new URL(request.url).pathname;
     const strictImport = pathname === "/api/v6/campaigns/import";
     const rateLimit = enforceV6RateLimit(

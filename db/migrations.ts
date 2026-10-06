@@ -309,7 +309,9 @@ export function runMigrations(database: DatabaseSync): void {
     );
   `);
   const current = database
-    .prepare("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations")
+    .prepare(
+      "SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations",
+    )
     .get() as { version: number };
 
   for (const migration of migrations) {

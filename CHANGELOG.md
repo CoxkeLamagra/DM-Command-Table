@@ -4,6 +4,23 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 7.0.0 — 2026-10-06
+
+### Architecture and security
+
+- Removed the superseded pre-v6 application, API, schema, and test paths so the project has one canonical implementation.
+- Reduced the production dependency graph and upgraded Next.js to a security-patched release.
+- Moved password derivation off the main event loop and transparently upgrades legacy password hashes after a successful login.
+- Made administrator-created accounts independent of public registration state and validated linked Combat records against their campaign.
+- Enforced bounded multipart uploads before parsing and trusted forwarded client headers only when proxy trust is explicitly enabled.
+- Added normalized screenshot-reference authorization, protected in-use images from deletion, and made content/index/audit writes transactional.
+
+### Operations
+
+- Added consistent local SQLite and screenshot backups with `pnpm backup`.
+- Added `pnpm check:storage` for SQLite integrity and screenshot-file reconciliation.
+- Added a single `pnpm verify` command for audit, lint, type checking, tests, and production build validation.
+
 ## 6.2.3 — 2026-10-03
 
 ### Encounters

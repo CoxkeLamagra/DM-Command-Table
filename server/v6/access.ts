@@ -23,8 +23,7 @@ export function campaignRole(
         LIMIT 1`,
     )
     .get(userId, userId, campaignId, userId, userId) as
-    | { role: V6CampaignRole }
-    | undefined;
+    { role: V6CampaignRole } | undefined;
   return row?.role ?? null;
 }
 
@@ -57,4 +56,3 @@ export function requireCampaignOwner(
   if (campaignRole(database, campaignId, userId) !== "owner")
     throw new AuthorizationError("Campaign owner access is required.");
 }
-

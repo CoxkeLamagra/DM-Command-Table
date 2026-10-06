@@ -4,7 +4,7 @@ DM Command Table is a browser-based workspace for preparing and running tabletop
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current development line is **v6**.
+The current release line is **v7**. The established v6 storage and API formats remain stable so existing local installations continue to use their data without migration.
 
 ## Features
 
@@ -160,7 +160,6 @@ The application sends a Content Security Policy, frame protection, MIME-sniffing
 - Next.js 16 on Node.js
 - Tailwind CSS 4 with shadcn-based UI components
 - Node's built-in SQLite driver
-- Drizzle schema definitions
 - SQLite FTS5 for local campaign search
 
 ## Requirements
@@ -236,15 +235,25 @@ Reusable configuration templates are available under `deploy/debian-13/`.
 
 ## Server data backup
 
-The live database can have `-wal` and `-shm` companion files. For a consistent backup, use SQLite's backup command rather than copying only the main file while the application is running:
+Create a consistent, timestamped SQLite snapshot together with its referenced screenshot files:
 
 ```bash
-sqlite3 ./data/dm-command-table-v6.sqlite ".backup './data/dm-command-table-v6-backup.sqlite'"
+pnpm backup
 ```
 
-Alternatively, stop the application before copying the database file and its companion files.
+The destination defaults to `./data/backups` and can be changed with `DM_COMMAND_TABLE_BACKUP_PATH`. The command uses SQLite's live `VACUUM INTO` snapshot mechanism, so it does not copy an incomplete WAL state. For Docker Compose:
 
-Back up the adjacent `uploads-v6` directory as well to preserve screenshots embedded in notes. A JSON campaign export contains screenshot references but does not include the binary image files.
+```bash
+docker compose exec dm-command-table node scripts/backup-local.mjs
+```
+
+Validate SQLite integrity and ensure every screenshot database row has a matching local file (and vice versa):
+
+```bash
+pnpm check:storage
+```
+
+A JSON campaign export contains screenshot references but does not include the binary image files. Restore a server backup only while the application is stopped, and restore both the database and its matching `uploads-v6` directory from the same timestamped folder.
 
 ## Campaign API
 

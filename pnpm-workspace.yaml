@@ -1,6 +1,8 @@
 # Copied Sites are standalone projects and cannot inherit the monorepo policy.
 minimumReleaseAge: 10080
 minimumReleaseAgeIgnoreMissingTime: false
+minimumReleaseAgeExclude:
+  - source-map-js@1.2.2
 trustLockfile: false
 strictDepBuilds: true
 allowBuilds:
@@ -22,3 +24,5 @@ overrides:
   "@babel/core": ^7.29.6
   baseline-browser-mapping: ^2.11.0
   browserslist: ^4.28.7
+  fast-uri: 3.1.8
+  source-map-js: 1.2.2

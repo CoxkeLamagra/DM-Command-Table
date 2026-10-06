@@ -4,8 +4,7 @@ const buckets = new Map<string, Bucket>();
 let lastCleanup = 0;
 
 export type RateLimitResult =
-  | { allowed: true }
-  | { allowed: false; retryAfterSeconds: number };
+  { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
 export function consumeRateLimit(
   key: string,
@@ -22,7 +21,10 @@ export function consumeRateLimit(
   if (existing.count >= limit) {
     return {
       allowed: false,
-      retryAfterSeconds: Math.max(1, Math.ceil((existing.resetsAt - now) / 1000)),
+      retryAfterSeconds: Math.max(
+        1,
+        Math.ceil((existing.resetsAt - now) / 1000),
+      ),
     };
   }
   existing.count += 1;
@@ -40,6 +42,8 @@ export function rateLimitResponse(retryAfterSeconds: number): Response {
 }
 
 export function clientAddress(request: Request): string {
+  if (process.env.DM_COMMAND_TABLE_TRUST_PROXY !== "true")
+    return "direct-client";
   return (
     request.headers.get("x-real-ip")?.trim() ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||

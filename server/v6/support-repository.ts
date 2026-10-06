@@ -28,11 +28,15 @@ type TemplateRow = Omit<SessionTemplate, "createdAt" | "updatedAt"> & {
 export function createSupportRepository(database: DatabaseSync) {
   return {
     listTemplates(ownerId: string): SessionTemplate[] {
-      return (database.prepare(
-        `SELECT id, owner_id AS ownerId, name, content,
+      return (
+        database
+          .prepare(
+            `SELECT id, owner_id AS ownerId, name, content,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM session_templates WHERE owner_id = ? ORDER BY name COLLATE NOCASE`,
-      ).all(ownerId) as TemplateRow[]).map(toTemplate);
+          )
+          .all(ownerId) as TemplateRow[]
+      ).map(toTemplate);
     },
 
     saveTemplate(
@@ -41,29 +45,41 @@ export function createSupportRepository(database: DatabaseSync) {
     ): SessionTemplate {
       const id = input.id ?? crypto.randomUUID();
       const now = Date.now();
-      database.prepare(
-        `INSERT INTO session_templates
+      database
+        .prepare(
+          `INSERT INTO session_templates
           (id, owner_id, name, content, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, content = excluded.content,
            updated_at = excluded.updated_at
          WHERE session_templates.owner_id = excluded.owner_id`,
-      ).run(id, ownerId, input.name.trim() || "Session template", input.content, now, now);
-      const row = database.prepare(
-        `SELECT id, owner_id AS ownerId, name, content,
+        )
+        .run(
+          id,
+          ownerId,
+          input.name.trim() || "Session template",
+          input.content,
+          now,
+          now,
+        );
+      const row = database
+        .prepare(
+          `SELECT id, owner_id AS ownerId, name, content,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM session_templates WHERE id = ? AND owner_id = ?`,
-      ).get(id, ownerId) as TemplateRow | undefined;
+        )
+        .get(id, ownerId) as TemplateRow | undefined;
       if (!row) throw new ResourceNotFoundError("session template", id);
       return toTemplate(row);
     },
 
     deleteTemplate(ownerId: string, id: string): void {
-      const result = database.prepare(
-        "DELETE FROM session_templates WHERE id = ? AND owner_id = ?",
-      ).run(id, ownerId);
-      if (!result.changes) throw new ResourceNotFoundError("session template", id);
+      const result = database
+        .prepare("DELETE FROM session_templates WHERE id = ? AND owner_id = ?")
+        .run(id, ownerId);
+      if (!result.changes)
+        throw new ResourceNotFoundError("session template", id);
     },
 
     setScreenshotReferences(
@@ -74,9 +90,11 @@ export function createSupportRepository(database: DatabaseSync) {
       screenshotIds: string[],
     ): void {
       requireCampaignEdit(database, campaignId, actorUserId);
-      database.prepare(
-        "DELETE FROM screenshot_references WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-      ).run(campaignId, resourceType, resourceId);
+      database
+        .prepare(
+          "DELETE FROM screenshot_references WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
+        )
+        .run(campaignId, resourceType, resourceId);
       const visible = database.prepare(
         `SELECT s.id FROM screenshots s
           WHERE s.id = ? AND (
@@ -94,10 +112,19 @@ export function createSupportRepository(database: DatabaseSync) {
       for (const screenshotId of new Set(screenshotIds)) {
         if (!visible.get(screenshotId, actorUserId, campaignId))
           throw new ResourceNotFoundError("screenshot", screenshotId);
-        insert.run(screenshotId, campaignId, resourceType, resourceId, Date.now());
+        insert.run(
+          screenshotId,
+          campaignId,
+          resourceType,
+          resourceId,
+          Date.now(),
+        );
       }
       recordAuditEvent(database, {
-        campaignId, actorUserId, resourceType, resourceId,
+        campaignId,
+        actorUserId,
+        resourceType,
+        resourceId,
         action: "screenshot_references_updated",
         details: { screenshotIds: [...new Set(screenshotIds)] },
       });
@@ -110,20 +137,30 @@ export function createSupportRepository(database: DatabaseSync) {
       title: string,
       content: string,
     ): void {
-      database.prepare(
-        "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-      ).run(campaignId, resourceType, resourceId);
-      database.prepare(
-        `INSERT INTO search_index
+      database
+        .prepare(
+          "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
+        )
+        .run(campaignId, resourceType, resourceId);
+      database
+        .prepare(
+          `INSERT INTO search_index
           (campaign_id, resource_type, resource_id, title, content)
          VALUES (?, ?, ?, ?, ?)`,
-      ).run(campaignId, resourceType, resourceId, title, content);
+        )
+        .run(campaignId, resourceType, resourceId, title, content);
     },
 
-    removeFromIndex(campaignId: string, resourceType: string, resourceId: string): void {
-      database.prepare(
-        "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-      ).run(campaignId, resourceType, resourceId);
+    removeFromIndex(
+      campaignId: string,
+      resourceType: string,
+      resourceId: string,
+    ): void {
+      database
+        .prepare(
+          "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
+        )
+        .run(campaignId, resourceType, resourceId);
     },
 
     search(
@@ -135,14 +172,20 @@ export function createSupportRepository(database: DatabaseSync) {
       requireCampaignRead(database, campaignId, actorUserId);
       const expression = searchExpression(query);
       if (!expression) return [];
-      return database.prepare(
-        `SELECT resource_type AS resourceType, resource_id AS resourceId,
+      return database
+        .prepare(
+          `SELECT resource_type AS resourceType, resource_id AS resourceId,
                 title, snippet(search_index, 4, '<mark>', '</mark>', '…', 18) AS excerpt,
                 bm25(search_index) AS rank
            FROM search_index
           WHERE search_index MATCH ? AND campaign_id = ?
           ORDER BY rank LIMIT ?`,
-      ).all(expression, campaignId, Math.max(1, Math.min(limit, 100))) as CampaignSearchResult[];
+        )
+        .all(
+          expression,
+          campaignId,
+          Math.max(1, Math.min(limit, 100)),
+        ) as CampaignSearchResult[];
     },
   };
 }
@@ -164,4 +207,3 @@ function toTemplate(row: TemplateRow): SessionTemplate {
     updatedAt: new Date(row.updatedAt).toISOString(),
   };
 }
-

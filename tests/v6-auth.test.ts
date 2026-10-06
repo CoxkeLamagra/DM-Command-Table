@@ -16,13 +16,13 @@ function database() {
   return value;
 }
 
-test("the first v6 account is admin and closes public registration", () => {
+test("the first v6 account is admin and closes public registration", async () => {
   const db = database();
   assert.deepEqual(registrationStatus(db), {
     initialSetup: true,
     registrationEnabled: true,
   });
-  const user = registerV6User(db, {
+  const user = await registerV6User(db, {
     username: "DungeonMaster",
     displayName: "Dungeon Master",
     password: "correct-horse-battery-staple",
@@ -31,27 +31,40 @@ test("the first v6 account is admin and closes public registration", () => {
   assert.equal(user.username, "dungeonmaster");
   assert.equal(registrationStatus(db).registrationEnabled, false);
   assert.equal(
-    authenticateV6User(db, "DUNGEONMASTER", "correct-horse-battery-staple")?.userId,
+    (
+      await authenticateV6User(
+        db,
+        "DUNGEONMASTER",
+        "correct-horse-battery-staple",
+      )
+    )?.userId,
     user.userId,
   );
-  assert.equal(authenticateV6User(db, user.username, "wrong-password"), null);
+  assert.equal(
+    await authenticateV6User(db, user.username, "wrong-password"),
+    null,
+  );
   db.close();
 });
 
-test("administrators can reopen v6 registration", () => {
+test("administrators can reopen v6 registration", async () => {
   const db = database();
-  registerV6User(db, {
+  await registerV6User(db, {
     username: "first-user",
     displayName: "First",
     password: "long-enough-password",
   });
-  assert.throws(() => registerV6User(db, {
-    username: "second-user",
-    displayName: "Second",
-    password: "long-enough-password",
-  }), /disabled/);
+  await assert.rejects(
+    () =>
+      registerV6User(db, {
+        username: "second-user",
+        displayName: "Second",
+        password: "long-enough-password",
+      }),
+    /disabled/,
+  );
   setRegistrationEnabled(db, true);
-  const second = registerV6User(db, {
+  const second = await registerV6User(db, {
     username: "second-user",
     displayName: "Second",
     password: "long-enough-password",
@@ -59,4 +72,3 @@ test("administrators can reopen v6 registration", () => {
   assert.equal(second.isAdmin, false);
   db.close();
 });
-

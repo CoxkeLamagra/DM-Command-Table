@@ -10,16 +10,20 @@ function fixture() {
   database.exec("PRAGMA foreign_keys = ON");
   runMigrations(database);
   const now = Date.now();
-  database.prepare(
-    `INSERT INTO users
+  database
+    .prepare(
+      `INSERT INTO users
       (id, display_name, username, password_hash, is_admin, created_at, updated_at)
      VALUES (?, ?, ?, ?, 1, ?, ?)`,
-  ).run("owner", "Owner", "owner", "hash", now, now);
-  database.prepare(
-    `INSERT INTO users
+    )
+    .run("owner", "Owner", "owner", "hash", now, now);
+  database
+    .prepare(
+      `INSERT INTO users
       (id, display_name, username, password_hash, is_admin, created_at, updated_at)
      VALUES (?, ?, ?, ?, 0, ?, ?)`,
-  ).run("viewer", "Viewer", "viewer", "hash", now, now);
+    )
+    .run("viewer", "Viewer", "viewer", "hash", now, now);
   return { database, repository: createV6CampaignRepository(database) };
 }
 
@@ -39,19 +43,25 @@ test("normalized campaigns use optimistic revisions and audit events", () => {
     RevisionConflictError,
   );
 
-  const events = database.prepare(
-    "SELECT action FROM audit_events WHERE campaign_id = ? ORDER BY id",
-  ).all(campaign.id) as Array<{ action: string }>;
-  assert.deepEqual(events.map(({ action }) => action), ["created", "updated"]);
+  const events = database
+    .prepare(
+      "SELECT action FROM audit_events WHERE campaign_id = ? ORDER BY id",
+    )
+    .all(campaign.id) as Array<{ action: string }>;
+  assert.deepEqual(
+    events.map(({ action }) => action),
+    ["created", "updated"],
+  );
   database.close();
 });
 
 test("archived campaigns are separated without deleting them", () => {
   const { database, repository } = fixture();
   const campaign = repository.create("owner", { name: "Archive me" });
-  repository.update(campaign.id, "owner", campaign.revision, { archived: true });
+  repository.update(campaign.id, "owner", campaign.revision, {
+    archived: true,
+  });
   assert.equal(repository.list("owner").length, 0);
   assert.equal(repository.list("owner", { archived: true }).length, 1);
   database.close();
 });
-

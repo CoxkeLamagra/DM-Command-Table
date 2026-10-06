@@ -38,8 +38,10 @@ export function createMembershipRepository(database: DatabaseSync) {
       const rank = { owner: 0, editor: 1, viewer: 2 } as const;
       return rows
         .map(toMember)
-        .sort((left, right) =>
-          rank[left.role] - rank[right.role] || left.username.localeCompare(right.username),
+        .sort(
+          (left, right) =>
+            rank[left.role] - rank[right.role] ||
+            left.username.localeCompare(right.username),
         );
     },
 
@@ -82,10 +84,16 @@ export function createMembershipRepository(database: DatabaseSync) {
       return this.list(campaignId, actorUserId);
     },
 
-    revoke(campaignId: string, actorUserId: string, userId: string): CampaignMember[] {
+    revoke(
+      campaignId: string,
+      actorUserId: string,
+      userId: string,
+    ): CampaignMember[] {
       requireCampaignOwner(database, campaignId, actorUserId);
       database
-        .prepare("DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?")
+        .prepare(
+          "DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
+        )
         .run(campaignId, userId);
       recordAuditEvent(database, {
         campaignId,
@@ -112,17 +120,23 @@ export function createMembershipRepository(database: DatabaseSync) {
         throw new ResourceNotFoundError("campaign member", newOwnerId);
       runTransaction(database, () => {
         const now = Date.now();
-        database.prepare(
-          `INSERT INTO campaign_members
+        database
+          .prepare(
+            `INSERT INTO campaign_members
             (campaign_id, user_id, role, created_at, updated_at)
            VALUES (?, ?, 'editor', ?, ?)`,
-        ).run(campaignId, actorUserId, now, now);
-        database.prepare(
-          "DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
-        ).run(campaignId, newOwnerId);
-        database.prepare(
-          "UPDATE campaigns SET owner_id = ?, revision = revision + 1, updated_at = ? WHERE id = ?",
-        ).run(newOwnerId, now, campaignId);
+          )
+          .run(campaignId, actorUserId, now, now);
+        database
+          .prepare(
+            "DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
+          )
+          .run(campaignId, newOwnerId);
+        database
+          .prepare(
+            "UPDATE campaigns SET owner_id = ?, revision = revision + 1, updated_at = ? WHERE id = ?",
+          )
+          .run(newOwnerId, now, campaignId);
         recordAuditEvent(database, {
           campaignId,
           actorUserId,

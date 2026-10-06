@@ -46,16 +46,18 @@ export async function POST(request: Request) {
       input.action === "login" ? 300 : 30,
       input.action === "login" ? 15 * 60 * 1000 : 60 * 60 * 1000,
     );
-    if (!globalLimit.allowed) return rateLimitResponse(globalLimit.retryAfterSeconds);
+    if (!globalLimit.allowed)
+      return rateLimitResponse(globalLimit.retryAfterSeconds);
     const rateLimit = consumePersistentRateLimit(
       database,
       `v6-auth:${input.action}:${clientAddress(request)}:${(input.username ?? "").toLowerCase()}`,
       input.action === "login" ? 10 : 5,
       input.action === "login" ? 15 * 60 * 1000 : 60 * 60 * 1000,
     );
-    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
+    if (!rateLimit.allowed)
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
     if (input.action === "register") {
-      const user = registerV6User(database, {
+      const user = await registerV6User(database, {
         username: input.username ?? "",
         displayName: input.displayName ?? input.username ?? "",
         password: input.password ?? "",
@@ -64,7 +66,11 @@ export async function POST(request: Request) {
       await createV6Session(user.userId, database);
       return apiJson({ user }, 201);
     }
-    const user = authenticateV6User(database, input.username ?? "", input.password ?? "");
+    const user = await authenticateV6User(
+      database,
+      input.username ?? "",
+      input.password ?? "",
+    );
     if (!user) return apiJson({ error: "Invalid username or password." }, 401);
     await createV6Session(user.userId, database);
     return apiJson({ user });
