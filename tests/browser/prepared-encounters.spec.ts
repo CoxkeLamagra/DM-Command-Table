@@ -133,7 +133,7 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     .getByRole("button", { name: "Choose a default condition", exact: true })
     .click();
   const menu = page.getByRole("menu", {
-    name: "Default conditions",
+    name: "Choose a default condition",
     exact: true,
   });
   for (const name of [
