@@ -42,15 +42,15 @@ export function verifyBackup(directory) {
       .map(({ filename }) => filename);
     for (const filename of files) {
       if (
-        checksum(path.join(directory, "uploads-v6", filename)) !==
-        manifest.screenshots?.[filename]
-      )
-        throw new Error("Backup screenshot checksum mismatch");
-      if (
         !/^[0-9a-f-]+\.webp$/i.test(filename) ||
         !existsSync(path.join(directory, "uploads-v6", filename))
       )
         throw new Error("Backup screenshot is missing or invalid");
+      if (
+        checksum(path.join(directory, "uploads-v6", filename)) !==
+        manifest.screenshots?.[filename]
+      )
+        throw new Error("Backup screenshot checksum mismatch");
     }
     return {
       files,
