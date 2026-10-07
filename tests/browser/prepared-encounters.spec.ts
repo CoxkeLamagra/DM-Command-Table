@@ -123,4 +123,61 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     page.getByText("Captain after save", { exact: true }).first(),
   ).toBeVisible();
   expect(dialogs).toBe(1);
+  const conditions = page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Status conditions",
+      exact: true,
+    }),
+  });
+  await conditions
+    .getByRole("button", { name: "Choose a default condition", exact: true })
+    .click();
+  const menu = page.getByRole("menu", {
+    name: "Choose a default condition",
+    exact: true,
+  });
+  for (const name of [
+    "Blinded",
+    "Charmed",
+    "Deafened",
+    "Exhaustion",
+    "Frightened",
+    "Grappled",
+    "Incapacitated",
+    "Invisible",
+    "Paralyzed",
+    "Petrified",
+    "Poisoned",
+    "Prone",
+    "Restrained",
+    "Stunned",
+    "Unconscious",
+    "Concentrating",
+  ]) {
+    await expect(menu.getByRole("menuitem", { name, exact: true })).toHaveCount(
+      1,
+    );
+  }
+  await menu.getByRole("menuitem", { name: "Blinded", exact: true }).click();
+  await expect(conditions.getByLabel("Condition name")).toHaveValue("Blinded");
+  await conditions.getByPlaceholder("Turns", { exact: true }).fill("2");
+  await conditions.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(
+    conditions.getByRole("button", { name: "Blinded · 2 turns", exact: true }),
+  ).toBeVisible();
+  await conditions.getByLabel("Condition name").fill("Marked by a curse");
+  await conditions
+    .getByRole("button", { name: "Choose a default condition", exact: true })
+    .click();
+  await expect(
+    menu.getByRole("menuitem", { name: "Poisoned", exact: true }),
+  ).toHaveCount(1);
+  await menu.press("Escape");
+  await expect(conditions.getByLabel("Condition name")).toHaveValue(
+    "Marked by a curse",
+  );
+  await conditions.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(
+    conditions.getByRole("button", { name: "Marked by a curse", exact: true }),
+  ).toBeVisible();
 });

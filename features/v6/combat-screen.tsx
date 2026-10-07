@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DropdownMenu } from "radix-ui";
 import {
+  ChevronDown,
   ChevronRight,
   Minus,
   Plus,
@@ -720,17 +722,45 @@ function CombatantEditor({
         </div>
         {editable && (
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
-            <Input
-              list="v6-conditions"
-              placeholder="Add a condition…"
-              value={condition}
-              onChange={(event) => setCondition(event.target.value)}
-            />
-            <datalist id="v6-conditions">
-              {DEFAULT_CONDITIONS.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
+            <div className="flex min-w-0 gap-1">
+              <Input
+                aria-label="Condition name"
+                maxLength={120}
+                placeholder="Choose or type a condition…"
+                value={condition}
+                onChange={(event) => setCondition(event.target.value)}
+              />
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    aria-label="Choose a default condition"
+                  >
+                    <ChevronDown />
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    sideOffset={4}
+                    align="end"
+                    aria-label="Default conditions"
+                    className="z-50 max-h-72 min-w-48 overflow-y-auto rounded-md border border-white/10 bg-[#151820] p-1 text-stone-100 shadow-lg"
+                  >
+                    {DEFAULT_CONDITIONS.map((name) => (
+                      <DropdownMenu.Item
+                        key={name}
+                        onSelect={() => setCondition(name)}
+                        className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                      >
+                        <ConditionIcon name={name} /> {name}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </div>
             <Input
               type="number"
               min={1}
