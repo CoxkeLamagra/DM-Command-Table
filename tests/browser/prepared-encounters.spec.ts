@@ -123,14 +123,12 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     page.getByText("Captain after save", { exact: true }).first(),
   ).toBeVisible();
   expect(dialogs).toBe(1);
-  const conditions = page
-    .locator("section")
-    .filter({
-      has: page.getByRole("heading", {
-        name: "Status conditions",
-        exact: true,
-      }),
-    });
+  const conditions = page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Status conditions",
+      exact: true,
+    }),
+  });
   await conditions
     .getByRole("button", { name: "Choose a default condition", exact: true })
     .click();
