@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 7.2.2 — 2026-10-07
 
 - Replace the Combat condition datalist with an explicit dropdown of default conditions while retaining custom text entry and duration controls. Include Exhaustion in the default list.
 
