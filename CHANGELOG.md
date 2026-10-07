@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 7.2.1 — 2026-10-07
 
 - Add individual collapse controls for prepared combatant editors; existing combatants start collapsed and drafts are retained when closing the editor.
 
