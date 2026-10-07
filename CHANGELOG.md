@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 7.2.0 — 2026-10-07
 
 - Upgrade Sharp to 0.35.5; block SVG decoding, verify actual image formats, cap concurrent image processing and enforce streamed upload sizes.
 - Bound authentication inputs and verify a dummy password hash for unknown usernames.
