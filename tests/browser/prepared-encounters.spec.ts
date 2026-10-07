@@ -100,6 +100,16 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await expect(
     section.getByRole("button", { name: "Save", exact: true }),
   ).toBeEnabled();
+  await page.getByRole("button", { name: "Campaign", exact: true }).click();
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await page.getByRole("button", { name: /Test session/ }).click();
+  await patrol.click();
+  await expect(
+    page.getByRole("button", {
+      name: "Edit details for Captain after save",
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-expanded", "false");
   let dialogs = 0;
   page.on("dialog", async (dialog) => {
     dialogs++;
