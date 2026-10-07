@@ -13,9 +13,46 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await expect(patrol).toHaveAttribute("aria-expanded", "false");
   await expect(ambush).toHaveAttribute("aria-expanded", "false");
   await patrol.click();
+  const editor = page.getByRole("button", {
+    name: "Edit details for Town guard",
+    exact: true,
+  });
+  await expect(editor).toHaveAttribute("aria-expanded", "false");
+  await editor.click();
   await page.getByLabel("Name", { exact: true }).fill("Captain draft");
+  await page
+    .getByRole("button", { name: "Collapse editor", exact: true })
+    .click();
+  await expect(page.getByLabel("Name", { exact: true })).toBeHidden();
+  await page
+    .getByRole("button", {
+      name: "Edit details for Captain draft",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+    "Captain draft",
+  );
+  await page
+    .getByRole("button", {
+      name: "Collapse details for Captain draft",
+      exact: true,
+    })
+    .click();
   await page.getByRole("button", { name: /Test session/ }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "Edit details for Captain draft",
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await page
+    .getByRole("button", {
+      name: "Edit details for Captain draft",
+      exact: true,
+    })
+    .click();
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
     "Captain draft",
   );
