@@ -356,6 +356,7 @@ export async function updatePreparedEncounter(
         notes: encounter.notes,
         sortOrder: encounter.sortOrder,
         monsters: encounter.monsters,
+        combatants: encounter.combatants ?? [],
         revision: encounter.revision,
       }),
     )

@@ -73,13 +73,6 @@ export const preparedMonsterSchema = z.object({
   sortOrder: z.number().int(),
 });
 
-export const preparedEncounterSchema = z.object({
-  name: z.string().max(200),
-  notes: z.string().max(1_000_000),
-  sortOrder: z.number().int(),
-  monsters: z.array(preparedMonsterSchema).max(10_000),
-});
-
 export const combatConditionSchema = z.object({
   id: idSchema,
   name: z.string().min(1).max(120),
@@ -101,6 +94,14 @@ export const combatantSchema = z.object({
   sortOrder: z.number().int(),
   conditions: z.array(combatConditionSchema).max(100),
   revision: revisionSchema,
+});
+
+export const preparedEncounterSchema = z.object({
+  name: z.string().max(200),
+  notes: z.string().max(1_000_000),
+  sortOrder: z.number().int(),
+  monsters: z.array(preparedMonsterSchema).max(10_000),
+  combatants: z.array(combatantSchema).max(1_000).default([]),
 });
 
 export const combatSchema = z.object({

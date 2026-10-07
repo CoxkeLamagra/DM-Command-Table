@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsUpDown,
+  Pencil,
   Play,
   Plus,
   Save,
@@ -34,7 +35,7 @@ import {
   updatePreparedEncounter,
   uploadV6Screenshot,
 } from "./api-client";
-import type { V6Monster, V6PreparedEncounter } from "./types";
+import type { V6Combatant, V6Monster, V6PreparedEncounter } from "./types";
 
 export function PreparedEncounters({
   campaignId,
@@ -166,6 +167,65 @@ export function PreparedEncounters({
   const allExpanded =
     items.length > 0 && items.every(({ id }) => expanded.has(id));
 
+  function addCustom(item: V6PreparedEncounter, kind: "monster" | "npc") {
+    const combatant: V6Combatant = {
+      id: crypto.randomUUID(),
+      playerId: null,
+      monsterId: null,
+      name: kind === "npc" ? "New NPC" : "New combatant",
+      kind,
+      displayNumber: null,
+      initiative: 10,
+      hitPoints: 10,
+      maximumHitPoints: 10,
+      armorClass: 10,
+      notes: "",
+      sortOrder: 0,
+      conditions: [],
+      revision: 1,
+    };
+    patch(item.id, { combatants: [...(item.combatants ?? []), combatant] });
+  }
+  function customizeMonster(item: V6PreparedEncounter, entryId: string) {
+    const entry = item.monsters.find(({ id }) => id === entryId);
+    const monster = monsters.find(({ id }) => id === entry?.monsterId);
+    if (!entry || !monster) return;
+    const stats = `${monster.speed} ${monster.stats}`.replace(
+      /[&<>"']/g,
+      (char) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char]!,
+    );
+    const additions: V6Combatant[] = Array.from(
+      { length: entry.quantity },
+      (_, offset) => ({
+        id: crypto.randomUUID(),
+        playerId: null,
+        monsterId: null,
+        name: monster.name,
+        kind: "monster",
+        displayNumber: (entry.displayNumber ?? 1) + offset,
+        initiative: 10,
+        hitPoints: monster.hitPoints,
+        maximumHitPoints: monster.hitPoints,
+        armorClass: monster.armorClass,
+        notes: `<p>${stats}</p>${monster.abilities}${monster.spells}${monster.notes}`,
+        sortOrder: offset,
+        conditions: [],
+        revision: 1,
+      }),
+    );
+    patch(item.id, {
+      monsters: item.monsters.filter(({ id }) => id !== entryId),
+      combatants: [...(item.combatants ?? []), ...additions],
+    });
+  }
+
   function addChosen() {
     if (!addingTo) return;
     setItems((all) =>
@@ -234,7 +294,19 @@ export function PreparedEncounters({
           name: item.name || "Prepared encounter",
           round: 1,
           turn: 0,
-          combatants: [...survivors, ...additions],
+          combatants: [
+            ...survivors,
+            ...additions,
+            ...(item.combatants ?? []).map((entry, offset) => ({
+              ...entry,
+              id: crypto.randomUUID(),
+              playerId: null,
+              monsterId: null,
+              sortOrder: survivors.length + additions.length + offset,
+              conditions: [],
+              revision: 1,
+            })),
+          ],
         },
         "prepared_encounter_loaded",
       );
@@ -313,11 +385,11 @@ export function PreparedEncounters({
                     {item.name || "Untitled encounter"}
                   </span>
                   <span className="shrink-0 text-xs text-stone-500">
-                    Monsters (
+                    Combatants (
                     {item.monsters.reduce(
                       (total, entry) => total + entry.quantity,
                       0,
-                    )}
+                    ) + (item.combatants?.length ?? 0)}
                     )
                   </span>
                 </button>
@@ -374,13 +446,29 @@ export function PreparedEncounters({
                       )
                     </p>
                     {editable && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setAddingTo(item.id)}
-                      >
-                        <Plus /> Add monsters
-                      </Button>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => addCustom(item, "npc")}
+                        >
+                          <Plus /> NPC
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => addCustom(item, "monster")}
+                        >
+                          <Plus /> Combatant
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAddingTo(item.id)}
+                        >
+                          <Plus /> Bestiary
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <div className="mt-2 space-y-1">
@@ -403,28 +491,64 @@ export function PreparedEncounters({
                             × {entry.quantity}
                           </span>
                           {editable && (
-                            <Button
-                              size="icon-xs"
-                              variant="ghost"
-                              onClick={() =>
-                                patch(item.id, {
-                                  monsters: item.monsters.filter(
-                                    ({ id }) => id !== entry.id,
-                                  ),
-                                })
-                              }
-                            >
-                              <Trash2 />
-                            </Button>
+                            <>
+                              <Button
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={`Edit details for ${monster?.name ?? "monster"}`}
+                                onClick={() => customizeMonster(item, entry.id)}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                size="icon-xs"
+                                variant="ghost"
+                                onClick={() =>
+                                  patch(item.id, {
+                                    monsters: item.monsters.filter(
+                                      ({ id }) => id !== entry.id,
+                                    ),
+                                  })
+                                }
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
                           )}
                         </div>
                       );
                     })}
                   </div>
+                  {(item.combatants ?? []).map((combatant) => (
+                    <PreparedCombatantEditor
+                      key={combatant.id}
+                      combatant={combatant}
+                      editable={editable}
+                      onChange={(values) =>
+                        patch(item.id, {
+                          combatants: (item.combatants ?? []).map((value) =>
+                            value.id === combatant.id
+                              ? { ...value, ...values }
+                              : value,
+                          ),
+                        })
+                      }
+                      onRemove={() =>
+                        patch(item.id, {
+                          combatants: (item.combatants ?? []).filter(
+                            ({ id }) => id !== combatant.id,
+                          ),
+                        })
+                      }
+                    />
+                  ))}
                   {editable && (
                     <Button
                       className="mt-3 w-full"
-                      disabled={!item.monsters.length || busy}
+                      disabled={
+                        (!item.monsters.length && !item.combatants?.length) ||
+                        busy
+                      }
                       onClick={() => loadInCombat(item)}
                     >
                       <Play /> Load in Combat
@@ -530,6 +654,99 @@ export function PreparedEncounters({
           </Button>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PreparedCombatantEditor({
+  combatant,
+  editable,
+  onChange,
+  onRemove,
+}: {
+  combatant: V6Combatant;
+  editable: boolean;
+  onChange: (value: Partial<V6Combatant>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="mt-3 space-y-3 rounded-lg border border-white/10 p-3">
+      <div className="flex items-end gap-2">
+        <label className="min-w-0 flex-1 text-xs text-stone-400">
+          Name
+          <Input
+            value={combatant.name}
+            disabled={!editable}
+            onChange={(event) => onChange({ name: event.target.value })}
+          />
+        </label>
+        <label className="text-xs text-stone-400">
+          Type
+          <select
+            className="h-9 rounded-md border border-white/10 bg-[#151820] px-3 text-sm text-stone-100"
+            value={combatant.kind}
+            disabled={!editable}
+            onChange={(event) =>
+              onChange({ kind: event.target.value as V6Combatant["kind"] })
+            }
+          >
+            <option value="monster">Monster / Combatant</option>
+            <option value="npc">NPC</option>
+            <option value="player">Player</option>
+          </select>
+        </label>
+        {editable && (
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={`Remove ${combatant.name}`}
+            onClick={onRemove}
+          >
+            <Trash2 />
+          </Button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(
+          [
+            ["initiative", "Initiative"],
+            ["hitPoints", "HP"],
+            ["maximumHitPoints", "Maximum HP"],
+            ["armorClass", "AC"],
+          ] as const
+        ).map(([field, label]) => (
+          <label key={field} className="text-xs text-stone-400">
+            {label}
+            <Input
+              type="number"
+              min={
+                field === "maximumHitPoints" || field === "armorClass"
+                  ? 0
+                  : undefined
+              }
+              value={combatant[field]}
+              disabled={!editable}
+              onChange={(event) =>
+                onChange({ [field]: Number(event.target.value) })
+              }
+            />
+          </label>
+        ))}
+      </div>
+      <label className="block text-xs text-stone-400">
+        Stat block, abilities, spells and notes
+      </label>
+      {editable ? (
+        <RichTextEditor
+          value={combatant.notes}
+          onChange={(notes) => onChange({ notes })}
+          onPasteImage={uploadV6Screenshot}
+          placeholder="Speed, STR, DEX, CON, INT, WIS, CHA, actions, traits, spells and notes…"
+          className="min-h-24"
+        />
+      ) : (
+        <RichTextContent value={combatant.notes} />
+      )}
     </div>
   );
 }

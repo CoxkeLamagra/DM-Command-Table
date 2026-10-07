@@ -298,6 +298,11 @@ export const migrations: readonly Migration[] = [
         ON security_rate_limits (resets_at);
     `,
   },
+  {
+    version: 4,
+    name: "prepared-custom-combatants",
+    sql: `ALTER TABLE prepared_encounters ADD COLUMN combatants TEXT NOT NULL DEFAULT '[]';`,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {
