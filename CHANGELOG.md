@@ -2,6 +2,10 @@
 
 All notable DM Command Table releases are documented here.
 
+## 7.2.1 — 2026-10-07
+
+- Add individual collapse controls for prepared combatant editors; existing combatants start collapsed and drafts are retained when closing the editor.
+
 ## 7.2.0 — 2026-10-07
 
 - Upgrade Sharp to 0.35.5; block SVG decoding, verify actual image formats, cap concurrent image processing and enforce streamed upload sizes.
