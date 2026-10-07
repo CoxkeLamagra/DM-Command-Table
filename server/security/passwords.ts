@@ -27,11 +27,17 @@ export async function verifyPassword(
   password: string,
   stored: string,
 ): Promise<boolean> {
+  if (password.length > 128) return false;
   const [algorithm, saltValue, hashValue] = stored.split("$");
   if (!["scrypt", "scrypt-v1"].includes(algorithm) || !saltValue || !hashValue)
     return false;
   try {
     const expected = Buffer.from(hashValue, "base64");
+    if (
+      expected.length !== 64 ||
+      Buffer.from(saltValue, "base64").length !== 16
+    )
+      return false;
     const actual = await derive(
       password,
       Buffer.from(saltValue, "base64"),

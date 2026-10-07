@@ -112,3 +112,18 @@ test("JSON request bodies are rejected before exceeding their configured limit",
   );
   assert.equal(response.status, 413);
 });
+
+test("multipart readers enforce actual streamed bytes despite a misleading length", async () => {
+  const { boundedRequestBytes } = await import("../server/v6/http.ts");
+  const request = new Request("https://dm.example.test/upload", {
+    method: "POST",
+    headers: {
+      "content-type": "multipart/form-data; boundary=test",
+      "content-length": "1",
+    },
+    body: "x".repeat(100),
+  });
+  await assert.rejects(() => boundedRequestBytes(request, 32), {
+    name: "RequestTooLargeError",
+  });
+});

@@ -18,10 +18,10 @@ export const dynamic = "force-dynamic";
 
 const authSchema = z.object({
   action: z.enum(["login", "register", "logout"]),
-  username: z.string().optional(),
-  password: z.string().optional(),
-  displayName: z.string().optional(),
-  bootstrapToken: z.string().optional(),
+  username: z.string().max(32).optional(),
+  password: z.string().max(128).optional(),
+  displayName: z.string().max(80).optional(),
+  bootstrapToken: z.string().max(512).optional(),
 });
 
 export async function GET() {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
   if (originError) return originError;
   try {
-    const input = authSchema.parse(await jsonBody(request));
+    const input = authSchema.parse(await jsonBody(request, 8192));
     const database = getV6Database();
     if (input.action === "logout") {
       await destroyV6Session(database);

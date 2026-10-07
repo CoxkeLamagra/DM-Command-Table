@@ -61,6 +61,14 @@ export async function jsonBody(
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().startsWith("application/json"))
     throw new PublicApiError("Content-Type must be application/json.", 415);
+  const bytes = await boundedRequestBytes(request, maximumBytes);
+  return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+}
+
+export async function boundedRequestBytes(
+  request: Request,
+  maximumBytes: number,
+): Promise<Uint8Array> {
   const declared = Number(request.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > maximumBytes)
     throw new RequestTooLargeError();
@@ -85,5 +93,5 @@ export async function jsonBody(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  return bytes;
 }

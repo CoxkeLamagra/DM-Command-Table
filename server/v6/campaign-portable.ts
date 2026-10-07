@@ -83,7 +83,8 @@ const portableCampaignSchema = z
       (sum, session) =>
         sum +
         session.encounters.reduce(
-          (inner, encounter) => inner + encounter.monsters.length,
+          (inner, encounter) =>
+            inner + encounter.monsters.length + encounter.combatants.length,
           0,
         ),
       0,

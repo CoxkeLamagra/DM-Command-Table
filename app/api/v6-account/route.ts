@@ -12,13 +12,13 @@ export const dynamic = "force-dynamic";
 const schema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("rename"),
-    username: z.string(),
-    displayName: z.string().optional(),
+    username: z.string().max(32),
+    displayName: z.string().max(80).optional(),
   }),
   z.object({
     action: z.literal("change-password"),
-    currentPassword: z.string(),
-    newPassword: z.string(),
+    currentPassword: z.string().max(128),
+    newPassword: z.string().max(128),
   }),
 ]);
 
@@ -29,7 +29,7 @@ export async function PATCH(request: Request) {
     const database = getV6Database();
     const user = await getV6User(database);
     if (!user) return apiJson({ error: "Authentication required." }, 401);
-    const input = schema.parse(await jsonBody(request));
+    const input = schema.parse(await jsonBody(request, 8192));
     const limited = enforceV6RateLimit(
       database,
       request,

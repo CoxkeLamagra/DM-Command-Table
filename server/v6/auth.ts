@@ -12,6 +12,11 @@ import { PublicApiError } from "./errors.ts";
 import { getV6ServerSettings } from "./server-settings.ts";
 import { runTransaction } from "../../db/transaction.ts";
 
+const DUMMY_PASSWORD_HASH =
+  "scrypt-v1$AAAAAAAAAAAAAAAAAAAAAA==$" + Buffer.alloc(64).toString("base64");
+
+const sessionCleanup = new WeakMap<DatabaseSync, number>();
+
 const COOKIE_NAME = "dmct_v6_session";
 
 export type V6User = {
@@ -107,8 +112,11 @@ export async function authenticateV6User(
        FROM users WHERE username = ? COLLATE NOCASE LIMIT 1`,
     )
     .get(normaliseUsername(usernameValue)) as UserRow | undefined;
-  if (!row?.passwordHash || !(await verifyPassword(password, row.passwordHash)))
-    return null;
+  const valid = await verifyPassword(
+    password,
+    row?.passwordHash ?? DUMMY_PASSWORD_HASH,
+  );
+  if (!row?.passwordHash || !valid) return null;
   if (passwordHashNeedsUpgrade(row.passwordHash))
     database
       .prepare(
@@ -125,7 +133,12 @@ export async function getV6User(
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   const now = Date.now();
-  database.prepare("DELETE FROM local_sessions WHERE expires_at <= ?").run(now);
+  if (now - (sessionCleanup.get(database) ?? 0) >= 60_000) {
+    database
+      .prepare("DELETE FROM local_sessions WHERE expires_at <= ?")
+      .run(now);
+    sessionCleanup.set(database, now);
+  }
   const row = database
     .prepare(
       `SELECT u.id AS userId, u.username, u.display_name AS displayName,

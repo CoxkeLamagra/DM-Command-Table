@@ -140,3 +140,60 @@ test("v6 API enforces viewer permissions", async () => {
   assert.equal(denied.status, 403);
   database.close();
 });
+
+test("Session Save rolls back encounter updates if the session revision is stale", async () => {
+  const database = fixture();
+  const context = { userId: ownerId, isAdmin: false };
+  const call = (path: string, body: unknown, method = "POST") =>
+    handleV6Api(request(path, method, body), database, context);
+  const { campaign } = await (
+    await call("campaigns", { name: "Atomic" })
+  ).json();
+  const root = `campaigns/${campaign.id}/sessions`;
+  const { session } = await (
+    await call(root, {
+      title: "Session",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 0,
+    })
+  ).json();
+  const encounterRoot = `${root}/${session.id}/encounters`;
+  const { encounter } = await (
+    await call(encounterRoot, {
+      name: "Encounter",
+      notes: "",
+      monsters: [],
+      combatants: [],
+      sortOrder: 0,
+    })
+  ).json();
+  await call(
+    `${root}/${session.id}`,
+    { ...session, title: "Other user" },
+    "PATCH",
+  );
+  const stale = await call(`${root}/${session.id}/save`, {
+    session: { ...session, title: "My draft" },
+    encounters: [{ ...encounter, name: "Changed" }],
+  });
+  assert.equal(stale.status, 409);
+  const unchanged = await (
+    await handleV6Api(request(encounterRoot), database, context)
+  ).json();
+  assert.equal(unchanged.encounters[0].name, "Encounter");
+  assert.equal(unchanged.encounters[0].revision, 1);
+  const fresh = await (
+    await handleV6Api(request(root), database, context)
+  ).json();
+  const success = await call(`${root}/${session.id}/save`, {
+    session: { ...fresh.sessions[0], title: "Together" },
+    encounters: [{ ...encounter, name: "Saved together" }],
+  });
+  assert.equal(success.status, 200);
+  const result = await success.json();
+  assert.equal(result.session.title, "Together");
+  assert.equal(result.encounters[0].name, "Saved together");
+  database.close();
+});

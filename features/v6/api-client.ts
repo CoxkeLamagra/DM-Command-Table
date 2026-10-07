@@ -28,7 +28,11 @@ export async function v6Request<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, { cache: "no-store", ...init });
+    response = await fetch(path, {
+      cache: "no-store",
+      ...init,
+      signal: init.signal ?? AbortSignal.timeout(30_000),
+    });
   } catch {
     emitConnectivity(false);
     throw new V6ApiError("The local server could not be reached.", 0);
@@ -640,3 +644,21 @@ export async function saveV6SessionTemplate(
 export async function deleteV6SessionTemplate(id: string): Promise<void> {
   await v6Request(`/api/v6/templates/${id}`, { method: "DELETE" });
 }
+
+export async function saveSessionPreparation(
+  campaignId: string,
+  session: V6Session,
+  encounters: V6PreparedEncounter[],
+) {
+  return v6Request<{ session: V6Session; encounters: V6PreparedEncounter[] }>(
+    `/api/v6/campaigns/${campaignId}/sessions/${session.id}/save`,
+    json("POST", { session, encounters }),
+  );
+}
+export type EncounterDraftController = {
+  snapshot: () => V6PreparedEncounter[];
+  reconcile: (
+    submitted: V6PreparedEncounter[],
+    saved: V6PreparedEncounter[],
+  ) => void;
+};

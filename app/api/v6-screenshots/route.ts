@@ -2,7 +2,7 @@ import { getV6Database } from "@/db/v6-sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
 import { getV6User } from "@/server/v6/auth";
 import { PublicApiError } from "@/server/v6/errors";
-import { apiError, apiJson } from "@/server/v6/http";
+import { apiError, apiJson, boundedRequestBytes } from "@/server/v6/http";
 import { enforceV6RateLimit } from "@/server/v6/request-security";
 import { listV6Screenshots, saveV6Screenshot } from "@/server/v6/screenshots";
 import { getV6ServerSettings } from "@/server/v6/server-settings";
@@ -56,7 +56,15 @@ export async function POST(request: Request) {
       declared > maximumBytes + 1024 * 1024
     )
       return apiJson({ error: "The upload is too large." }, 413);
-    const form = await request.formData();
+    const bytes = await boundedRequestBytes(
+      request,
+      maximumBytes + 1024 * 1024,
+    );
+    const form = await new Response(bytes as BodyInit, {
+      headers: { "content-type": contentType },
+    }).formData();
+    if (form.getAll("file").length !== 1)
+      throw new PublicApiError("Upload exactly one image at a time.");
     if ([...form.keys()].some((key) => key !== "file"))
       throw new PublicApiError(
         "The upload request contains unsupported fields.",

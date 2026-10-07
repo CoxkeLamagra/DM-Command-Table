@@ -243,7 +243,7 @@ Create a consistent, timestamped SQLite snapshot together with its referenced sc
 pnpm backup
 ```
 
-The destination defaults to `./data/backups` and can be changed with `DM_COMMAND_TABLE_BACKUP_PATH`. The command uses SQLite's live `VACUUM INTO` snapshot mechanism, so it does not copy an incomplete WAL state. For Docker Compose:
+The destination defaults to `./data/backups` and can be changed with `DM_COMMAND_TABLE_BACKUP_PATH`. The command holds a SQLite write reservation while capturing the committed database and copying only its recorded screenshots. Saves can briefly wait during large backups. SHA-256 checksums, database integrity and foreign-key checks verify the backup before completion. Backup directories and files receive restrictive permissions. For Docker Compose:
 
 ```bash
 docker compose exec dm-command-table node scripts/backup-local.mjs
@@ -255,7 +255,26 @@ Validate SQLite integrity and ensure every screenshot database row has a matchin
 pnpm check:storage
 ```
 
-A JSON campaign export contains screenshot references but does not include the binary image files. Restore a server backup only while the application is stopped, and restore both the database and its matching `uploads-v6` directory from the same timestamped folder.
+Verify a completed backup, or restore it into a new empty directory:
+
+```bash
+node scripts/restore-local.mjs /path/to/backup
+node scripts/restore-local.mjs /path/to/backup /path/to/new-restored-data
+```
+
+The restore command refuses existing destinations. Stop the application before switching its database and uploads paths to the restored files. A JSON campaign export contains screenshot references but does not include binary image files; retain a full server backup as well.
+
+## Development verification
+
+```bash
+pnpm verify
+pnpm exec playwright install chromium
+pnpm test:browser
+```
+
+Browser tests use a temporary local database and disposable test account, without touching application data. The test server runs on port 3100; build first with `pnpm build`. CI runs verification and browser regression tests on Node.js 22 and 24.
+
+Session Save writes the session and its prepared encounter edits in one transaction. Encounter drafts remain available when their Session is collapsed or filtered out. Leaving Sessions with unsaved changes asks for confirmation. Ability scores, actions and spell details remain in the existing rich-text stat block field.
 
 ## Campaign API
 

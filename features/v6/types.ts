@@ -1,3 +1,12 @@
+import type { V6CombatEncounter } from "../encounters/types";
+export type {
+  PreparedMonster,
+  PreparedCombatant,
+  V6PreparedEncounter,
+  V6CombatCondition,
+  V6Combatant,
+} from "../encounters/types";
+export type V6Combat = V6CombatEncounter;
 export type V6User = {
   userId: string;
   username: string;
@@ -56,27 +65,6 @@ export type V6StoryBeat = {
   updatedAt: string;
 };
 
-export type PreparedMonster = {
-  id: string;
-  monsterId: string;
-  displayNumber: number | null;
-  quantity: number;
-  sortOrder: number;
-};
-
-export type V6PreparedEncounter = {
-  id: string;
-  sessionId: string;
-  name: string;
-  notes: string;
-  sortOrder: number;
-  monsters: PreparedMonster[];
-  combatants?: V6Combatant[];
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type V6Player = {
   id: string;
   campaignId: string;
@@ -114,38 +102,6 @@ export type V6Monster = {
   updatedAt: string;
 };
 
-export type V6CombatCondition = {
-  id: string;
-  name: string;
-  remainingTurns: number | null;
-};
-export type V6Combatant = {
-  id: string;
-  playerId: string | null;
-  monsterId: string | null;
-  name: string;
-  displayNumber: number | null;
-  kind: "player" | "monster" | "npc";
-  notes: string;
-  initiative: number;
-  hitPoints: number;
-  maximumHitPoints: number;
-  armorClass: number;
-  sortOrder: number;
-  conditions: V6CombatCondition[];
-  revision: number;
-};
-export type V6Combat = {
-  id: string;
-  campaignId: string;
-  name: string;
-  round: number;
-  turn: number;
-  combatants: V6Combatant[];
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-};
 export type V6SearchResult = {
   resourceType: string;
   resourceId: string;

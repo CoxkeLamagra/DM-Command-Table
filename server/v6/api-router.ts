@@ -1,3 +1,4 @@
+import { runTransaction } from "../../db/transaction.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { createBestiaryRepository } from "./bestiary-repository.ts";
@@ -230,6 +231,55 @@ export async function handleV6Api(
     }
 
     if (resource === "sessions") {
+      if (resourceId && segments[4] === "save" && method === "POST") {
+        const input = z
+          .object({
+            session: revisionedSession,
+            encounters: z
+              .array(revisionedPrepared.extend({ id: idSchema }))
+              .max(500),
+          })
+          .parse(await jsonBody(request));
+        const result = runTransaction(database, () => {
+          const allowed = new Set(
+            encounters
+              .listPrepared(campaignId, context.userId, resourceId)
+              .map(({ id }) => id),
+          );
+          const seen = new Set<string>();
+          const savedEncounters = input.encounters.map(
+            ({ id, revision, ...values }) => {
+              if (!allowed.has(id) || seen.has(id))
+                throw new z.ZodError([
+                  {
+                    code: "custom",
+                    path: ["encounters"],
+                    message: "Invalid encounter selection",
+                  },
+                ]);
+              seen.add(id);
+              return encounters.updatePrepared(
+                campaignId,
+                context.userId,
+                id,
+                revision,
+                clean(values, ["notes"]),
+              );
+            },
+          );
+          const { revision, ...values } = clean(input.session, ["notes"]);
+          const session = content.updateSession(
+            campaignId,
+            context.userId,
+            resourceId,
+            revision,
+            values,
+          );
+          return { session, encounters: savedEncounters };
+        });
+        return apiJson(result);
+      }
+
       if (resourceId && segments[4] === "encounters") {
         const encounterId = segments[5];
         if (method === "GET")

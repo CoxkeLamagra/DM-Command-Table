@@ -207,6 +207,8 @@ export function useV6Workspace() {
   }, [current]);
   const importCampaign = useCallback(async (file: File) => {
     try {
+      if (file.size > 4 * 1024 * 1024)
+        throw new Error("Campaign imports must be no larger than 4 MB.");
       const imported = await importV6Campaign(JSON.parse(await file.text()));
       setCampaigns((items) => [imported, ...items]);
       setCurrentId(imported.id);

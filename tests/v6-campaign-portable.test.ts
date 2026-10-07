@@ -190,3 +190,74 @@ test("portable imports sanitize rich text and roll back completely on failure", 
   assert.equal(count.count, 0);
   database.close();
 });
+
+test("portable imports count prepared custom combatants towards the aggregate limit", () => {
+  const database = new DatabaseSync(":memory:");
+  runMigrations(database);
+  const now = Date.now();
+  database
+    .prepare(
+      "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES('owner','Owner','owner','hash',1,?,?)",
+    )
+    .run(now, now);
+  const custom = {
+    id: crypto.randomUUID(),
+    name: "NPC",
+    kind: "npc",
+    displayNumber: null,
+    initiative: 10,
+    hitPoints: 1,
+    maximumHitPoints: 1,
+    armorClass: 10,
+    notes: "",
+    sortOrder: 0,
+  };
+  const payload = {
+    format: "dm-command-table-v6",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    campaign: { name: "Oversized", notes: "" },
+    tags: [],
+    monsters: [],
+    players: [],
+    story: [],
+    sessions: [
+      {
+        id: crypto.randomUUID(),
+        title: "Session",
+        date: "",
+        notes: "",
+        status: "planned",
+        sortOrder: 0,
+        encounters: Array.from({ length: 21 }, () => ({
+          id: crypto.randomUUID(),
+          name: "Encounter",
+          notes: "",
+          sortOrder: 0,
+          monsters: [],
+          combatants: Array.from({ length: 1000 }, () => ({
+            ...custom,
+            id: crypto.randomUUID(),
+          })),
+        })),
+      },
+    ],
+  };
+  assert.throws(
+    () => importV6Campaign(database, "owner", payload),
+    /not a valid|too many/i,
+  );
+  assert.equal(
+    (
+      database.prepare("SELECT COUNT(*) AS count FROM campaigns").get() as {
+        count: number;
+      }
+    ).count,
+    0,
+  );
+  payload.sessions[0].encounters = payload.sessions[0].encounters.slice(0, 1);
+  payload.sessions[0].encounters[0].combatants =
+    payload.sessions[0].encounters[0].combatants.slice(0, 1);
+  assert.doesNotThrow(() => importV6Campaign(database, "owner", payload));
+  database.close();
+});
