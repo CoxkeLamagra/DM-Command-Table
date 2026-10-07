@@ -5,10 +5,7 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await page.goto("/");
   await page.getByLabel("Username", { exact: true }).fill("browser-test");
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
-  await page
-    .locator("form")
-    .getByRole("button", { name: "Sign in", exact: true })
-    .click();
+  await page.locator('form button[type="submit"]').click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
   const patrol = page.getByRole("button", { name: /Guard patrol/ });

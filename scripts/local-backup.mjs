@@ -80,8 +80,10 @@ export function createLocalBackup({ databasePath, uploadPath, destination }) {
   mkdirSync(target, { recursive: false, mode: 0o700 });
   const lock = new DatabaseSync(databaseFile);
   let snapshot;
+  let locked = false;
   try {
     lock.exec("PRAGMA busy_timeout=10000; BEGIN IMMEDIATE");
+    locked = true;
     // A second connection reads the committed WAL snapshot while writes/deletions are held.
     snapshot = new DatabaseSync(databaseFile, { readOnly: true });
     const output = path.join(target, "dm-command-table-v6.sqlite");
@@ -114,9 +116,10 @@ export function createLocalBackup({ databasePath, uploadPath, destination }) {
     );
     verifyBackup(target);
     lock.exec("COMMIT");
+    locked = false;
     return target;
   } catch (error) {
-    if (lock.isTransaction) lock.exec("ROLLBACK");
+    if (locked) lock.exec("ROLLBACK");
     rmSync(target, { recursive: true, force: true });
     throw error;
   } finally {
