@@ -22,6 +22,7 @@ export const DEFAULT_CONDITIONS = [
   "Blinded",
   "Charmed",
   "Deafened",
+  "Exhaustion",
   "Frightened",
   "Grappled",
   "Incapacitated",
