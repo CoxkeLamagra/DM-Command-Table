@@ -1,3 +1,5 @@
+import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
+import { combatantSchema } from "./schemas.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
 import { requireCampaignEdit, requireCampaignRead } from "./access.ts";
@@ -22,6 +24,7 @@ export type V6PreparedEncounter = {
   notes: string;
   sortOrder: number;
   monsters: PreparedMonster[];
+  combatants?: V6Combatant[];
   revision: number;
   createdAt: string;
   updatedAt: string;
@@ -64,7 +67,7 @@ export type V6CombatEncounter = {
 
 type PreparedRow = Omit<
   V6PreparedEncounter,
-  "monsters" | "createdAt" | "updatedAt"
+  "monsters" | "combatants" | "createdAt" | "updatedAt"
 > & {
   createdAt: number;
   updatedAt: number;
@@ -102,7 +105,7 @@ export function createEncounterRepository(database: DatabaseSync) {
       sessionId: string,
       input: Pick<
         V6PreparedEncounter,
-        "name" | "notes" | "sortOrder" | "monsters"
+        "name" | "notes" | "sortOrder" | "monsters" | "combatants"
       >,
     ): V6PreparedEncounter {
       requireCampaignEdit(database, campaignId, actorUserId);
@@ -125,6 +128,18 @@ export function createEncounterRepository(database: DatabaseSync) {
             now,
             now,
           );
+        const combatants = (input.combatants ?? []).map((entry) => {
+          const value = combatantSchema.parse(entry);
+          return {
+            ...value,
+            playerId: null,
+            monsterId: null,
+            notes: sanitizeRichText(value.notes),
+          };
+        });
+        database
+          .prepare("UPDATE prepared_encounters SET combatants = ? WHERE id = ?")
+          .run(JSON.stringify(combatants), id);
         replacePreparedMonsters(database, campaignId, id, input.monsters);
         touch(
           database,
@@ -140,7 +155,10 @@ export function createEncounterRepository(database: DatabaseSync) {
           actorUserId,
           "prepared_encounter",
           id,
-          input.notes,
+          [
+            input.notes,
+            ...(input.combatants ?? []).map(({ notes }) => notes),
+          ].join("\n"),
         );
       });
       return getPrepared(database, id);
@@ -153,7 +171,7 @@ export function createEncounterRepository(database: DatabaseSync) {
       expectedRevision: number,
       input: Pick<
         V6PreparedEncounter,
-        "name" | "notes" | "sortOrder" | "monsters"
+        "name" | "notes" | "sortOrder" | "monsters" | "combatants"
       >,
     ): V6PreparedEncounter {
       requireCampaignEdit(database, campaignId, actorUserId);
@@ -182,6 +200,18 @@ export function createEncounterRepository(database: DatabaseSync) {
             id,
             expectedRevision,
           );
+        const combatants = (input.combatants ?? []).map((entry) => {
+          const value = combatantSchema.parse(entry);
+          return {
+            ...value,
+            playerId: null,
+            monsterId: null,
+            notes: sanitizeRichText(value.notes),
+          };
+        });
+        database
+          .prepare("UPDATE prepared_encounters SET combatants = ? WHERE id = ?")
+          .run(JSON.stringify(combatants), id);
         replacePreparedMonsters(database, campaignId, id, input.monsters);
         touch(
           database,
@@ -197,7 +227,10 @@ export function createEncounterRepository(database: DatabaseSync) {
           actorUserId,
           "prepared_encounter",
           id,
-          input.notes,
+          [
+            input.notes,
+            ...(input.combatants ?? []).map(({ notes }) => notes),
+          ].join("\n"),
         );
       });
       return getPrepared(database, id);
@@ -577,6 +610,13 @@ function preparedFromRow(
   return {
     ...row,
     monsters,
+    combatants: JSON.parse(
+      (
+        database
+          .prepare("SELECT combatants FROM prepared_encounters WHERE id = ?")
+          .get(row.id) as { combatants: string }
+      ).combatants,
+    ) as V6Combatant[],
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };

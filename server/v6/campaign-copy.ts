@@ -68,6 +68,10 @@ export function copyV6Campaign(
       ))
         encounters.createPrepared(target.id, actorId, created.id, {
           ...encounter,
+          combatants: (encounter.combatants ?? []).map((entry) => ({
+            ...entry,
+            id: crypto.randomUUID(),
+          })),
           monsters: encounter.monsters.flatMap((entry) => {
             const monsterId = monsterIds.get(entry.monsterId);
             return monsterId

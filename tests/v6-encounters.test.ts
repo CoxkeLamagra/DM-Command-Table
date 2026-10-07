@@ -200,3 +200,62 @@ test("combat rejects records linked to a different campaign", () => {
   );
   database.close();
 });
+
+test("prepared custom combatants persist independently with editable combat details", () => {
+  const { database, campaign, content, encounters } = fixture();
+  const session = content.createSession(campaign.id, "owner", {
+    title: "Custom encounter",
+    date: "",
+    notes: "",
+    status: "planned",
+    sortOrder: 0,
+  });
+  const custom: V6Combatant = {
+    id: crypto.randomUUID(),
+    playerId: null,
+    monsterId: null,
+    name: "Town guard",
+    kind: "npc",
+    displayNumber: null,
+    initiative: 12,
+    hitPoints: 18,
+    maximumHitPoints: 20,
+    armorClass: 16,
+    notes: "<p>STR 14; Spear</p><script>alert(1)</script>",
+    sortOrder: 0,
+    conditions: [],
+    revision: 1,
+  };
+  const encounter = encounters.createPrepared(
+    campaign.id,
+    "owner",
+    session.id,
+    {
+      name: "Gate",
+      notes: "",
+      sortOrder: 0,
+      monsters: [],
+      combatants: [custom],
+    },
+  );
+  assert.equal(encounter.combatants?.[0].name, "Town guard");
+  assert.equal(encounter.combatants?.[0].notes, "<p>STR 14; Spear</p>");
+  const changed = encounters.updatePrepared(
+    campaign.id,
+    "owner",
+    encounter.id,
+    encounter.revision,
+    {
+      ...encounter,
+      combatants: [
+        { ...encounter.combatants![0], name: "Captain", hitPoints: 25 },
+      ],
+    },
+  );
+  const reloaded = encounters.listPrepared(campaign.id, "owner", session.id)[0];
+  assert.deepEqual(reloaded.combatants, changed.combatants);
+  assert.equal(reloaded.combatants?.[0].name, "Captain");
+  assert.equal(reloaded.combatants?.[0].hitPoints, 25);
+  assert.equal(reloaded.combatants?.[0].armorClass, 16);
+  database.close();
+});

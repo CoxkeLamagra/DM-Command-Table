@@ -4,6 +4,15 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+## 7.1.0 — 2026-10-07
+
+- Prepared encounters start collapsed and support individual toggles and Expand all / Collapse all.
+- Add NPCs and custom combatants directly without using the Bestiary.
+- Edit encounter combatant names, types, initiative, HP, maximum HP, AC, and rich-text stat blocks and notes.
+- Customize Bestiary combatants as independent encounter copies and retain their details when loading Combat.
+- Preserve custom combatants in Session Save, campaign copies, and portable import/export.
+- Store custom combatants locally with automatic SQLite migration 4, validation, and rich-text sanitization.
+
 ## 7.0.0 — 2026-10-06
 
 ### Architecture and security

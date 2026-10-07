@@ -197,6 +197,13 @@ export function importV6Campaign(
         encounters.createPrepared(target.id, actorId, created.id, {
           ...encounter,
           notes: sanitizeRichText(encounter.notes),
+          combatants: encounter.combatants.map((entry) => ({
+            ...entry,
+            id: crypto.randomUUID(),
+            playerId: null,
+            monsterId: null,
+            notes: sanitizeRichText(entry.notes),
+          })),
           monsters: encounter.monsters.flatMap((entry) => {
             const monsterId = monsterIds.get(entry.monsterId);
             return monsterId

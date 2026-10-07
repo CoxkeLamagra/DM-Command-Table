@@ -90,7 +90,9 @@ Imported monster data belongs to the current campaign and remains editable after
 - Prepare multiple named encounters inside each session.
 - Add one or more instances of Bestiary monsters to every prepared encounter.
 - Assign automatic or custom monster numbers such as **Goblin #1** and **Goblin #2**.
-- Collapse prepared encounters to keep sessions with extensive preparation manageable.
+- Prepared encounters start collapsed; expand/collapse each separately or all encounters in a session at once.
+- Add NPCs and custom combatants without the Bestiary, then edit names, types, initiative, HP, maximum HP, AC, and rich-text stat blocks and notes.
+- Use Edit details on a Bestiary entry to create encounter-specific copies without modifying the Bestiary. Custom details are saved and carried into Combat.
 - Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.

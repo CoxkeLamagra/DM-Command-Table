@@ -71,6 +71,7 @@ export type V6PreparedEncounter = {
   notes: string;
   sortOrder: number;
   monsters: PreparedMonster[];
+  combatants?: V6Combatant[];
   revision: number;
   createdAt: string;
   updatedAt: string;
