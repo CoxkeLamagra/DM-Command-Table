@@ -10,6 +10,8 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
+import { reconcileSaved } from "@/features/encounters/drafts";
+import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +34,8 @@ import {
   listV6SessionTemplates,
   listV6Story,
   saveV6SessionTemplate,
-  updateV6Session,
+  saveSessionPreparation,
+  type EncounterDraftController,
   uploadV6Screenshot,
 } from "./api-client";
 import { PreparedEncounters } from "./prepared-encounters";
@@ -57,11 +60,20 @@ export function SessionsScreen({
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(initialOpenId ? [initialOpenId] : []),
   );
+  const [visited, setVisited] = useState<Set<string>>(
+    () => new Set(initialOpenId ? [initialOpenId] : []),
+  );
+  const [dirty, setDirty] = useState<Set<string>>(() => new Set());
+  useUnsavedChanges(dirty.size > 0);
+  const sessionsRef = useRef(sessions);
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templates, setTemplates] = useState<V6SessionTemplate[]>([]);
-  const encounterSavers = useRef(new Map<string, () => Promise<void>>());
+  const encounterSavers = useRef(new Map<string, EncounterDraftController>());
 
   useEffect(() => {
     let live = true;
@@ -93,6 +105,7 @@ export function SessionsScreen({
     );
   }, [query, sessions]);
   function patch(id: string, values: Partial<V6Session>) {
+    setDirty((current) => new Set(current).add(id));
     setSessions((all) =>
       all.map((item) => (item.id === id ? { ...item, ...values } : item)),
     );
@@ -109,6 +122,7 @@ export function SessionsScreen({
       });
       setSessions((all) => [item, ...all]);
       setExpanded(new Set([item.id]));
+      setVisited((current) => new Set(current).add(item.id));
     } catch (error) {
       report(error);
     } finally {
@@ -116,7 +130,7 @@ export function SessionsScreen({
     }
   }
   const registerEncounterSaver = useCallback(
-    (sessionId: string, saver: () => Promise<void>) => {
+    (sessionId: string, saver: EncounterDraftController) => {
       encounterSavers.current.set(sessionId, saver);
       return () => {
         if (encounterSavers.current.get(sessionId) === saver)
@@ -128,9 +142,24 @@ export function SessionsScreen({
   async function save(item: V6Session) {
     setBusy(true);
     try {
-      await encounterSavers.current.get(item.id)?.();
-      const saved = await updateV6Session(campaignId, item);
-      patch(saved.id, saved);
+      const controller = encounterSavers.current.get(item.id);
+      const submitted = controller?.snapshot() ?? [];
+      const result = await saveSessionPreparation(campaignId, item, submitted);
+      controller?.reconcile(submitted, result.encounters);
+      const current = sessionsRef.current.find(({ id }) => id === item.id);
+      setSessions((all) =>
+        all.map((entry) =>
+          entry.id === item.id
+            ? reconcileSaved(entry, item, result.session)
+            : entry,
+        ),
+      );
+      if (current === item)
+        setDirty((ids) => {
+          const next = new Set(ids);
+          next.delete(item.id);
+          return next;
+        });
       toast.success("Session and prepared encounters saved");
     } catch (error) {
       report(error);
@@ -144,6 +173,11 @@ export function SessionsScreen({
     try {
       await deleteV6Session(campaignId, item.id);
       setSessions((all) => all.filter(({ id }) => id !== item.id));
+      setDirty((ids) => {
+        const next = new Set(ids);
+        next.delete(item.id);
+        return next;
+      });
       setStory((all) =>
         all.map((beat) => ({
           ...beat,
@@ -157,6 +191,7 @@ export function SessionsScreen({
     }
   }
   function toggle(id: string) {
+    setVisited((current) => new Set(current).add(id));
     setExpanded((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -186,6 +221,7 @@ export function SessionsScreen({
       });
       setSessions((all) => [item, ...all]);
       setExpanded(new Set([item.id]));
+      setVisited((current) => new Set(current).add(item.id));
       setTemplatesOpen(false);
     } catch (error) {
       report(error);
@@ -217,11 +253,15 @@ export function SessionsScreen({
           <>
             <Button
               variant="outline"
-              onClick={() =>
+              onClick={() => {
+                setVisited(
+                  (current) =>
+                    new Set([...current, ...visible.map(({ id }) => id)]),
+                );
                 setExpanded(
                   allOpen ? new Set() : new Set(visible.map(({ id }) => id)),
-                )
-              }
+                );
+              }}
             >
               <ChevronsUpDown /> {allOpen ? "Collapse all" : "Expand all"}
             </Button>
@@ -242,7 +282,7 @@ export function SessionsScreen({
           </>
         }
       >
-        {visible.map((item) => {
+        {sessions.map((item) => {
           const open = expanded.has(item.id);
           const linked = story.filter((beat) =>
             beat.sessionIds.includes(item.id),
@@ -250,11 +290,13 @@ export function SessionsScreen({
           return (
             <article
               key={item.id}
+              hidden={!visible.some(({ id }) => id === item.id)}
               className="rounded-xl border border-white/10 bg-[#13161d]"
             >
               <button
                 type="button"
                 className="flex w-full items-center gap-3 p-4 text-left"
+                aria-expanded={open}
                 onClick={() => toggle(item.id)}
               >
                 {open ? (
@@ -270,8 +312,11 @@ export function SessionsScreen({
                 </span>
                 <StatusBadge status={item.status} />
               </button>
-              {open && (
-                <div className="border-t border-white/10 p-4 sm:p-5">
+              {visited.has(item.id) && (
+                <div
+                  hidden={!open}
+                  className="border-t border-white/10 p-4 sm:p-5"
+                >
                   <div className="grid gap-3 sm:grid-cols-[1fr_11rem_10rem]">
                     <Input
                       value={item.title}

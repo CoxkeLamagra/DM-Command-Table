@@ -50,3 +50,8 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+/playwright-report/
+/test-results/
+/data/backups/
+/data/uploads-v6/

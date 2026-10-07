@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { migrations, runMigrations } from "./migrations.ts";
@@ -13,12 +13,18 @@ let database: DatabaseSync | undefined;
 
 export function openV6Database(databasePath: string): DatabaseSync {
   const resolved = path.resolve(databasePath);
-  mkdirSync(path.dirname(resolved), { recursive: true });
+  mkdirSync(path.dirname(resolved), { recursive: true, mode: 0o700 });
   const opened = new DatabaseSync(resolved);
-  configure(opened);
-  runMigrations(opened);
-  verifySchema(opened);
-  return opened;
+  try {
+    chmodSync(resolved, 0o600);
+    configure(opened);
+    runMigrations(opened);
+    verifySchema(opened);
+    return opened;
+  } catch (error) {
+    opened.close();
+    throw error;
+  }
 }
 
 export function getV6Database(): DatabaseSync {

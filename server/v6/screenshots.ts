@@ -14,6 +14,16 @@ export type V6Screenshot = {
   createdAt: string;
   url: string;
 };
+sharp.block({
+  operation: [
+    "VipsForeignLoadSvg",
+    "VipsForeignLoadSvgFile",
+    "VipsForeignLoadSvgBuffer",
+  ],
+});
+
+let activeImageDecodes = 0;
+const MAX_IMAGE_DECODES = 2;
 const TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 export function listV6Screenshots(
   database: DatabaseSync,
@@ -47,19 +57,28 @@ export async function saveV6Screenshot(
   const id = crypto.randomUUID();
   const filename = `${id}.webp`;
   let bytes: Buffer;
+  if (activeImageDecodes >= MAX_IMAGE_DECODES)
+    throw new PublicApiError(
+      "Image processing is busy. Please try again shortly.",
+      503,
+    );
+  activeImageDecodes += 1;
   try {
-    bytes = await sharp(Buffer.from(await file.arrayBuffer()), {
+    const image = sharp(Buffer.from(await file.arrayBuffer()), {
       animated: true,
       limitInputPixels: 40_000_000,
-    })
-      .rotate()
-      .webp({ quality: 88 })
-      .toBuffer();
+    });
+    const metadata = await image.metadata();
+    if (!["png", "jpeg", "webp", "gif"].includes(metadata.format ?? ""))
+      throw new Error("Unsupported decoded image format");
+    bytes = await image.rotate().webp({ quality: 88 }).toBuffer();
   } catch {
     throw new PublicApiError(
       "The uploaded file is not a valid supported image.",
       415,
     );
+  } finally {
+    activeImageDecodes -= 1;
   }
   const quota = settings.screenshotQuotaMb * 1024 * 1024;
   const globalQuota = settings.screenshotGlobalQuotaMb * 1024 * 1024;
@@ -67,6 +86,10 @@ export async function saveV6Screenshot(
   await mkdir(directory, { recursive: true });
   const now = Date.now();
   try {
+    await writeFile(path.join(directory, filename), bytes, {
+      flag: "wx",
+      mode: 0o600,
+    });
     runTransaction(database, () => {
       const used = (
         database
@@ -104,7 +127,6 @@ export async function saveV6Screenshot(
           now,
         );
     });
-    await writeFile(path.join(directory, filename), bytes, { flag: "wx" });
   } catch (error) {
     database.prepare("DELETE FROM screenshots WHERE id = ?").run(id);
     await unlink(path.join(directory, filename)).catch(() => undefined);

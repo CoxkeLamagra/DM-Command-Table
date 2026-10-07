@@ -1,5 +1,5 @@
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
-import { combatantSchema } from "./schemas.ts";
+import { preparedCombatantSchema, preparedEncounterSchema } from "./schemas.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
 import { requireCampaignEdit, requireCampaignRead } from "./access.ts";
@@ -9,61 +9,21 @@ import { getV6ServerSettings } from "./server-settings.ts";
 import { PublicApiError } from "./errors.ts";
 import { syncV6ScreenshotReferences } from "./screenshots.ts";
 
-export type PreparedMonster = {
-  id: string;
-  monsterId: string;
-  displayNumber: number | null;
-  quantity: number;
-  sortOrder: number;
-};
-
-export type V6PreparedEncounter = {
-  id: string;
-  sessionId: string;
-  name: string;
-  notes: string;
-  sortOrder: number;
-  monsters: PreparedMonster[];
-  combatants?: V6Combatant[];
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type V6CombatCondition = {
-  id: string;
-  name: string;
-  remainingTurns: number | null;
-};
-
-export type V6Combatant = {
-  id: string;
-  playerId: string | null;
-  monsterId: string | null;
-  name: string;
-  displayNumber: number | null;
-  kind: "player" | "monster" | "npc";
-  notes: string;
-  initiative: number;
-  hitPoints: number;
-  maximumHitPoints: number;
-  armorClass: number;
-  sortOrder: number;
-  conditions: V6CombatCondition[];
-  revision: number;
-};
-
-export type V6CombatEncounter = {
-  id: string;
-  campaignId: string;
-  name: string;
-  round: number;
-  turn: number;
-  combatants: V6Combatant[];
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-};
+import type {
+  PreparedMonster,
+  PreparedCombatant,
+  V6PreparedEncounter,
+  V6CombatCondition,
+  V6Combatant,
+  V6CombatEncounter,
+} from "../../features/encounters/types.ts";
+export type {
+  PreparedMonster,
+  V6PreparedEncounter,
+  V6CombatCondition,
+  V6Combatant,
+  V6CombatEncounter,
+} from "../../features/encounters/types.ts";
 
 type PreparedRow = Omit<
   V6PreparedEncounter,
@@ -71,6 +31,7 @@ type PreparedRow = Omit<
 > & {
   createdAt: number;
   updatedAt: number;
+  combatants: string;
 };
 type CombatRow = Omit<
   V6CombatEncounter,
@@ -92,11 +53,27 @@ export function createEncounterRepository(database: DatabaseSync) {
       const rows = database
         .prepare(
           `SELECT id, session_id AS sessionId, name, notes, sort_order AS sortOrder,
-                revision, created_at AS createdAt, updated_at AS updatedAt
+                revision, created_at AS createdAt, updated_at AS updatedAt, combatants
            FROM prepared_encounters WHERE session_id = ? ORDER BY sort_order, id`,
         )
         .all(sessionId) as PreparedRow[];
-      return rows.map((row) => preparedFromRow(database, row));
+      const allMonsters = database
+        .prepare(
+          `SELECT m.id, m.encounter_id AS encounterId, m.monster_id AS monsterId,
+        m.display_number AS displayNumber, m.quantity, m.sort_order AS sortOrder
+        FROM prepared_encounter_monsters m JOIN prepared_encounters e ON e.id = m.encounter_id
+        WHERE e.session_id = ? ORDER BY m.sort_order, m.id`,
+        )
+        .all(sessionId) as Array<PreparedMonster & { encounterId: string }>;
+      const grouped = new Map<string, PreparedMonster[]>();
+      for (const { encounterId, ...monster } of allMonsters) {
+        const group = grouped.get(encounterId) ?? [];
+        group.push(monster);
+        grouped.set(encounterId, group);
+      }
+      return rows.map((row) =>
+        preparedFromRow(database, row, grouped.get(row.id) ?? []),
+      );
     },
 
     createPrepared(
@@ -128,15 +105,12 @@ export function createEncounterRepository(database: DatabaseSync) {
             now,
             now,
           );
-        const combatants = (input.combatants ?? []).map((entry) => {
-          const value = combatantSchema.parse(entry);
-          return {
-            ...value,
-            playerId: null,
-            monsterId: null,
-            notes: sanitizeRichText(value.notes),
-          };
-        });
+        const combatants = preparedEncounterSchema.shape.combatants
+          .parse(input.combatants ?? [])
+          .map((entry) => {
+            const value = preparedCombatantSchema.parse(entry);
+            return { ...value, notes: sanitizeRichText(value.notes) };
+          });
         database
           .prepare("UPDATE prepared_encounters SET combatants = ? WHERE id = ?")
           .run(JSON.stringify(combatants), id);
@@ -155,10 +129,7 @@ export function createEncounterRepository(database: DatabaseSync) {
           actorUserId,
           "prepared_encounter",
           id,
-          [
-            input.notes,
-            ...(input.combatants ?? []).map(({ notes }) => notes),
-          ].join("\n"),
+          [input.notes, ...combatants.map(({ notes }) => notes)].join("\n"),
         );
       });
       return getPrepared(database, id);
@@ -200,15 +171,12 @@ export function createEncounterRepository(database: DatabaseSync) {
             id,
             expectedRevision,
           );
-        const combatants = (input.combatants ?? []).map((entry) => {
-          const value = combatantSchema.parse(entry);
-          return {
-            ...value,
-            playerId: null,
-            monsterId: null,
-            notes: sanitizeRichText(value.notes),
-          };
-        });
+        const combatants = preparedEncounterSchema.shape.combatants
+          .parse(input.combatants ?? [])
+          .map((entry) => {
+            const value = preparedCombatantSchema.parse(entry);
+            return { ...value, notes: sanitizeRichText(value.notes) };
+          });
         database
           .prepare("UPDATE prepared_encounters SET combatants = ? WHERE id = ?")
           .run(JSON.stringify(combatants), id);
@@ -227,10 +195,7 @@ export function createEncounterRepository(database: DatabaseSync) {
           actorUserId,
           "prepared_encounter",
           id,
-          [
-            input.notes,
-            ...(input.combatants ?? []).map(({ notes }) => notes),
-          ].join("\n"),
+          [input.notes, ...combatants.map(({ notes }) => notes)].join("\n"),
         );
       });
       return getPrepared(database, id);
@@ -587,7 +552,7 @@ function getPrepared(database: DatabaseSync, id: string): V6PreparedEncounter {
   const row = database
     .prepare(
       `SELECT id, session_id AS sessionId, name, notes, sort_order AS sortOrder,
-            revision, created_at AS createdAt, updated_at AS updatedAt
+            revision, created_at AS createdAt, updated_at AS updatedAt, combatants
        FROM prepared_encounters WHERE id = ?`,
     )
     .get(id) as PreparedRow | undefined;
@@ -598,25 +563,22 @@ function getPrepared(database: DatabaseSync, id: string): V6PreparedEncounter {
 function preparedFromRow(
   database: DatabaseSync,
   row: PreparedRow,
+  suppliedMonsters?: PreparedMonster[],
 ): V6PreparedEncounter {
-  const monsters = database
-    .prepare(
-      `SELECT id, monster_id AS monsterId, display_number AS displayNumber,
+  const monsters =
+    suppliedMonsters ??
+    (database
+      .prepare(
+        `SELECT id, monster_id AS monsterId, display_number AS displayNumber,
             quantity, sort_order AS sortOrder
        FROM prepared_encounter_monsters WHERE encounter_id = ?
       ORDER BY sort_order, id`,
-    )
-    .all(row.id) as PreparedMonster[];
+      )
+      .all(row.id) as PreparedMonster[]);
   return {
     ...row,
     monsters,
-    combatants: JSON.parse(
-      (
-        database
-          .prepare("SELECT combatants FROM prepared_encounters WHERE id = ?")
-          .get(row.id) as { combatants: string }
-      ).combatants,
-    ) as V6Combatant[],
+    combatants: JSON.parse(row.combatants) as PreparedCombatant[],
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };

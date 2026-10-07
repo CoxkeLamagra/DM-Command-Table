@@ -1,11 +1,8 @@
-import { cp, mkdir, writeFile } from "node:fs/promises";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
-
-const root = process.cwd();
+import { createLocalBackup } from "./local-backup.mjs";
 const databasePath = path.resolve(
-  process.env.DM_COMMAND_TABLE_V6_DB_PATH ??
-    path.join(root, "data", "dm-command-table-v6.sqlite"),
+  process.env.DM_COMMAND_TABLE_V6_DB_PATH ?? "data/dm-command-table-v6.sqlite",
 );
 const uploadPath = path.resolve(
   process.env.DM_COMMAND_TABLE_V6_UPLOAD_PATH ??
@@ -15,38 +12,11 @@ const backupRoot = path.resolve(
   process.env.DM_COMMAND_TABLE_BACKUP_PATH ??
     path.join(path.dirname(databasePath), "backups"),
 );
-const timestamp = new Date()
-  .toISOString()
-  .replaceAll(":", "-")
-  .replace(".", "-");
-const destination = path.join(backupRoot, timestamp);
-
-if (destination === path.dirname(databasePath) || destination === uploadPath) {
-  throw new Error(
-    "The backup destination must be separate from live application storage.",
-  );
-}
-
-await mkdir(destination, { recursive: true });
-const databaseBackup = path.join(destination, "dm-command-table-v6.sqlite");
-const database = new DatabaseSync(databasePath);
-try {
-  const escapedDestination = databaseBackup.replaceAll("'", "''");
-  database.exec(`VACUUM INTO '${escapedDestination}'`);
-} finally {
-  database.close();
-}
-
-await cp(uploadPath, path.join(destination, "uploads-v6"), {
-  recursive: true,
-  force: false,
-}).catch((error) => {
-  if (error?.code !== "ENOENT") throw error;
-});
-await writeFile(
-  path.join(destination, "manifest.json"),
-  `${JSON.stringify({ createdAt: new Date().toISOString(), databasePath, uploadPath }, null, 2)}\n`,
-  { flag: "wx" },
+mkdirSync(backupRoot, { recursive: true, mode: 0o700 });
+const destination = path.join(
+  backupRoot,
+  new Date().toISOString().replaceAll(":", "-").replace(".", "-") +
+    "-" +
+    crypto.randomUUID(),
 );
-
-console.log(destination);
+console.log(createLocalBackup({ databasePath, uploadPath, destination }));

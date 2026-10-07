@@ -2,7 +2,17 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 7.2.0 — 2026-10-07
+
+- Upgrade Sharp to 0.35.5; block SVG decoding, verify actual image formats, cap concurrent image processing and enforce streamed upload sizes.
+- Bound authentication inputs and verify a dummy password hash for unknown usernames.
+- Preserve Session/encounter drafts across collapsing and filtering, retain edits made during saves, and warn before discarding unsaved preparation.
+- Save Session and encounter edits in one revision-checked SQLite transaction.
+- Share encounter domain types and separate prepared combatants from active combat state.
+- Batch encounter reads, load screens/editors on demand and pause hidden-tab revision polling.
+- Add consistent local backups with checksums, integrity validation and restore into empty destinations.
+- Include prepared custom combatants in import limits; bound client imports and request duration.
+- Add security, atomic-save, draft and backup regression tests plus isolated browser tests and Node 22/24 CI.
 
 ## 7.1.0 — 2026-10-07
 

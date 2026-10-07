@@ -13,9 +13,12 @@ export function useV6Sync(
   const [updatesAvailable, setUpdatesAvailable] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [generation, setGeneration] = useState(0);
+  const checking = useRef(false);
+  const activeCampaign = useRef(campaignId);
   const knownRevision = useRef(revision ?? 0);
 
   useEffect(() => {
+    activeCampaign.current = campaignId;
     knownRevision.current = revision ?? 0;
     const timer = window.setTimeout(() => {
       setUpdatesAvailable(false);
@@ -24,27 +27,33 @@ export function useV6Sync(
     return () => window.clearTimeout(timer);
   }, [campaignId, revision]);
 
-  const checkRevision = useCallback(
-    async (remoteSignal = false) => {
-      if (!campaignId || !navigator.onLine) return;
-      try {
-        const campaign = await getV6Campaign(campaignId);
-        setOnline(true);
-        if (campaign.revision > knownRevision.current) {
-          if (remoteSignal) setUpdatesAvailable(true);
-          else setUpdatesAvailable(true);
-        }
-      } catch {
-        setOnline(false);
+  const checkRevision = useCallback(async () => {
+    if (
+      !campaignId ||
+      !navigator.onLine ||
+      document.visibilityState !== "visible" ||
+      checking.current
+    )
+      return;
+    checking.current = true;
+    try {
+      const campaign = await getV6Campaign(campaignId);
+      if (activeCampaign.current !== campaignId) return;
+      setOnline(true);
+      if (campaign.revision > knownRevision.current) {
+        setUpdatesAvailable(true);
       }
-    },
-    [campaignId],
-  );
+    } catch {
+      if (activeCampaign.current === campaignId) setOnline(false);
+    } finally {
+      checking.current = false;
+    }
+  }, [campaignId]);
 
   useEffect(() => {
     const onlineListener = () => {
       setOnline(true);
-      void checkRevision(true);
+      void checkRevision();
     };
     const offlineListener = () => setOnline(false);
     const connectivity = (event: Event) =>
@@ -56,12 +65,13 @@ export function useV6Sync(
       if (detail.campaignId !== campaignId) return;
       if (detail.source === "remote") {
         setUpdatesAvailable(true);
-        void checkRevision(true);
+        void checkRevision();
       } else
         void (async () => {
           try {
             const campaign = await getV6Campaign(campaignId);
-            knownRevision.current = campaign.revision;
+            if (activeCampaign.current === campaignId)
+              knownRevision.current = campaign.revision;
           } catch {
             setOnline(false);
           }
@@ -88,9 +98,9 @@ export function useV6Sync(
     } catch {
       /* polling remains active */
     }
-    const timer = window.setInterval(() => void checkRevision(false), 8_000);
+    const timer = window.setInterval(() => void checkRevision(), 8_000);
     const visibility = () => {
-      if (document.visibilityState === "visible") void checkRevision(false);
+      if (document.visibilityState === "visible") void checkRevision();
     };
     document.addEventListener("visibilitychange", visibility);
     return () => {

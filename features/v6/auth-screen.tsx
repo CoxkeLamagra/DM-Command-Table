@@ -125,6 +125,7 @@ export function V6AuthScreen({
           </p>
         )}
         <Button
+          type="submit"
           className="mt-5 w-full bg-amber-300 text-black hover:bg-amber-200"
           disabled={busy}
         >

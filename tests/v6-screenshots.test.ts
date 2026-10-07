@@ -66,3 +66,29 @@ test("embedded screenshots become protected campaign resources", async () => {
   );
   database.close();
 });
+
+test("image uploads reject SVG payloads disguised as PNG", async () => {
+  const { saveV6Screenshot } = await import("../server/v6/screenshots.ts");
+  const database = new DatabaseSync(":memory:");
+  runMigrations(database);
+  const file = new File(
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
+    ],
+    "fake.png",
+    { type: "image/png" },
+  );
+  await assert.rejects(
+    () => saveV6Screenshot(database, file, "owner"),
+    /not a valid supported image/,
+  );
+  assert.equal(
+    (
+      database.prepare("SELECT COUNT(*) AS count FROM screenshots").get() as {
+        count: number;
+      }
+    ).count,
+    0,
+  );
+  database.close();
+});

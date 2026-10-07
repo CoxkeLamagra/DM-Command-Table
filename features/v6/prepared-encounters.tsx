@@ -11,6 +11,9 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
+import { reconcileSaved } from "@/features/encounters/drafts";
+import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
+import type { EncounterDraftController } from "./api-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +38,12 @@ import {
   updatePreparedEncounter,
   uploadV6Screenshot,
 } from "./api-client";
-import type { V6Combatant, V6Monster, V6PreparedEncounter } from "./types";
+import type {
+  PreparedCombatant,
+  V6Combatant,
+  V6Monster,
+  V6PreparedEncounter,
+} from "./types";
 
 export function PreparedEncounters({
   campaignId,
@@ -48,12 +56,18 @@ export function PreparedEncounters({
   sessionId: string;
   editable: boolean;
   onOpenCombat: () => void;
-  registerSave?: (sessionId: string, saver: () => Promise<void>) => () => void;
+  registerSave?: (
+    sessionId: string,
+    controller: EncounterDraftController,
+  ) => () => void;
 }) {
   const [items, setItems] = useState<V6PreparedEncounter[]>([]);
   const itemsRef = useRef<V6PreparedEncounter[]>([]);
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [dirty, setDirty] = useState<Set<string>>(() => new Set());
+  useUnsavedChanges(dirty.size > 0);
+  const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
   const [addingTo, setAddingTo] = useState<string>();
@@ -111,9 +125,18 @@ export function PreparedEncounters({
     setBusy(true);
     try {
       const saved = await updatePreparedEncounter(campaignId, item);
+      const current = itemsRef.current.find(({ id }) => id === item.id);
       setItems((all) =>
-        all.map((entry) => (entry.id === saved.id ? saved : entry)),
+        all.map((entry) =>
+          entry.id === saved.id ? reconcileSaved(entry, item, saved) : entry,
+        ),
       );
+      if (current === item)
+        setDirty((ids) => {
+          const next = new Set(ids);
+          next.delete(item.id);
+          return next;
+        });
       toast.success("Encounter saved");
     } catch (error) {
       report(error);
@@ -121,23 +144,35 @@ export function PreparedEncounters({
       setBusy(false);
     }
   }
-  const saveAll = useCallback(async () => {
-    setBusy(true);
-    try {
-      for (const item of itemsRef.current) {
-        const saved = await updatePreparedEncounter(campaignId, item);
-        itemsRef.current = itemsRef.current.map((entry) =>
-          entry.id === saved.id ? saved : entry,
-        );
-        setItems(itemsRef.current);
-      }
-    } finally {
-      setBusy(false);
-    }
-  }, [campaignId]);
+  const reconcile = useCallback(
+    (submitted: V6PreparedEncounter[], saved: V6PreparedEncounter[]) => {
+      const submittedById = new Map(submitted.map((item) => [item.id, item]));
+      const savedById = new Map(saved.map((item) => [item.id, item]));
+      const changed = new Set(
+        itemsRef.current
+          .filter((item) => item !== submittedById.get(item.id))
+          .map(({ id }) => id),
+      );
+      setItems((all) =>
+        all.map((item) => {
+          const original = submittedById.get(item.id);
+          const result = savedById.get(item.id);
+          return original && result
+            ? reconcileSaved(item, original, result)
+            : item;
+        }),
+      );
+      setDirty(changed);
+    },
+    [],
+  );
   useEffect(
-    () => registerSave?.(sessionId, saveAll),
-    [registerSave, saveAll, sessionId],
+    () =>
+      registerSave?.(sessionId, {
+        snapshot: () => itemsRef.current,
+        reconcile,
+      }),
+    [registerSave, reconcile, sessionId],
   );
   async function remove(item: V6PreparedEncounter) {
     if (!window.confirm(`Delete ${item.name}?`)) return;
@@ -145,6 +180,11 @@ export function PreparedEncounters({
     try {
       await deletePreparedEncounter(campaignId, item);
       setItems((all) => all.filter(({ id }) => id !== item.id));
+      setDirty((ids) => {
+        const next = new Set(ids);
+        next.delete(item.id);
+        return next;
+      });
     } catch (error) {
       report(error);
     } finally {
@@ -152,11 +192,13 @@ export function PreparedEncounters({
     }
   }
   function patch(id: string, values: Partial<V6PreparedEncounter>) {
+    setDirty((ids) => new Set(ids).add(id));
     setItems((all) =>
       all.map((item) => (item.id === id ? { ...item, ...values } : item)),
     );
   }
   function toggleEncounter(id: string) {
+    setVisited((current) => new Set(current).add(id));
     setExpanded((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -228,6 +270,7 @@ export function PreparedEncounters({
 
   function addChosen() {
     if (!addingTo) return;
+    setDirty((ids) => new Set(ids).add(addingTo));
     setItems((all) =>
       all.map((item) => {
         if (item.id !== addingTo) return item;
@@ -263,6 +306,13 @@ export function PreparedEncounters({
       return;
     setBusy(true);
     try {
+      const total =
+        item.monsters.reduce((sum, entry) => sum + entry.quantity, 0) +
+        (item.combatants?.length ?? 0);
+      if (total > 10_000)
+        throw new Error(
+          "Combat supports at most 10,000 combatants. Reduce the encounter quantities before loading.",
+        );
       const combat = await getV6Combat(campaignId);
       const survivors = combat.combatants.filter(
         ({ kind }) => kind !== "monster",
@@ -306,7 +356,7 @@ export function PreparedEncounters({
               conditions: [],
               revision: 1,
             })),
-          ],
+          ].map((entry, sortOrder) => ({ ...entry, sortOrder })),
         },
         "prepared_encounter_loaded",
       );
@@ -342,6 +392,10 @@ export function PreparedEncounters({
               variant="outline"
               onClick={() => {
                 setOpen(true);
+                setVisited(
+                  (current) =>
+                    new Set([...current, ...items.map(({ id }) => id)]),
+                );
                 setExpanded(
                   allExpanded ? new Set() : new Set(items.map(({ id }) => id)),
                 );
@@ -393,168 +447,172 @@ export function PreparedEncounters({
                     )
                   </span>
                 </button>
-                <div
-                  id={`encounter-details-${item.id}`}
-                  hidden={!expanded.has(item.id)}
-                  className="mt-3 border-t border-white/10 pt-3"
-                >
-                  <div className="flex gap-2">
-                    <Input
-                      value={item.name}
-                      disabled={!editable}
-                      onChange={(event) =>
-                        patch(item.id, { name: event.target.value })
-                      }
-                    />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={!editable || busy}
-                      onClick={() => save(item)}
-                    >
-                      <Save />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={!editable || busy}
-                      onClick={() => remove(item)}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                  <div className="mt-3">
-                    {editable ? (
-                      <RichTextEditor
-                        value={item.notes}
-                        onChange={(notes) => patch(item.id, { notes })}
-                        onPasteImage={uploadV6Screenshot}
-                        placeholder="Encounter tactics and notes…"
-                        className="min-h-24"
+                {visited.has(item.id) && (
+                  <div
+                    id={`encounter-details-${item.id}`}
+                    hidden={!expanded.has(item.id)}
+                    className="mt-3 border-t border-white/10 pt-3"
+                  >
+                    <div className="flex gap-2">
+                      <Input
+                        value={item.name}
+                        disabled={!editable || busy}
+                        onChange={(event) =>
+                          patch(item.id, { name: event.target.value })
+                        }
                       />
-                    ) : (
-                      <RichTextContent value={item.notes} />
-                    )}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="text-xs font-medium uppercase tracking-wider text-stone-500">
-                      Monsters (
-                      {item.monsters.reduce(
-                        (total, entry) => total + entry.quantity,
-                        0,
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        disabled={!editable || busy}
+                        onClick={() => save(item)}
+                      >
+                        <Save />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        disabled={!editable || busy}
+                        onClick={() => remove(item)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                    <div className="mt-3">
+                      {editable ? (
+                        <RichTextEditor
+                          value={item.notes}
+                          onChange={(notes) => patch(item.id, { notes })}
+                          onPasteImage={uploadV6Screenshot}
+                          placeholder="Encounter tactics and notes…"
+                          className="min-h-24"
+                        />
+                      ) : (
+                        <RichTextContent value={item.notes} />
                       )}
-                      )
-                    </p>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <p className="text-xs font-medium uppercase tracking-wider text-stone-500">
+                        Monsters (
+                        {item.monsters.reduce(
+                          (total, entry) => total + entry.quantity,
+                          0,
+                        )}
+                        )
+                      </p>
+                      {editable && (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addCustom(item, "npc")}
+                          >
+                            <Plus /> NPC
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addCustom(item, "monster")}
+                          >
+                            <Plus /> Combatant
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setAddingTo(item.id)}
+                          >
+                            <Plus /> Bestiary
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {item.monsters.map((entry) => {
+                        const monster = monsters.find(
+                          ({ id }) => id === entry.monsterId,
+                        );
+                        return (
+                          <div
+                            key={entry.id}
+                            className="flex items-center gap-2 rounded bg-white/5 px-3 py-2 text-sm"
+                          >
+                            <span className="min-w-0 flex-1 truncate">
+                              {monster?.name ?? "Missing monster"}
+                              {entry.displayNumber
+                                ? ` #${entry.displayNumber}`
+                                : ""}
+                            </span>
+                            <span className="text-xs text-stone-500">
+                              × {entry.quantity}
+                            </span>
+                            {editable && (
+                              <>
+                                <Button
+                                  size="icon-xs"
+                                  variant="ghost"
+                                  aria-label={`Edit details for ${monster?.name ?? "monster"}`}
+                                  onClick={() =>
+                                    customizeMonster(item, entry.id)
+                                  }
+                                >
+                                  <Pencil />
+                                </Button>
+                                <Button
+                                  size="icon-xs"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    patch(item.id, {
+                                      monsters: item.monsters.filter(
+                                        ({ id }) => id !== entry.id,
+                                      ),
+                                    })
+                                  }
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {(item.combatants ?? []).map((combatant) => (
+                      <PreparedCombatantEditor
+                        key={combatant.id}
+                        combatant={combatant}
+                        editable={editable && !busy}
+                        onChange={(values) =>
+                          patch(item.id, {
+                            combatants: (item.combatants ?? []).map((value) =>
+                              value.id === combatant.id
+                                ? { ...value, ...values }
+                                : value,
+                            ),
+                          })
+                        }
+                        onRemove={() =>
+                          patch(item.id, {
+                            combatants: (item.combatants ?? []).filter(
+                              ({ id }) => id !== combatant.id,
+                            ),
+                          })
+                        }
+                      />
+                    ))}
                     {editable && (
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => addCustom(item, "npc")}
-                        >
-                          <Plus /> NPC
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => addCustom(item, "monster")}
-                        >
-                          <Plus /> Combatant
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setAddingTo(item.id)}
-                        >
-                          <Plus /> Bestiary
-                        </Button>
-                      </div>
+                      <Button
+                        className="mt-3 w-full"
+                        disabled={
+                          (!item.monsters.length && !item.combatants?.length) ||
+                          busy
+                        }
+                        onClick={() => loadInCombat(item)}
+                      >
+                        <Play /> Load in Combat
+                      </Button>
                     )}
                   </div>
-                  <div className="mt-2 space-y-1">
-                    {item.monsters.map((entry) => {
-                      const monster = monsters.find(
-                        ({ id }) => id === entry.monsterId,
-                      );
-                      return (
-                        <div
-                          key={entry.id}
-                          className="flex items-center gap-2 rounded bg-white/5 px-3 py-2 text-sm"
-                        >
-                          <span className="min-w-0 flex-1 truncate">
-                            {monster?.name ?? "Missing monster"}
-                            {entry.displayNumber
-                              ? ` #${entry.displayNumber}`
-                              : ""}
-                          </span>
-                          <span className="text-xs text-stone-500">
-                            × {entry.quantity}
-                          </span>
-                          {editable && (
-                            <>
-                              <Button
-                                size="icon-xs"
-                                variant="ghost"
-                                aria-label={`Edit details for ${monster?.name ?? "monster"}`}
-                                onClick={() => customizeMonster(item, entry.id)}
-                              >
-                                <Pencil />
-                              </Button>
-                              <Button
-                                size="icon-xs"
-                                variant="ghost"
-                                onClick={() =>
-                                  patch(item.id, {
-                                    monsters: item.monsters.filter(
-                                      ({ id }) => id !== entry.id,
-                                    ),
-                                  })
-                                }
-                              >
-                                <Trash2 />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {(item.combatants ?? []).map((combatant) => (
-                    <PreparedCombatantEditor
-                      key={combatant.id}
-                      combatant={combatant}
-                      editable={editable}
-                      onChange={(values) =>
-                        patch(item.id, {
-                          combatants: (item.combatants ?? []).map((value) =>
-                            value.id === combatant.id
-                              ? { ...value, ...values }
-                              : value,
-                          ),
-                        })
-                      }
-                      onRemove={() =>
-                        patch(item.id, {
-                          combatants: (item.combatants ?? []).filter(
-                            ({ id }) => id !== combatant.id,
-                          ),
-                        })
-                      }
-                    />
-                  ))}
-                  {editable && (
-                    <Button
-                      className="mt-3 w-full"
-                      disabled={
-                        (!item.monsters.length && !item.combatants?.length) ||
-                        busy
-                      }
-                      onClick={() => loadInCombat(item)}
-                    >
-                      <Play /> Load in Combat
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
             ))
           )}
@@ -664,9 +722,9 @@ function PreparedCombatantEditor({
   onChange,
   onRemove,
 }: {
-  combatant: V6Combatant;
+  combatant: PreparedCombatant;
   editable: boolean;
-  onChange: (value: Partial<V6Combatant>) => void;
+  onChange: (value: Partial<PreparedCombatant>) => void;
   onRemove: () => void;
 }) {
   return (

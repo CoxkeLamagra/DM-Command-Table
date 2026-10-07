@@ -96,12 +96,26 @@ export const combatantSchema = z.object({
   revision: revisionSchema,
 });
 
+export const preparedCombatantSchema = combatantSchema.omit({
+  playerId: true,
+  monsterId: true,
+  conditions: true,
+  revision: true,
+});
+
 export const preparedEncounterSchema = z.object({
   name: z.string().max(200),
   notes: z.string().max(1_000_000),
   sortOrder: z.number().int(),
   monsters: z.array(preparedMonsterSchema).max(10_000),
-  combatants: z.array(combatantSchema).max(1_000).default([]),
+  combatants: z
+    .array(preparedCombatantSchema)
+    .max(1_000)
+    .refine(
+      (entries) => new Set(entries.map(({ id }) => id)).size === entries.length,
+      "Combatant IDs must be unique",
+    )
+    .default([]),
 });
 
 export const combatSchema = z.object({

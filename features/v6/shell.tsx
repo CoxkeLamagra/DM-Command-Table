@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { confirmDiscardChanges } from "@/features/shared/unsaved-changes";
 import { useState, type ComponentType } from "react";
 import {
   ArchiveRestore,
@@ -21,14 +23,38 @@ import { Toaster } from "sonner";
 import { APPLICATION_VERSION } from "@/lib/version";
 import { CampaignScreen } from "./campaign-screen";
 import { V6AuthScreen } from "./auth-screen";
-import { SessionsScreen } from "./sessions-screen";
-import { StoryScreen } from "./story-screen";
-import { PlayersScreen } from "./players-screen";
-import { BestiaryScreen } from "./bestiary-screen";
-import { CombatScreen } from "./combat-screen";
-import { SearchScreen } from "./search-screen";
-import { AccountScreen } from "./account-screen";
-import { AdminScreen } from "./admin-screen";
+const SessionsScreen = dynamic(
+  () => import("./sessions-screen").then((module) => module.SessionsScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
+const StoryScreen = dynamic(
+  () => import("./story-screen").then((module) => module.StoryScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
+const PlayersScreen = dynamic(
+  () => import("./players-screen").then((module) => module.PlayersScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
+const BestiaryScreen = dynamic(
+  () => import("./bestiary-screen").then((module) => module.BestiaryScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
+const CombatScreen = dynamic(
+  () => import("./combat-screen").then((module) => module.CombatScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
+const SearchScreen = dynamic(
+  () => import("./search-screen").then((module) => module.SearchScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
+const AccountScreen = dynamic(
+  () => import("./account-screen").then((module) => module.AccountScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
+const AdminScreen = dynamic(
+  () => import("./admin-screen").then((module) => module.AdminScreen),
+  { loading: () => <p className="p-4 text-stone-400">Loading…</p> },
+);
 import type { V6Section } from "./types";
 import { useV6Workspace } from "./use-v6-workspace";
 import { useV6Sync } from "./use-v6-sync";
@@ -128,6 +154,7 @@ export function V6Shell() {
             className="mt-2 h-10 w-full rounded-md border border-white/10 bg-[#191d27] px-3 text-sm"
             value={workspace.currentId}
             onChange={(event) => {
+              if (!confirmDiscardChanges()) return;
               workspace.setCurrentId(event.target.value);
               setSection("campaign");
             }}
@@ -141,7 +168,9 @@ export function V6Shell() {
           <Button
             variant="outline"
             className="mt-2 w-full"
-            onClick={workspace.createCampaign}
+            onClick={() => {
+              if (confirmDiscardChanges()) void workspace.createCampaign();
+            }}
           >
             <Plus /> New campaign
           </Button>
@@ -152,6 +181,7 @@ export function V6Shell() {
               key={item.id}
               type="button"
               onClick={() => {
+                if (!confirmDiscardChanges()) return;
                 setSection(item.id);
                 setMenuOpen(false);
               }}
@@ -171,7 +201,10 @@ export function V6Shell() {
                   key={campaign.id}
                   type="button"
                   className="mt-1 flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-stone-500 hover:bg-white/5"
-                  onClick={() => workspace.restoreCampaign(campaign)}
+                  onClick={() => {
+                    if (confirmDiscardChanges())
+                      void workspace.restoreCampaign(campaign);
+                  }}
                 >
                   <ArchiveRestore className="size-3.5" /> Restore{" "}
                   {campaign.name}
@@ -188,7 +221,9 @@ export function V6Shell() {
           <Button
             variant="ghost"
             className="mt-2 w-full justify-start"
-            onClick={workspace.signOut}
+            onClick={() => {
+              if (confirmDiscardChanges()) void workspace.signOut();
+            }}
           >
             <LogOut /> Sign out
           </Button>
@@ -232,6 +267,7 @@ export function V6Shell() {
               className="mt-3"
               onClick={() =>
                 void (async () => {
+                  if (!confirmDiscardChanges()) return;
                   await workspace.refresh();
                   await sync.reloadLatest();
                 })()
@@ -255,6 +291,7 @@ export function V6Shell() {
             onExport={workspace.exportCampaign}
             onImport={workspace.importCampaign}
             onOpenSession={(id) => {
+              if (!confirmDiscardChanges()) return;
               setOpenSessionId(id);
               setSection("sessions");
             }}
@@ -267,6 +304,7 @@ export function V6Shell() {
             editable={workspace.current.role !== "viewer"}
             initialOpenId={openStoryId}
             onOpenSession={(id) => {
+              if (!confirmDiscardChanges()) return;
               setOpenSessionId(id);
               setSection("sessions");
             }}
@@ -279,10 +317,13 @@ export function V6Shell() {
             editable={workspace.current.role !== "viewer"}
             initialOpenId={openSessionId}
             onOpenStory={(id) => {
+              if (!confirmDiscardChanges()) return;
               setOpenStoryId(id);
               setSection("story");
             }}
-            onOpenCombat={() => setSection("combat")}
+            onOpenCombat={() => {
+              if (confirmDiscardChanges()) setSection("combat");
+            }}
           />
         )}
         {workspace.current && section === "players" && (
@@ -310,6 +351,7 @@ export function V6Shell() {
           <SearchScreen
             campaignId={workspace.current.id}
             navigate={(target, id) => {
+              if (!confirmDiscardChanges()) return;
               if (target === "sessions") setOpenSessionId(id);
               if (target === "story") setOpenStoryId(id);
               setSection(target);
