@@ -70,6 +70,14 @@ export function SessionsScreen({
   const [encounterDirty, setEncounterDirty] = useState<Set<string>>(
     () => new Set(),
   );
+  const [encounterCounts, setEncounterCounts] = useState<
+    Record<string, number>
+  >({});
+  const updateEncounterCount = useCallback((id: string, count: number) => {
+    setEncounterCounts((current) =>
+      current[id] === count ? current : { ...current, [id]: count },
+    );
+  }, []);
   const [savingSession, setSavingSession] = useState<string | null>(null);
   const markEncounterDirty = useCallback((id: string, value: boolean) => {
     setEncounterDirty((current) => {
@@ -383,7 +391,8 @@ export function SessionsScreen({
                         value="encounters"
                         className={sessionTabClass}
                       >
-                        Encounters{encounterDirty.has(item.id) ? " •" : ""}
+                        Encounters ({encounterCounts[item.id] ?? 0})
+                        {encounterDirty.has(item.id) ? " •" : ""}
                       </Tabs.Trigger>
                       <Tabs.Trigger value="stories" className={sessionTabClass}>
                         Linked stories ({linked.length})
@@ -444,6 +453,7 @@ export function SessionsScreen({
                         onOpenCombat={onOpenCombat}
                         registerSave={registerEncounterSaver}
                         onDirtyChange={markEncounterDirty}
+                        onCountChange={updateEncounterCount}
                         savingSession={savingSession === item.id}
                       />
                     </Tabs.Content>

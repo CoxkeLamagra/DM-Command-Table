@@ -8,7 +8,28 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await page.locator('form button[type="submit"]').click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
+  await expect(
+    page.getByRole("tab", { name: "Encounters (2)", exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: /^Encounters/ }).click();
+  await page.getByRole("button", { name: "Encounter", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "Encounters (3)", exact: true }),
+  ).toBeVisible();
+  await page
+    .locator("button[aria-expanded]")
+    .filter({ hasText: "New encounter" })
+    .click();
+  page.once("dialog", async (dialog) => dialog.accept());
+  await page
+    .getByRole("button", {
+      name: "Delete encounter New encounter",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("tab", { name: "Encounters (2)", exact: true }),
+  ).toBeVisible();
   const patrol = page
     .locator("button[aria-expanded]")
     .filter({ hasText: "Guard patrol" });
