@@ -285,10 +285,10 @@ export function CombatScreen({
           !combat.combatants.some((item) => item.playerId === id),
       )) {
         const hp = player.hitPoints ?? 10;
-        additions.push(
-          makeCombatant(
+        additions.push({
+          ...makeCombatant(
             player.name,
-            "player",
+            player.kind ?? "player",
             combat.combatants.length + additions.length,
             hp,
             player.armorClass ?? 10,
@@ -296,7 +296,8 @@ export function CombatScreen({
             null,
             null,
           ),
-        );
+          notes: player.notes,
+        });
       }
     if (picker === "monsters")
       for (const monster of monsters.filter(({ id }) => chosen.has(id))) {
@@ -355,7 +356,7 @@ export function CombatScreen({
         {editable && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setPicker("players")}>
-              Add players
+              Add players / NPCs
             </Button>
             <Button variant="outline" onClick={() => setPicker("monsters")}>
               Add bestiary monsters
@@ -924,7 +925,9 @@ function Picker({
     >
       <DialogContent className="border-white/10 bg-[#151820] text-stone-100">
         <DialogHeader>
-          <DialogTitle>Add campaign {kind}</DialogTitle>
+          <DialogTitle>
+            Add campaign {kind === "players" ? "players / NPCs" : kind}
+          </DialogTitle>
         </DialogHeader>
         <Input
           type="search"
@@ -957,6 +960,15 @@ function Picker({
                     }
                   />
                   <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                  {kind === "players" && (
+                    <span
+                      className={combatantKindText(
+                        (entry as V6Player).kind ?? "player",
+                      )}
+                    >
+                      {(entry as V6Player).kind === "npc" ? "NPC" : "Player"}
+                    </span>
+                  )}
                   {kind === "monsters" && (
                     <Input
                       aria-label={`Quantity for ${entry.name}`}
@@ -1080,7 +1092,12 @@ function combatantSummary(
     ? monsters.find(({ id }) => id === item.monsterId)
     : undefined;
   if (player)
-    return [player.race, player.className, "Player", `AC ${item.armorClass}`]
+    return [
+      player.race,
+      player.className,
+      item.kind === "npc" ? "NPC" : "Player",
+      `AC ${item.armorClass}`,
+    ]
       .filter(Boolean)
       .join(" · ");
   if (monster)

@@ -8,6 +8,7 @@ import { syncV6ScreenshotReferences } from "./screenshots.ts";
 export type ProgressStatus = "planned" | "active" | "happened";
 
 export type V6Player = {
+  kind?: "player" | "npc";
   id: string;
   campaignId: string;
   name: string;
@@ -69,7 +70,7 @@ export function createContentRepository(database: DatabaseSync) {
       return (
         database
           .prepare(
-            `SELECT id, campaign_id AS campaignId, name, race, class_name AS className,
+            `SELECT id, campaign_id AS campaignId, name, kind, race, class_name AS className,
                 level, hit_points AS hitPoints, armor_class AS armorClass, notes,
                 revision, created_at AS createdAt, updated_at AS updatedAt
            FROM players WHERE campaign_id = ? ORDER BY name COLLATE NOCASE, id`,
@@ -93,13 +94,14 @@ export function createContentRepository(database: DatabaseSync) {
         database
           .prepare(
             `INSERT INTO players
-          (id, campaign_id, name, race, class_name, level, hit_points,
+          (id, campaign_id, kind, name, race, class_name, level, hit_points,
            armor_class, notes, revision, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           )
           .run(
             id,
             campaignId,
+            input.kind ?? "player",
             input.name,
             input.race,
             input.className,
@@ -145,12 +147,13 @@ export function createContentRepository(database: DatabaseSync) {
       runTransaction(database, () => {
         const result = database
           .prepare(
-            `UPDATE players SET name = ?, race = ?, class_name = ?, level = ?,
+            `UPDATE players SET kind = ?, name = ?, race = ?, class_name = ?, level = ?,
            hit_points = ?, armor_class = ?, notes = ?, revision = revision + 1,
            updated_at = ?
          WHERE id = ? AND campaign_id = ? AND revision = ?`,
           )
           .run(
+            input.kind ?? "player",
             input.name,
             input.race,
             input.className,
@@ -619,7 +622,7 @@ function changed(
 function getPlayer(database: DatabaseSync, id: string): V6Player {
   const row = database
     .prepare(
-      `SELECT id, campaign_id AS campaignId, name, race, class_name AS className,
+      `SELECT id, campaign_id AS campaignId, name, kind, race, class_name AS className,
             level, hit_points AS hitPoints, armor_class AS armorClass, notes,
             revision, created_at AS createdAt, updated_at AS updatedAt
        FROM players WHERE id = ?`,

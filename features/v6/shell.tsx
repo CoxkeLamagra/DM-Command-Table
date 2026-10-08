@@ -67,7 +67,7 @@ const navigation: {
   { id: "campaign", label: "Campaign", icon: BookOpen },
   { id: "story", label: "Story", icon: BookText },
   { id: "sessions", label: "Sessions", icon: Library },
-  { id: "players", label: "Players", icon: Users },
+  { id: "players", label: "Players / NPC’s", icon: Users },
   { id: "bestiary", label: "Bestiary", icon: Shield },
   { id: "combat", label: "Combat", icon: Swords },
   { id: "search", label: "Search", icon: Search },

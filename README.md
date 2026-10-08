@@ -43,7 +43,7 @@ An administrator cannot delete their own account or remove their own administrat
 
 - Give each encounter its own editable name.
 - Add ad-hoc players, monsters, or NPCs.
-- Add reusable players from the campaign roster.
+- Add reusable Players and NPCs from the campaign roster, retaining their type, HP, AC, and notes.
 - Add monsters from the campaign bestiary with their linked stat blocks.
 - Assign optional numbers to Monsters and NPCs so identically named combatants remain easy to distinguish.
 - Track initiative, turn order, rounds, armor class, current and maximum HP, and conditions.
@@ -53,15 +53,17 @@ An administrator cannot delete their own account or remove their own administrat
 - Clear the entire encounter to start with an empty combat tracker.
 - View race, class, and level information for linked campaign players.
 
-### Players
+### Players / NPCs
 
-- Save reusable player records per campaign.
+Campaign records have an editable Player or NPC type. Prepared encounters can import editable copies of campaign Players and NPCs. Changes to those copies do not modify the roster. Single-use Players and NPCs remain available in Combat and prepared encounters.
+
+- Save reusable Player and NPC records per campaign, with green Player and blue NPC type tags.
 - Record name, race, class, level, optional HP, optional AC, and notes.
 - Open and edit players directly from the searchable list.
 - Delete individual players.
 - Add saved players to an encounter without entering their information again.
 
-Player-character management is available from the dedicated **Players** navigation entry.
+Player and NPC management is available from the dedicated **Players / NPC’s** navigation entry.
 
 If HP or AC is not set, the combat tracker uses `10` when that player is added to an encounter.
 

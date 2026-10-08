@@ -59,16 +59,20 @@ export function PlayersScreen({
     const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
     return players.filter((item) =>
       terms.every((term) =>
-        `${item.name} ${item.race} ${item.className} ${richTextToPlainText(item.notes)}`
+        `${item.name} ${item.kind ?? "player"} ${item.race} ${item.className} ${richTextToPlainText(item.notes)}`
           .toLowerCase()
           .includes(term),
       ),
     );
   }, [players, query]);
-  async function add() {
+  async function add(kind: "player" | "npc") {
     setBusy(true);
     try {
-      const item = await createV6Player(campaignId);
+      const item = await createV6Player(
+        campaignId,
+        kind === "npc" ? "New NPC" : "New player",
+        kind,
+      );
       setPlayers((all) => [...all, item]);
       setEditing(item);
     } catch (error) {
@@ -86,7 +90,7 @@ export function PlayersScreen({
         all.map((item) => (item.id === saved.id ? saved : item)),
       );
       setEditing(saved);
-      toast.success("Player saved");
+      toast.success("Player / NPC saved");
     } catch (error) {
       report(error);
     } finally {
@@ -120,8 +124,8 @@ export function PlayersScreen({
   return (
     <>
       <Section
-        title="Players"
-        description="Manage the player characters in this campaign."
+        title="Players / NPC’s"
+        description="Manage the players and NPCs in this campaign."
         query={query}
         setQuery={setQuery}
         actions={
@@ -132,8 +136,13 @@ export function PlayersScreen({
               </Button>
             )}
             {editable && (
+              <Button onClick={() => add("npc")} disabled={busy}>
+                <Plus /> NPC
+              </Button>
+            )}
+            {editable && (
               <Button
-                onClick={add}
+                onClick={() => add("player")}
                 disabled={busy}
                 className="bg-amber-300 text-black hover:bg-amber-200"
               >
@@ -170,10 +179,15 @@ export function PlayersScreen({
                 }
               />
               <button
-                className="truncate text-left font-medium text-amber-200 hover:underline"
+                className={`truncate text-left font-medium hover:underline ${player.kind === "npc" ? "text-blue-300" : "text-emerald-300"}`}
                 onClick={() => setEditing(player)}
               >
                 {player.name}
+                <span
+                  className={`ml-2 rounded px-2 py-0.5 text-xs ${player.kind === "npc" ? "bg-blue-500/10 text-blue-300" : "bg-emerald-500/10 text-emerald-300"}`}
+                >
+                  {player.kind === "npc" ? "NPC" : "Player"}
+                </span>
               </button>
               <span className="truncate text-stone-400">
                 {player.race || "—"}
@@ -188,7 +202,9 @@ export function PlayersScreen({
             </div>
           ))}
         </div>
-        {!visible.length && <Empty>No players match this search.</Empty>}
+        {!visible.length && (
+          <Empty>No players or NPCs match this search.</Empty>
+        )}
       </Section>
       <Dialog
         open={!!editing}
@@ -201,9 +217,26 @@ export function PlayersScreen({
             <>
               <DialogHeader>
                 <DialogTitle className="font-serif text-2xl">
-                  {editable ? "Edit player" : editing.name}
+                  {editable ? "Edit player / NPC" : editing.name}
                 </DialogTitle>
               </DialogHeader>
+              <Field label="Type">
+                <select
+                  aria-label="Type"
+                  value={editing.kind ?? "player"}
+                  disabled={!editable}
+                  onChange={(event) =>
+                    setEditing({
+                      ...editing,
+                      kind: event.target.value as "player" | "npc",
+                    })
+                  }
+                  className="mt-1 rounded border border-white/10 bg-[#151820] p-2"
+                >
+                  <option value="player">Player</option>
+                  <option value="npc">NPC</option>
+                </select>
+              </Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Name">
                   <Input
@@ -284,13 +317,13 @@ export function PlayersScreen({
                   />
                 </Field>
               </div>
-              <Field label="Player notes">
+              <Field label="Notes">
                 {editable ? (
                   <RichTextEditor
                     value={editing.notes}
                     onChange={(notes) => setEditing({ ...editing, notes })}
                     onPasteImage={uploadV6Screenshot}
-                    placeholder="Player notes…"
+                    placeholder="Player / NPC notes…"
                     className="min-h-40"
                   />
                 ) : (

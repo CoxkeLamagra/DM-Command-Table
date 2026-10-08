@@ -426,7 +426,7 @@ function replaceCombatants(
     if (
       combatant.playerId &&
       (!validPlayer.get(combatant.playerId, campaignId) ||
-        combatant.kind !== "player" ||
+        !["player", "npc"].includes(combatant.kind) ||
         combatant.monsterId)
     )
       throw new PublicApiError(
@@ -441,9 +441,9 @@ function replaceCombatants(
       throw new PublicApiError(
         "A linked monster combatant must reference a monster in this campaign.",
       );
-    if (combatant.kind === "npc" && (combatant.playerId || combatant.monsterId))
+    if (combatant.kind === "npc" && combatant.monsterId)
       throw new PublicApiError(
-        "NPC combatants cannot reference campaign players or Bestiary monsters.",
+        "NPC combatants cannot reference Bestiary monsters.",
       );
     const combatantId = combatant.id || crypto.randomUUID();
     insertCombatant.run(

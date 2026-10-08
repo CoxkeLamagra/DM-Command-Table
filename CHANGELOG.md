@@ -2,6 +2,17 @@
 
 All notable DM Command Table releases are documented here.
 
+## 7.3.0 — 2026-10-08
+
+- Update Next.js and its lint configuration to patched version 16.3.8.
+
+- Add reusable campaign NPCs alongside Players in the renamed Players / NPC’s section.
+- Add editable Player/NPC type tags with green Player and blue NPC colours.
+- Import campaign Players and NPCs into Combat with duplicate protection and their saved notes, HP and AC.
+- Import editable copies of campaign Players and NPCs into prepared encounters without changing the campaign roster.
+- Retain single-use Player, NPC and monster creation in Combat and prepared encounters.
+- Preserve NPC types in campaign copies and portable exports/imports with automatic local SQLite migration 5; existing records remain Players.
+
 ## 7.2.2 — 2026-10-07
 
 - Replace the Combat condition datalist with an explicit dropdown of default conditions while retaining custom text entry and duration controls. Include Exhaustion in the default list.
