@@ -35,7 +35,7 @@ test("roster filters, mixed imports and session tabs preserve drafts and save hi
     .fill("Keep these notes while preparing.");
   await page.getByRole("tab", { name: /^Linked stories/ }).click();
   await expect(page.getByRole("button", { name: /The gate/ })).toBeVisible();
-  await page.getByRole("tab", { name: "Encounters", exact: true }).click();
+  await page.getByRole("tab", { name: /^Encounters \(/ }).click();
   const summary = page.getByLabel("Summary for Road ambush");
   await expect(summary).toContainText("0 combatants");
   await page
@@ -86,7 +86,7 @@ test("roster filters, mixed imports and session tabs preserve drafts and save hi
   await page.reload();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
-  await page.getByRole("tab", { name: "Encounters", exact: true }).click();
+  await page.getByRole("tab", { name: /^Encounters \(/ }).click();
   await expect(summary).toContainText("6 combatants");
   await page
     .getByRole("button", { name: "Players / NPC’s", exact: true })

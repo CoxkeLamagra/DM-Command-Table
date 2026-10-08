@@ -24,7 +24,7 @@ test("campaign NPCs import into prepared encounters and combat while single-use 
   ).toContainText("NPC");
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
-  await page.getByRole("tab", { name: "Encounters", exact: true }).click();
+  await page.getByRole("tab", { name: /^Encounters \(/ }).click();
   await page.getByRole("button", { name: /Guard patrol/ }).click();
   await page
     .getByRole("button", { name: "Add combatants", exact: true })

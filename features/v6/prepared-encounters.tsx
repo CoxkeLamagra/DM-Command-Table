@@ -53,6 +53,7 @@ export function PreparedEncounters({
   onOpenCombat,
   registerSave,
   onDirtyChange,
+  onCountChange,
   savingSession = false,
 }: {
   campaignId: string;
@@ -60,6 +61,7 @@ export function PreparedEncounters({
   editable: boolean;
   onOpenCombat: () => void;
   onDirtyChange?: (sessionId: string, dirty: boolean) => void;
+  onCountChange?: (sessionId: string, count: number) => void;
   savingSession?: boolean;
   registerSave?: (
     sessionId: string,
@@ -67,6 +69,9 @@ export function PreparedEncounters({
   ) => () => void;
 }) {
   const [items, setItems] = useState<V6PreparedEncounter[]>([]);
+  useEffect(() => {
+    onCountChange?.(sessionId, items.length);
+  }, [onCountChange, sessionId, items.length]);
   const itemsRef = useRef<V6PreparedEncounter[]>([]);
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -503,6 +508,7 @@ export function PreparedEncounters({
                         size="icon"
                         variant="ghost"
                         disabled={!editable || busy}
+                        aria-label={`Delete encounter ${item.name}`}
                         onClick={() => remove(item)}
                       >
                         <Trash2 />
