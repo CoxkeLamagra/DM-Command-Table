@@ -37,14 +37,18 @@ test("sidebar collapses to accessible icons, remembers the preference and keeps 
   await sidebar
     .getByRole("button", { name: "Choose campaign", exact: true })
     .click();
-  await expect(page.getByLabel("Campaign", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Campaign", exact: true }),
+  ).toBeVisible();
   await sidebar
     .getByRole("button", { name: "Collapse menu", exact: true })
     .click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open menu", exact: true }).click();
   await expect(combat.locator("span")).toBeVisible();
-  await expect(page.getByLabel("Campaign", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Campaign", exact: true }),
+  ).toBeVisible();
   await combat.click();
   await page.setViewportSize({ width: 1280, height: 720 });
   await sidebar
