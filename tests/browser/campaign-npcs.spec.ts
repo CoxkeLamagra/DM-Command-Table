@@ -24,9 +24,10 @@ test("campaign NPCs import into prepared encounters and combat while single-use 
   ).toContainText("NPC");
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
+  await page.getByRole("tab", { name: "Encounters", exact: true }).click();
   await page.getByRole("button", { name: /Guard patrol/ }).click();
   await page
-    .getByRole("button", { name: "Campaign players / NPCs", exact: true })
+    .getByRole("button", { name: "Add combatants", exact: true })
     .click();
   await dialog.getByLabel("Select Campaign healer").check();
   await dialog.getByRole("button", { name: /Add selected/ }).click();
@@ -36,11 +37,21 @@ test("campaign NPCs import into prepared encounters and combat while single-use 
       exact: true,
     }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Add combatants", exact: true })
+    .click();
+  await dialog.getByRole("tab", { name: "Single-use", exact: true }).click();
+  await expect(dialog.getByLabel("Single-use type")).toHaveValue("npc");
+  await dialog.getByLabel("Single-use type").selectOption("player");
+  await dialog.getByLabel("Single-use name").fill("Temporary ally");
+  await dialog
+    .getByRole("button", { name: "Add single-use combatant", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "Player", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "NPC", exact: true }),
+    page.getByRole("button", {
+      name: "Edit details for Temporary ally",
+      exact: true,
+    }),
   ).toBeVisible();
   await page
     .locator("article")
@@ -53,7 +64,7 @@ test("campaign NPCs import into prepared encounters and combat while single-use 
   ).toBeEnabled();
   await page.getByRole("button", { name: "Combat", exact: true }).click();
   await page
-    .getByRole("button", { name: "Add players / NPCs", exact: true })
+    .getByRole("button", { name: "Add combatants", exact: true })
     .click();
   await dialog.getByLabel("Select Campaign healer").check();
   await dialog.getByRole("button", { name: /Add selected/ }).click();
@@ -61,7 +72,7 @@ test("campaign NPCs import into prepared encounters and combat while single-use 
     page.getByText("Campaign healer", { exact: true }).first(),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Add players / NPCs", exact: true })
+    .getByRole("button", { name: "Add combatants", exact: true })
     .click();
   await expect(dialog.getByLabel("Select Campaign healer")).toHaveCount(0);
 });

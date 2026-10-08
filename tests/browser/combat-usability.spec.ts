@@ -8,7 +8,15 @@ test("combat HP controls preserve edits, show save state and confirm encounter a
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
   await page.locator('form button[type="submit"]').click();
   await page.getByRole("button", { name: "Combat", exact: true }).click();
-  await page.getByRole("button", { name: "NPC", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Add combatants", exact: true })
+    .click();
+  const picker = page.getByRole("dialog");
+  await picker.getByRole("tab", { name: "Single-use", exact: true }).click();
+  await picker.getByLabel("Single-use name").fill("New NPC");
+  await picker
+    .getByRole("button", { name: "Add single-use combatant", exact: true })
+    .click();
   const hp = page.getByLabel("Current hit points", { exact: true });
   await expect(hp).toHaveValue("10");
   const amount = page.getByLabel("Damage or healing amount");
