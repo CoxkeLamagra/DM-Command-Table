@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Heart, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { SaveStatus } from "@/features/shared/save-status";
+import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
+import { reconcileSaved } from "@/features/encounters/drafts";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -40,6 +43,12 @@ export function BestiaryScreen({
   const [editing, setEditing] = useState<V6Monster | null>(null);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const dirty =
+    !!editing &&
+    JSON.stringify(editing) !==
+      JSON.stringify(monsters.find(({ id }) => id === editing.id));
+  useUnsavedChanges(dirty);
   useEffect(() => {
     let live = true;
     void listV6Monsters(campaignId)
@@ -82,18 +91,24 @@ export function BestiaryScreen({
     }
   }
   async function save() {
-    if (!editing) return;
+    if (!editing || saving) return;
+    setSaving(true);
     setBusy(true);
     try {
       const saved = await updateV6Monster(campaignId, editing);
       setMonsters((all) =>
         all.map((item) => (item.id === saved.id ? saved : item)),
       );
-      setEditing(saved);
+      setEditing((current) =>
+        current?.id === saved.id
+          ? reconcileSaved(current, editing, saved)
+          : current,
+      );
       toast.success("Monster saved");
     } catch (error) {
       report(error);
     } finally {
+      setSaving(false);
       setBusy(false);
     }
   }
@@ -247,7 +262,13 @@ export function BestiaryScreen({
       <Dialog
         open={!!editing}
         onOpenChange={(open) => {
-          if (!open) setEditing(null);
+          if (
+            !open &&
+            !saving &&
+            (!dirty ||
+              window.confirm("Discard the unsaved changes to this record?"))
+          )
+            setEditing(null);
         }}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto border-white/10 bg-[#151820] text-stone-100 sm:max-w-3xl">
@@ -401,10 +422,11 @@ export function BestiaryScreen({
                 </Field>
               </div>
               {editable && (
-                <div className="flex justify-between">
+                <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-white/10 bg-[#151820]/95 py-3 backdrop-blur">
                   <Button variant="ghost" onClick={() => remove([editing.id])}>
                     <Trash2 /> Delete
                   </Button>
+                  <SaveStatus dirty={dirty} saving={saving} label="Monster" />
                   <Button onClick={save} disabled={busy}>
                     <Save /> Save
                   </Button>

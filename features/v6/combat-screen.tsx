@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { adjustHitPoints } from "@/features/combat/hit-points";
+import { SaveStatus } from "@/features/shared/save-status";
+import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { DropdownMenu } from "radix-ui";
 import {
   ChevronDown,
   ChevronRight,
   Minus,
   Plus,
-  RotateCcw,
   Save,
   Trash2,
   Undo2,
@@ -50,6 +52,21 @@ export function CombatScreen({
   editable: boolean;
 }) {
   const [combat, setCombat] = useState<V6Combat | null>(null);
+  const [persisted, setPersisted] = useState<V6Combat | null>(null);
+  const pending = useRef(false);
+  const [hpUndo, setHpUndo] = useState<{
+    id: string;
+    before: number;
+    after: number;
+  } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "rounds" | "monsters" | "combat" | null
+  >(null);
+  const dirty =
+    !!combat &&
+    !!persisted &&
+    JSON.stringify(combat) !== JSON.stringify(persisted);
+  useUnsavedChanges(dirty);
   const [players, setPlayers] = useState<V6Player[]>([]);
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -68,6 +85,7 @@ export function CombatScreen({
       .then(([next, campaignPlayers, bestiary]) => {
         if (live) {
           setCombat(normalize(next));
+          setPersisted(normalize(next));
           setPlayers(campaignPlayers);
           setMonsters(bestiary);
           setSelectedId(next.combatants[0]?.id ?? "");
@@ -96,10 +114,11 @@ export function CombatScreen({
   const selected =
     ordered.find(({ id }) => id === selectedId) ?? active ?? ordered[0];
   function patchCombat(values: Partial<V6Combat>) {
+    if (pending.current) return;
     setCombat((current) => (current ? { ...current, ...values } : current));
   }
   function patchSelected(values: Partial<V6Combatant>) {
-    if (!selected) return;
+    if (!selected || pending.current) return;
     setCombat((current) =>
       current
         ? {
@@ -112,17 +131,21 @@ export function CombatScreen({
     );
   }
   async function persist(next: V6Combat, action: string) {
+    if (pending.current) return null;
+    pending.current = true;
     setBusy(true);
     try {
       const saved = normalize(
         await saveV6Combat(campaignId, normalize(next), action),
       );
       setCombat(saved);
+      setPersisted(saved);
       return saved;
     } catch (error) {
       report(error);
       return null;
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -173,11 +196,54 @@ export function CombatScreen({
     );
     if (saved) setSelectedId(incoming.id);
   }
+  function adjustHp(amount: number, action: "damage" | "heal") {
+    if (!selected || pending.current) return;
+    try {
+      const next = adjustHitPoints(
+        selected.hitPoints,
+        selected.maximumHitPoints,
+        amount,
+        action,
+      );
+      if (next === selected.hitPoints) return;
+      setHpUndo({ id: selected.id, before: selected.hitPoints, after: next });
+      patchSelected({ hitPoints: next });
+    } catch (error) {
+      report(error);
+    }
+  }
+  function undoHp() {
+    if (!hpUndo || pending.current) return;
+    setCombat((current) =>
+      current
+        ? {
+            ...current,
+            combatants: current.combatants.map((item) =>
+              item.id === hpUndo.id && item.hitPoints === hpUndo.after
+                ? { ...item, hitPoints: hpUndo.before }
+                : item,
+            ),
+          }
+        : current,
+    );
+    setHpUndo(null);
+  }
   async function doUndo() {
+    if (
+      pending.current ||
+      (dirty &&
+        !window.confirm(
+          "Undo the last saved combat change? Your unsaved combat edits will be discarded.",
+        ))
+    )
+      return;
+    pending.current = true;
     setBusy(true);
     try {
       const restored = normalize(await undoV6Combat(campaignId));
       setCombat(restored);
+      setPersisted(restored);
+      setHpUndo(null);
       setSelectedId(
         restored.combatants[restored.turn]?.id ??
           restored.combatants[0]?.id ??
@@ -187,6 +253,7 @@ export function CombatScreen({
     } catch (error) {
       report(error);
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -205,15 +272,7 @@ export function CombatScreen({
       );
   }
   async function clear(kind?: "monster") {
-    if (
-      !combat ||
-      !window.confirm(
-        kind
-          ? "Remove all monsters? Players and NPCs will remain."
-          : "Clear every combatant?",
-      )
-    )
-      return;
+    if (!combat) return;
     const combatants = kind
       ? combat.combatants.filter((item) => item.kind !== kind)
       : [];
@@ -349,31 +408,43 @@ export function CombatScreen({
           <Input
             className="mt-2 h-11 max-w-md font-serif text-2xl"
             value={combat.name}
-            disabled={!editable}
+            disabled={!editable || busy}
             onChange={(event) => patchCombat({ name: event.target.value })}
           />
         </div>
         {editable && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setPicker("players")}>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setPicker("players")}
+            >
               Add players / NPCs
             </Button>
-            <Button variant="outline" onClick={() => setPicker("monsters")}>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setPicker("monsters")}
+            >
               Add bestiary monsters
             </Button>
-            <Button variant="outline" onClick={addCustomMonster}>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={addCustomMonster}
+            >
               <Plus /> Custom monster
             </Button>
-            <Button variant="outline" onClick={addNpc}>
+            <Button variant="outline" disabled={busy} onClick={addNpc}>
               <Plus /> NPC
-            </Button>
-            <Button onClick={save} disabled={busy}>
-              <Save /> Save
             </Button>
           </div>
         )}
       </header>
-      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4">
+      <div
+        aria-label="Combat turn controls"
+        className="sticky top-16 z-20 flex flex-wrap items-center gap-4 rounded-xl border border-amber-300/20 bg-[#17171a]/95 p-4 shadow-lg backdrop-blur lg:top-0"
+      >
         <div>
           <p className="text-xs uppercase text-stone-500">Round</p>
           <p className="font-serif text-2xl text-amber-200">{combat.round}</p>
@@ -390,17 +461,46 @@ export function CombatScreen({
             <Button variant="outline" onClick={doUndo} disabled={busy}>
               <Undo2 /> Undo
             </Button>
-            <Button variant="outline" onClick={resetRounds}>
-              <RotateCcw /> Reset rounds
-            </Button>
-            <Button variant="outline" onClick={() => clear("monster")}>
-              Clear monsters
-            </Button>
-            <Button variant="outline" onClick={() => clear()}>
-              Clear combat
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button variant="outline" disabled={busy}>
+                  Encounter actions <ChevronDown />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="end"
+                  sideOffset={4}
+                  className="z-50 min-w-56 rounded-lg border border-white/10 bg-[#151820] p-1 text-stone-100 shadow-lg"
+                >
+                  <DropdownMenu.Item
+                    className="cursor-pointer rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                    onSelect={() => setConfirmAction("rounds")}
+                  >
+                    Reset rounds
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className="cursor-pointer rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                    onSelect={() => setConfirmAction("monsters")}
+                  >
+                    Clear monsters
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className="cursor-pointer rounded px-3 py-2 text-sm text-red-300 outline-none data-[highlighted]:bg-white/10"
+                    onSelect={() => setConfirmAction("combat")}
+                  >
+                    Clear combat
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+            <SaveStatus dirty={dirty} saving={busy} label="Combat" />
+            <Button onClick={save} disabled={busy}>
+              <Save /> Save
             </Button>
             <Button
               onClick={nextTurn}
+              disabled={busy || !ordered.some(({ hitPoints }) => hitPoints > 0)}
               className="bg-[#d75b42] hover:bg-[#ec6b50]"
             >
               Next turn <ChevronRight />
@@ -484,13 +584,64 @@ export function CombatScreen({
           })}
         </div>
         <CombatantEditor
+          key={selected?.id ?? "empty"}
           combatant={selected}
           monster={monsters.find(({ id }) => id === selected?.monsterId)}
-          editable={editable}
+          editable={editable && !busy}
+          adjustHp={adjustHp}
+          undoHp={undoHp}
+          canUndoHp={
+            !!hpUndo &&
+            hpUndo.id === selected?.id &&
+            hpUndo.after === selected?.hitPoints
+          }
           update={patchSelected}
           remove={removeSelected}
         />
       </div>
+      <Dialog
+        open={!!confirmAction}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <DialogContent className="border-white/10 bg-[#151820] text-stone-100">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmAction === "rounds"
+                ? "Reset rounds?"
+                : confirmAction === "monsters"
+                  ? "Clear monsters?"
+                  : "Clear combat?"}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-stone-400">
+            {confirmAction === "rounds"
+              ? "Return to round 1 and the first living combatant. HP and conditions remain unchanged."
+              : confirmAction === "monsters"
+                ? "Remove all monsters and return to round 1. Players and NPCs remain."
+                : "Remove every combatant and return to round 1. Campaign and Bestiary records remain unchanged."}{" "}
+            You can reverse this using Undo.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmAction(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                const action = confirmAction;
+                setConfirmAction(null);
+                setHpUndo(null);
+                if (action === "rounds") void resetRounds();
+                else void clear(action === "monsters" ? "monster" : undefined);
+              }}
+            >
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Picker
         open={!!picker}
         kind={picker}
@@ -526,15 +677,22 @@ function CombatantEditor({
   editable,
   update,
   remove,
+  adjustHp,
+  undoHp,
+  canUndoHp,
 }: {
   combatant?: V6Combatant;
   monster?: V6Monster;
   editable: boolean;
   update: (part: Partial<V6Combatant>) => void;
   remove: () => void;
+  adjustHp: (amount: number, action: "damage" | "heal") => void;
+  undoHp: () => void;
+  canUndoHp: boolean;
 }) {
   const [condition, setCondition] = useState("Poisoned");
   const [duration, setDuration] = useState("");
+  const [hpAmount, setHpAmount] = useState("");
   if (!combatant)
     return (
       <div className="rounded-xl border border-dashed border-white/10 p-12 text-center text-stone-600">
@@ -568,7 +726,7 @@ function CombatantEditor({
         )
       : 0;
   return (
-    <aside className="rounded-xl border border-white/10 bg-[#13161d] p-5 xl:sticky xl:top-20 xl:self-start">
+    <aside className="rounded-xl border border-white/10 bg-[#13161d] p-5 xl:self-start">
       <div className="flex items-start gap-2">
         <Input
           className="h-11 min-w-0 flex-1 font-serif text-lg text-amber-100"
@@ -645,52 +803,89 @@ function CombatantEditor({
         </div>
         <Progress value={hpPercent} className="h-2.5 bg-white/10" />
         {editable && (
-          <div className="mt-3 flex items-center gap-2">
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={() =>
-                update({ hitPoints: Math.max(0, combatant.hitPoints - 1) })
-              }
-            >
-              <Minus />
-            </Button>
-            <Input
-              aria-label="Current hit points"
-              className="w-20 text-center"
-              type="number"
-              value={combatant.hitPoints}
-              onChange={(event) =>
-                update({ hitPoints: Number(event.target.value) })
-              }
-            />
-            <span className="text-stone-600">/</span>
-            <Input
-              aria-label="Maximum hit points"
-              className="w-20 text-center"
-              type="number"
-              min={0}
-              value={combatant.maximumHitPoints}
-              onChange={(event) =>
-                update({
-                  maximumHitPoints: Math.max(0, Number(event.target.value)),
-                })
-              }
-            />
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={() =>
-                update({
-                  hitPoints: Math.min(
-                    combatant.maximumHitPoints,
-                    combatant.hitPoints + 1,
-                  ),
-                })
-              }
-            >
-              <Plus />
-            </Button>
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs text-stone-400">
+                Amount
+                <Input
+                  aria-label="Damage or healing amount"
+                  type="number"
+                  min="0"
+                  step="any"
+                  className="mt-1 w-24"
+                  value={hpAmount}
+                  onChange={(event) => setHpAmount(event.target.value)}
+                />
+              </label>
+              <Button
+                variant="outline"
+                disabled={
+                  !Number.isFinite(Number(hpAmount)) || Number(hpAmount) <= 0
+                }
+                onClick={() => adjustHp(Number(hpAmount), "damage")}
+              >
+                Damage
+              </Button>
+              <Button
+                variant="outline"
+                disabled={
+                  !Number.isFinite(Number(hpAmount)) || Number(hpAmount) <= 0
+                }
+                onClick={() => adjustHp(Number(hpAmount), "heal")}
+              >
+                Heal
+              </Button>
+              <Button variant="ghost" disabled={!canUndoHp} onClick={undoHp}>
+                <Undo2 /> Undo HP change
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() =>
+                  update({ hitPoints: Math.max(0, combatant.hitPoints - 1) })
+                }
+              >
+                <Minus />
+              </Button>
+              <Input
+                aria-label="Current hit points"
+                className="w-20 text-center"
+                type="number"
+                value={combatant.hitPoints}
+                onChange={(event) =>
+                  update({ hitPoints: Number(event.target.value) })
+                }
+              />
+              <span className="text-stone-600">/</span>
+              <Input
+                aria-label="Maximum hit points"
+                className="w-20 text-center"
+                type="number"
+                min={0}
+                value={combatant.maximumHitPoints}
+                onChange={(event) =>
+                  update({
+                    maximumHitPoints: Math.max(0, Number(event.target.value)),
+                  })
+                }
+              />
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() =>
+                  update({
+                    hitPoints: Math.min(
+                      combatant.maximumHitPoints,
+                      combatant.hitPoints + 1,
+                    ),
+                  })
+                }
+              >
+                <Plus />
+              </Button>
+            </div>
           </div>
         )}
       </section>

@@ -10,6 +10,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
+import { SaveStatus } from "@/features/shared/save-status";
 import { reconcileSaved } from "@/features/encounters/drafts";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { toast } from "sonner";
@@ -64,7 +65,20 @@ export function SessionsScreen({
     () => new Set(initialOpenId ? [initialOpenId] : []),
   );
   const [dirty, setDirty] = useState<Set<string>>(() => new Set());
-  useUnsavedChanges(dirty.size > 0);
+  const [encounterDirty, setEncounterDirty] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [savingSession, setSavingSession] = useState<string | null>(null);
+  const markEncounterDirty = useCallback((id: string, value: boolean) => {
+    setEncounterDirty((current) => {
+      if (current.has(id) === value) return current;
+      const next = new Set(current);
+      if (value) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  useUnsavedChanges(dirty.size > 0 || encounterDirty.size > 0);
   const sessionsRef = useRef(sessions);
   useEffect(() => {
     sessionsRef.current = sessions;
@@ -140,6 +154,7 @@ export function SessionsScreen({
     [],
   );
   async function save(item: V6Session) {
+    setSavingSession(item.id);
     setBusy(true);
     try {
       const controller = encounterSavers.current.get(item.id);
@@ -164,6 +179,7 @@ export function SessionsScreen({
     } catch (error) {
       report(error);
     } finally {
+      setSavingSession(null);
       setBusy(false);
     }
   }
@@ -172,6 +188,7 @@ export function SessionsScreen({
     setBusy(true);
     try {
       await deleteV6Session(campaignId, item.id);
+      markEncounterDirty(item.id, false);
       setSessions((all) => all.filter(({ id }) => id !== item.id));
       setDirty((ids) => {
         const next = new Set(ids);
@@ -310,6 +327,11 @@ export function SessionsScreen({
                 <span className="hidden text-xs text-stone-500 sm:block">
                   {item.date}
                 </span>
+                <SaveStatus
+                  dirty={dirty.has(item.id) || encounterDirty.has(item.id)}
+                  saving={savingSession === item.id}
+                  label={`Session ${item.title}`}
+                />
                 <StatusBadge status={item.status} />
               </button>
               {visited.has(item.id) && (
@@ -374,9 +396,11 @@ export function SessionsScreen({
                     editable={editable}
                     onOpenCombat={onOpenCombat}
                     registerSave={registerEncounterSaver}
+                    onDirtyChange={markEncounterDirty}
+                    savingSession={savingSession === item.id}
                   />
                   {editable && (
-                    <div className="mt-4 flex justify-end gap-2">
+                    <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-[#13161d]/95 py-3 backdrop-blur">
                       <Button
                         variant="ghost"
                         onClick={() => saveTemplate(item)}
@@ -391,7 +415,7 @@ export function SessionsScreen({
                         <Trash2 /> Delete
                       </Button>
                       <Button onClick={() => save(item)} disabled={busy}>
-                        <Save /> Save
+                        <Save /> Save session &amp; encounters
                       </Button>
                     </div>
                   )}

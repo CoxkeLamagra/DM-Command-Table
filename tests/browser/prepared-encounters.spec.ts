@@ -89,22 +89,32 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     await releaseResponse;
     await route.fulfill({ response });
   });
-  await section.getByRole("button", { name: "Save", exact: true }).click();
+  await section
+    .getByRole("button", { name: "Save session & encounters", exact: true })
+    .click();
   await responseReady;
   await page
     .getByRole("textbox", { name: "Name", exact: true })
     .fill("Captain after save");
   release();
   await expect(
-    section.getByRole("button", { name: "Save", exact: true }),
+    section.getByRole("button", {
+      name: "Save session & encounters",
+      exact: true,
+    }),
   ).toBeEnabled();
   await expect(
     page.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Captain after save");
   await page.unroute("**/sessions/*/save");
-  await section.getByRole("button", { name: "Save", exact: true }).click();
+  await section
+    .getByRole("button", { name: "Save session & encounters", exact: true })
+    .click();
   await expect(
-    section.getByRole("button", { name: "Save", exact: true }),
+    section.getByRole("button", {
+      name: "Save session & encounters",
+      exact: true,
+    }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Campaign", exact: true }).click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();

@@ -11,6 +11,9 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { SaveStatus } from "@/features/shared/save-status";
+import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
+import { reconcileSaved } from "@/features/encounters/drafts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,6 +45,18 @@ export function StoryScreen({
   onOpenSession: (id: string) => void;
 }) {
   const [story, setStory] = useState<V6StoryBeat[]>([]);
+  const [persisted, setPersisted] = useState<V6StoryBeat[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const dirtyIds = new Set(
+    story
+      .filter(
+        (item) =>
+          JSON.stringify(item) !==
+          JSON.stringify(persisted.find(({ id }) => id === item.id)),
+      )
+      .map(({ id }) => id),
+  );
+  useUnsavedChanges(dirtyIds.size > 0);
   const [sessions, setSessions] = useState<V6Session[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(initialOpenId ? [initialOpenId] : []),
@@ -54,6 +69,7 @@ export function StoryScreen({
       .then(([beats, linkedSessions]) => {
         if (live) {
           setStory(beats);
+          setPersisted(beats);
           setSessions(linkedSessions);
         }
       })
@@ -94,6 +110,7 @@ export function StoryScreen({
         sessionIds: [],
       });
       setStory((all) => [...all, beat]);
+      setPersisted((all) => [...all, beat]);
       setExpanded(new Set([beat.id]));
     } catch (error) {
       report(error);
@@ -102,14 +119,23 @@ export function StoryScreen({
     }
   }
   async function save(item: V6StoryBeat) {
+    setSavingId(item.id);
     setBusy(true);
     try {
       const saved = await updateV6StoryBeat(campaignId, item);
-      patch(saved.id, saved);
+      setStory((all) =>
+        all.map((entry) =>
+          entry.id === saved.id ? reconcileSaved(entry, item, saved) : entry,
+        ),
+      );
+      setPersisted((all) =>
+        all.map((entry) => (entry.id === saved.id ? saved : entry)),
+      );
       toast.success("Story beat saved");
     } catch (error) {
       report(error);
     } finally {
+      setSavingId(null);
       setBusy(false);
     }
   }
@@ -197,6 +223,11 @@ export function StoryScreen({
                   {beat.chapter}
                 </span>
               )}
+              <SaveStatus
+                dirty={dirtyIds.has(beat.id)}
+                saving={savingId === beat.id}
+                label={`Story ${beat.title}`}
+              />
               <StatusBadge status={beat.status} />
             </button>
             {open && (
@@ -295,7 +326,7 @@ export function StoryScreen({
                   )}
                 </div>
                 {editable && (
-                  <div className="mt-4 flex justify-end gap-2">
+                  <div className="sticky bottom-0 z-10 mt-4 flex items-center justify-end gap-2 border-t border-white/10 bg-[#13161d]/95 py-3 backdrop-blur">
                     <Button
                       variant="ghost"
                       onClick={() => remove(beat)}
@@ -303,6 +334,11 @@ export function StoryScreen({
                     >
                       <Trash2 /> Delete
                     </Button>
+                    <SaveStatus
+                      dirty={dirtyIds.has(beat.id)}
+                      saving={savingId === beat.id}
+                      label={`Story ${beat.title}`}
+                    />
                     <Button onClick={() => save(beat)} disabled={busy}>
                       <Save /> Save
                     </Button>

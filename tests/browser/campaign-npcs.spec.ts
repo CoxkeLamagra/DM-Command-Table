@@ -44,10 +44,12 @@ test("campaign NPCs import into prepared encounters and combat while single-use 
   ).toBeVisible();
   await page
     .locator("article")
-    .getByRole("button", { name: "Save", exact: true })
+    .getByRole("button", { name: "Save session & encounters", exact: true })
     .click();
   await expect(
-    page.locator("article").getByRole("button", { name: "Save", exact: true }),
+    page
+      .locator("article")
+      .getByRole("button", { name: "Save session & encounters", exact: true }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Combat", exact: true }).click();
   await page
