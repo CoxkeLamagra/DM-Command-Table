@@ -19,20 +19,24 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   });
   await expect(editor).toHaveAttribute("aria-expanded", "false");
   await editor.click();
-  await page.getByLabel("Name", { exact: true }).fill("Captain draft");
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Captain draft");
   await page
     .getByRole("button", { name: "Collapse editor", exact: true })
     .click();
-  await expect(page.getByLabel("Name", { exact: true })).toBeHidden();
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toBeHidden();
   await page
     .getByRole("button", {
       name: "Edit details for Captain draft",
       exact: true,
     })
     .click();
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
-    "Captain draft",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Captain draft");
   await page
     .getByRole("button", {
       name: "Collapse details for Captain draft",
@@ -53,14 +57,14 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
       exact: true,
     })
     .click();
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
-    "Captain draft",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Captain draft");
   await page.getByPlaceholder("Search sessions…").fill("no match");
   await page.getByPlaceholder("Search sessions…").fill("");
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
-    "Captain draft",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Captain draft");
   const section = page.locator("article");
   await section
     .getByRole("button", { name: "Expand all", exact: true })
@@ -87,14 +91,16 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   });
   await section.getByRole("button", { name: "Save", exact: true }).click();
   await responseReady;
-  await page.getByLabel("Name", { exact: true }).fill("Captain after save");
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Captain after save");
   release();
   await expect(
     section.getByRole("button", { name: "Save", exact: true }),
   ).toBeEnabled();
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
-    "Captain after save",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Captain after save");
   await page.unroute("**/sessions/*/save");
   await section.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
