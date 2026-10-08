@@ -18,13 +18,11 @@ import type { EncounterDraftController } from "./api-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  CombatantPicker,
+  type CombatantSelection,
+} from "@/features/shared/combatant-picker";
+import { EncounterSummary } from "@/features/encounters/encounter-summary";
 import {
   RichTextContent,
   RichTextEditor,
@@ -85,11 +83,7 @@ export function PreparedEncounters({
   const [busy, setBusy] = useState(false);
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
   const [players, setPlayers] = useState<V6Player[]>([]);
-  const [addingPlayers, setAddingPlayers] = useState(false);
   const [addingTo, setAddingTo] = useState<string>();
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -229,34 +223,6 @@ export function PreparedEncounters({
   const allExpanded =
     items.length > 0 && items.every(({ id }) => expanded.has(id));
 
-  function addCustom(
-    item: V6PreparedEncounter,
-    kind: "monster" | "npc" | "player",
-  ) {
-    const combatant: V6Combatant = {
-      id: crypto.randomUUID(),
-      playerId: null,
-      monsterId: null,
-      name:
-        kind === "npc"
-          ? "New NPC"
-          : kind === "player"
-            ? "New player"
-            : "New combatant",
-      kind,
-      displayNumber: null,
-      initiative: 10,
-      hitPoints: 10,
-      maximumHitPoints: 10,
-      armorClass: 10,
-      notes: "",
-      sortOrder: 0,
-      conditions: [],
-      revision: 1,
-    };
-    setEditingCombatants((current) => new Set(current).add(combatant.id));
-    patch(item.id, { combatants: [...(item.combatants ?? []), combatant] });
-  }
   function customizeMonster(item: V6PreparedEncounter, entryId: string) {
     const entry = item.monsters.find(({ id }) => id === entryId);
     const monster = monsters.find(({ id }) => id === entry?.monsterId);
@@ -300,54 +266,66 @@ export function PreparedEncounters({
     });
   }
 
-  function addChosen() {
+  function addChosen(selection: CombatantSelection) {
     if (!addingTo) return;
     setDirty((ids) => new Set(ids).add(addingTo));
     setItems((all) =>
       all.map((item) => {
         if (item.id !== addingTo) return item;
-        if (addingPlayers) {
-          const additions: PreparedCombatant[] = players
-            .filter(({ id }) => chosen.has(id))
-            .map((player, offset) => ({
-              id: crypto.randomUUID(),
-              name: player.name,
-              kind: player.kind ?? "player",
-              notes: player.notes,
-              displayNumber: null,
-              initiative: 10,
-              hitPoints: player.hitPoints ?? 10,
-              maximumHitPoints: player.hitPoints ?? 10,
-              armorClass: player.armorClass ?? 10,
-              sortOrder: (item.combatants?.length ?? 0) + offset,
-            }));
-          return {
-            ...item,
-            combatants: [...(item.combatants ?? []), ...additions],
-          };
-        }
-        const additions = [...chosen].map((monsterId, offset) => {
-          const existing = item.monsters
-            .filter((entry) => entry.monsterId === monsterId)
-            .map(
-              ({ displayNumber, quantity }) =>
-                (displayNumber ?? 1) + quantity - 1,
-            );
-          return {
+        const rosterAdditions: PreparedCombatant[] = players
+          .filter(({ id }) => selection.playerIds.includes(id))
+          .map((player, offset) => ({
             id: crypto.randomUUID(),
-            monsterId,
-            displayNumber: Math.max(0, ...existing) + 1,
-            quantity: quantities[monsterId] ?? 1,
-            sortOrder: item.monsters.length + offset,
-          };
-        });
-        return { ...item, monsters: [...item.monsters, ...additions] };
+            name: player.name,
+            kind: player.kind ?? "player",
+            notes: player.notes,
+            displayNumber: null,
+            initiative: 10,
+            hitPoints: player.hitPoints ?? 10,
+            maximumHitPoints: player.hitPoints ?? 10,
+            armorClass: player.armorClass ?? 10,
+            sortOrder: (item.combatants?.length ?? 0) + offset,
+          }));
+        if (selection.singleUse) {
+          const value = selection.singleUse;
+          rosterAdditions.push({
+            id: crypto.randomUUID(),
+            name: value.name,
+            kind: value.kind,
+            displayNumber: null,
+            initiative: 10,
+            hitPoints: value.hitPoints,
+            maximumHitPoints: value.hitPoints,
+            armorClass: value.armorClass,
+            notes: "",
+            sortOrder: (item.combatants?.length ?? 0) + rosterAdditions.length,
+          });
+        }
+        const additions = selection.monsters.map(
+          ({ id: monsterId, quantity }, offset) => {
+            const existing = item.monsters
+              .filter((entry) => entry.monsterId === monsterId)
+              .map(
+                ({ displayNumber, quantity }) =>
+                  (displayNumber ?? 1) + quantity - 1,
+              );
+            return {
+              id: crypto.randomUUID(),
+              monsterId,
+              displayNumber: Math.max(0, ...existing) + 1,
+              quantity,
+              sortOrder: item.monsters.length + offset,
+            };
+          },
+        );
+        return {
+          ...item,
+          monsters: [...item.monsters, ...additions],
+          combatants: [...(item.combatants ?? []), ...rosterAdditions],
+        };
       }),
     );
     setAddingTo(undefined);
-    setChosen(new Set());
-    setQuantities({});
-    setQuery("");
   }
   async function loadInCombat(item: V6PreparedEncounter) {
     if (
@@ -495,15 +473,8 @@ export function PreparedEncounters({
                     saving={savingSession || savingEncounter === item.id}
                     label={`Encounter ${item.name}`}
                   />
-                  <span className="shrink-0 text-xs text-stone-500">
-                    Combatants (
-                    {item.monsters.reduce(
-                      (total, entry) => total + entry.quantity,
-                      0,
-                    ) + (item.combatants?.length ?? 0)}
-                    )
-                  </span>
                 </button>
+                <EncounterSummary encounter={item} monsters={monsters} />
                 {visited.has(item.id) && (
                   <div
                     id={`encounter-details-${item.id}`}
@@ -552,7 +523,7 @@ export function PreparedEncounters({
                     </div>
                     <div className="mt-3 flex items-center justify-between">
                       <p className="text-xs font-medium uppercase tracking-wider text-stone-500">
-                        Monsters (
+                        Bestiary monsters (
                         {item.monsters.reduce(
                           (total, entry) => total + entry.quantity,
                           0,
@@ -560,49 +531,14 @@ export function PreparedEncounters({
                         )
                       </p>
                       {editable && (
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setAddingPlayers(true);
-                              setAddingTo(item.id);
-                            }}
-                          >
-                            <Plus /> Campaign players / NPCs
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => addCustom(item, "player")}
-                          >
-                            <Plus /> Player
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => addCustom(item, "npc")}
-                          >
-                            <Plus /> NPC
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => addCustom(item, "monster")}
-                          >
-                            <Plus /> Combatant
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setAddingPlayers(false);
-                              setAddingTo(item.id);
-                            }}
-                          >
-                            <Plus /> Bestiary
-                          </Button>
-                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy || savingSession}
+                          onClick={() => setAddingTo(item.id)}
+                        >
+                          <Plus /> Add combatants
+                        </Button>
                       )}
                     </div>
                     <div className="mt-2 space-y-1">
@@ -707,147 +643,15 @@ export function PreparedEncounters({
           )}
         </div>
       )}
-      <Dialog
+      <CombatantPicker
         open={!!addingTo}
         onOpenChange={(value) => {
-          if (!value) {
-            setAddingTo(undefined);
-            setChosen(new Set());
-            setQuantities({});
-          }
+          if (!value) setAddingTo(undefined);
         }}
-      >
-        <DialogContent className="border-white/10 bg-[#151820] text-stone-100">
-          <DialogHeader>
-            <DialogTitle>
-              {addingPlayers
-                ? "Add campaign players / NPCs"
-                : "Add bestiary monsters"}
-            </DialogTitle>
-          </DialogHeader>
-          <Input
-            type="search"
-            placeholder={
-              addingPlayers
-                ? "Search players / NPCs…"
-                : "Search by name, type, or CR…"
-            }
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <div className="max-h-72 space-y-1 overflow-y-auto">
-            {addingPlayers &&
-              players
-                .filter((player) =>
-                  `${player.name} ${player.kind ?? "player"}`
-                    .toLowerCase()
-                    .includes(query.toLowerCase()),
-                )
-                .map((player) => (
-                  <div
-                    key={player.id}
-                    className="flex items-center gap-3 rounded p-2"
-                  >
-                    <Checkbox
-                      aria-label={`Select ${player.name}`}
-                      checked={chosen.has(player.id)}
-                      onCheckedChange={(value) =>
-                        setChosen((current) => {
-                          const next = new Set(current);
-                          if (value) next.add(player.id);
-                          else next.delete(player.id);
-                          return next;
-                        })
-                      }
-                    />
-                    <span className="flex-1">{player.name}</span>
-                    <span
-                      className={
-                        player.kind === "npc"
-                          ? "text-blue-300"
-                          : "text-emerald-300"
-                      }
-                    >
-                      {player.kind === "npc" ? "NPC" : "Player"}
-                    </span>
-                  </div>
-                ))}
-            {!addingPlayers &&
-              monsters
-                .filter((monster) =>
-                  `${monster.name} ${monster.type} ${monster.challengeRating}`
-                    .toLowerCase()
-                    .includes(query.toLowerCase()),
-                )
-                .map((monster) => {
-                  const checked = chosen.has(monster.id);
-                  return (
-                    <div
-                      key={monster.id}
-                      className="flex items-center gap-3 rounded px-3 py-2 hover:bg-white/5"
-                    >
-                      <Checkbox
-                        aria-label={`Select ${monster.name}`}
-                        checked={checked}
-                        onCheckedChange={(value) =>
-                          setChosen((current) => {
-                            const next = new Set(current);
-                            if (value) next.add(monster.id);
-                            else next.delete(monster.id);
-                            return next;
-                          })
-                        }
-                      />
-                      <span className="min-w-0 flex-1 truncate">
-                        {monster.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-stone-500">
-                        {monster.type} · CR {monster.challengeRating}
-                      </span>
-                      <Input
-                        aria-label={`Quantity for ${monster.name}`}
-                        title={`Quantity for ${monster.name}`}
-                        className="h-8 w-20 text-center"
-                        type="number"
-                        min={1}
-                        max={99}
-                        value={quantities[monster.id] ?? 1}
-                        onFocus={() =>
-                          setChosen((current) =>
-                            new Set(current).add(monster.id),
-                          )
-                        }
-                        onChange={(event) => {
-                          const quantity = Math.max(
-                            1,
-                            Math.min(
-                              99,
-                              Number.parseInt(event.target.value, 10) || 1,
-                            ),
-                          );
-                          setQuantities((current) => ({
-                            ...current,
-                            [monster.id]: quantity,
-                          }));
-                          setChosen((current) =>
-                            new Set(current).add(monster.id),
-                          );
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-          </div>
-          <Button disabled={!chosen.size} onClick={addChosen}>
-            Add selected (
-            {[...chosen].reduce(
-              (total, id) => total + (quantities[id] ?? 1),
-              0,
-            )}
-            )
-          </Button>
-        </DialogContent>
-      </Dialog>
+        players={players}
+        monsters={monsters}
+        onAdd={addChosen}
+      />
     </div>
   );
 }

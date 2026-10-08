@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  RosterFilter,
+  type RosterFilterValue,
+} from "@/features/shared/roster-filter";
 import { SaveStatus } from "@/features/shared/save-status";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { reconcileSaved } from "@/features/encounters/drafts";
@@ -40,6 +44,7 @@ export function PlayersScreen({
   const [players, setPlayers] = useState<V6Player[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<V6Player | null>(null);
+  const [kindFilter, setKindFilter] = useState<RosterFilterValue>("all");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,14 +71,16 @@ export function PlayersScreen({
   }
   const visible = useMemo(() => {
     const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return players.filter((item) =>
-      terms.every((term) =>
-        `${item.name} ${item.kind ?? "player"} ${item.race} ${item.className} ${richTextToPlainText(item.notes)}`
-          .toLowerCase()
-          .includes(term),
-      ),
+    return players.filter(
+      (item) =>
+        (kindFilter === "all" || (item.kind ?? "player") === kindFilter) &&
+        terms.every((term) =>
+          `${item.name} ${item.kind ?? "player"} ${item.race} ${item.className} ${richTextToPlainText(item.notes)}`
+            .toLowerCase()
+            .includes(term),
+        ),
     );
-  }, [players, query]);
+  }, [players, query, kindFilter]);
   async function add(kind: "player" | "npc") {
     setBusy(true);
     try {
@@ -167,6 +174,13 @@ export function PlayersScreen({
           </>
         }
       >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <RosterFilter value={kindFilter} onChange={setKindFilter} />
+          <p role="status" className="text-sm text-stone-500">
+            {visible.length} of {players.length} records · {selected.size}{" "}
+            selected
+          </p>
+        </div>
         <div className="overflow-hidden rounded-xl border border-white/10 bg-[#13161d]">
           <div className="grid grid-cols-[2.5rem_1fr_1fr_1fr_5rem_5rem] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-wider text-stone-600">
             <span />

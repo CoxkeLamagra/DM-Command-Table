@@ -8,6 +8,7 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await page.locator('form button[type="submit"]').click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
+  await page.getByRole("tab", { name: /^Encounters/ }).click();
   const patrol = page
     .locator("button[aria-expanded]")
     .filter({ hasText: "Guard patrol" });
@@ -123,6 +124,7 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await page.getByRole("button", { name: "Campaign", exact: true }).click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
+  await page.getByRole("tab", { name: /^Encounters/ }).click();
   await patrol.click();
   await expect(
     page.getByRole("button", {

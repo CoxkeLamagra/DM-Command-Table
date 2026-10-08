@@ -14,6 +14,7 @@ import { SaveStatus } from "@/features/shared/save-status";
 import { reconcileSaved } from "@/features/encounters/drafts";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { toast } from "sonner";
+import { Tabs } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -341,6 +342,7 @@ export function SessionsScreen({
                 >
                   <div className="grid gap-3 sm:grid-cols-[1fr_11rem_10rem]">
                     <Input
+                      aria-label="Session title"
                       value={item.title}
                       disabled={!editable}
                       onChange={(event) =>
@@ -349,6 +351,7 @@ export function SessionsScreen({
                     />
                     <Input
                       type="date"
+                      aria-label="Session date"
                       value={item.date}
                       disabled={!editable}
                       onChange={(event) =>
@@ -361,44 +364,83 @@ export function SessionsScreen({
                       onChange={(status) => patch(item.id, { status })}
                     />
                   </div>
-                  <div className="mt-4">
-                    {editable ? (
-                      <RichTextEditor
-                        value={item.notes}
-                        onChange={(notes) => patch(item.id, { notes })}
-                        onPasteImage={uploadV6Screenshot}
-                        placeholder="Session notes…"
-                        className="min-h-48"
+                  <Tabs.Root defaultValue="notes" className="mt-4">
+                    <Tabs.List
+                      aria-label={`Workspace for ${item.title}`}
+                      className="flex flex-wrap gap-1 rounded-lg bg-black/20 p-1"
+                    >
+                      <Tabs.Trigger value="notes" className={sessionTabClass}>
+                        Notes
+                      </Tabs.Trigger>
+                      <Tabs.Trigger
+                        value="encounters"
+                        className={sessionTabClass}
+                      >
+                        Encounters{encounterDirty.has(item.id) ? " •" : ""}
+                      </Tabs.Trigger>
+                      <Tabs.Trigger value="stories" className={sessionTabClass}>
+                        Linked stories ({linked.length})
+                      </Tabs.Trigger>
+                    </Tabs.List>
+                    <Tabs.Content
+                      value="notes"
+                      forceMount
+                      className="mt-4 data-[state=inactive]:hidden"
+                    >
+                      <div>
+                        {editable ? (
+                          <RichTextEditor
+                            value={item.notes}
+                            onChange={(notes) => patch(item.id, { notes })}
+                            onPasteImage={uploadV6Screenshot}
+                            placeholder="Session notes…"
+                            className="min-h-48"
+                          />
+                        ) : (
+                          <RichTextContent value={item.notes} />
+                        )}
+                      </div>
+                    </Tabs.Content>
+                    <Tabs.Content
+                      value="stories"
+                      forceMount
+                      className="mt-4 data-[state=inactive]:hidden"
+                    >
+                      {linked.length ? (
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          {linked.map((beat) => (
+                            <button
+                              className="rounded-full bg-violet-400/10 px-3 py-1 text-xs text-violet-300 hover:bg-violet-400/20"
+                              key={beat.id}
+                              onClick={() => onOpenStory(beat.id)}
+                            >
+                              {beat.title} <StatusBadge status={beat.status} />
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-stone-500">
+                          No stories linked to this session. Link a session from
+                          the Story workspace.
+                        </p>
+                      )}
+                    </Tabs.Content>
+                    <Tabs.Content
+                      value="encounters"
+                      forceMount
+                      className="data-[state=inactive]:hidden"
+                    >
+                      <PreparedEncounters
+                        campaignId={campaignId}
+                        sessionId={item.id}
+                        editable={editable}
+                        onOpenCombat={onOpenCombat}
+                        registerSave={registerEncounterSaver}
+                        onDirtyChange={markEncounterDirty}
+                        savingSession={savingSession === item.id}
                       />
-                    ) : (
-                      <RichTextContent value={item.notes} />
-                    )}
-                  </div>
-                  {!!linked.length && (
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-stone-500">
-                        Linked story:
-                      </span>
-                      {linked.map((beat) => (
-                        <button
-                          className="rounded-full bg-violet-400/10 px-3 py-1 text-xs text-violet-300 hover:bg-violet-400/20"
-                          key={beat.id}
-                          onClick={() => onOpenStory(beat.id)}
-                        >
-                          {beat.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <PreparedEncounters
-                    campaignId={campaignId}
-                    sessionId={item.id}
-                    editable={editable}
-                    onOpenCombat={onOpenCombat}
-                    registerSave={registerEncounterSaver}
-                    onDirtyChange={markEncounterDirty}
-                    savingSession={savingSession === item.id}
-                  />
+                    </Tabs.Content>
+                  </Tabs.Root>
                   {editable && (
                     <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-[#13161d]/95 py-3 backdrop-blur">
                       <Button
@@ -514,3 +556,6 @@ export function Empty({ children }: { children: React.ReactNode }) {
     </p>
   );
 }
+
+const sessionTabClass =
+  "rounded-md px-3 py-2 text-sm text-stone-400 outline-none focus-visible:ring-2 focus-visible:ring-amber-300 data-[state=active]:bg-white/10 data-[state=active]:text-amber-200";

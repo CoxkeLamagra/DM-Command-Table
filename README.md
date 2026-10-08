@@ -45,6 +45,7 @@ An administrator cannot delete their own account or remove their own administrat
 
 - Give each encounter its own editable name.
 - Add ad-hoc players, monsters, or NPCs.
+- Use one Add combatants picker for the Campaign roster, Bestiary, and Single-use records. Keep selections across searches and source tabs, filter Players/NPCs, and enter monster quantities before adding.
 - Add reusable Players and NPCs from the campaign roster, retaining their type, HP, AC, and notes.
 - Add monsters from the campaign bestiary with their linked stat blocks.
 - Assign optional numbers to Monsters and NPCs so identically named combatants remain easy to distinguish.
@@ -94,6 +95,8 @@ Imported monster data belongs to the current campaign and remains editable after
 - Search Session and Story content with typeahead filtering.
 - Start with compact collapsed Sessions and Story beats, expand individual entries as needed, or expand and collapse every entry at once.
 - Prepare multiple named encounters inside each session.
+- Switch between Notes, Encounters, and Linked stories tabs without losing drafts. Save session & encounters saves the whole preparation workspace, including hidden tabs.
+- Review collapsed encounters with colour-coded type counts, monster quantities, a combatant preview, and a notes excerpt.
 - Add one or more instances of Bestiary monsters to every prepared encounter.
 - Assign automatic or custom monster numbers such as **Goblin #1** and **Goblin #2**.
 - Prepared encounters start collapsed; expand/collapse each separately or all encounters in a session at once.

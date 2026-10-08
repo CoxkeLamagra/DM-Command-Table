@@ -7,6 +7,7 @@ import { runMigrations } from "../db/migrations.ts";
 import { hashPassword } from "../server/security/passwords.ts";
 import { createV6CampaignRepository } from "../server/v6/campaign-repository.ts";
 import { createContentRepository } from "../server/v6/content-repository.ts";
+import { createBestiaryRepository } from "../server/v6/bestiary-repository.ts";
 import { createEncounterRepository } from "../server/v6/encounter-repository.ts";
 const directory = mkdtempSync(path.join(tmpdir(), "dmct-browser-"));
 const databasePath = path.join(directory, "test.sqlite");
@@ -33,6 +34,51 @@ const session = createContentRepository(database).createSession(
     sortOrder: 0,
   },
 );
+const content = createContentRepository(database);
+content.createPlayer(campaign.id, owner, {
+  name: "Roster hero",
+  kind: "player",
+  race: "Human",
+  className: "Fighter",
+  level: 3,
+  hitPoints: 24,
+  armorClass: 16,
+  notes: "<p>Hero notes</p>",
+});
+content.createPlayer(campaign.id, owner, {
+  name: "Roster guide",
+  kind: "npc",
+  race: "Elf",
+  className: "Ranger",
+  level: null,
+  hitPoints: 18,
+  armorClass: 14,
+  notes: "<p>Guide notes</p>",
+});
+content.createStoryBeat(campaign.id, owner, {
+  title: "The gate",
+  chapter: "I",
+  details: "Meet the guard",
+  status: "active",
+  sortOrder: 0,
+  sessionIds: [session.id],
+});
+createBestiaryRepository(database).create(campaign.id, owner, {
+  name: "Test goblin",
+  type: "Humanoid",
+  challengeRating: "1/4",
+  hitPoints: 7,
+  armorClass: 15,
+  speed: "30 ft.",
+  stats: "",
+  abilities: "<p>Nimble Escape</p>",
+  spells: "",
+  notes: "",
+  spellSlots: [],
+  source: "MM",
+  favorite: false,
+  tagIds: [],
+});
 const repository = createEncounterRepository(database);
 repository.createPrepared(campaign.id, owner, session.id, {
   name: "Guard patrol",
