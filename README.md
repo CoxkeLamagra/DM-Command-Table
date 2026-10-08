@@ -49,6 +49,8 @@ An administrator cannot delete their own account or remove their own administrat
 - Add monsters from the campaign bestiary with their linked stat blocks.
 - Assign optional numbers to Monsters and NPCs so identically named combatants remain easy to distinguish.
 - Track initiative, turn order, rounds, armor class, current and maximum HP, and conditions.
+- Apply damage or healing by amount, with an immediate Undo HP change control.
+- Keep Save and Next turn visible while scrolling. Reset and clear operations live in Encounter actions and explain their effects before confirmation.
 - Highlight combatants at `0 HP` as downed and automatically skip them when advancing to the next turn.
 - Reset the round counter without removing combatants.
 - Remove all monster combatants while keeping players and NPCs ready for the next encounter.
@@ -284,14 +286,14 @@ Session Save writes the session and its prepared encounter edits in one transact
 
 The authenticated API is exposed below `/api/v6`:
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET`, `POST` | `/api/v6/campaigns` | List or create campaigns. |
-| `GET`, `PATCH`, `DELETE` | `/api/v6/campaigns/:id` | Read, update, or delete a campaign. |
-| `POST` | `/api/v6/campaigns/:id/copy` | Copy a complete campaign or create a reusable template. |
-| `GET` | `/api/v6/campaigns/:id/export` | Download a portable campaign JSON document. |
-| `POST` | `/api/v6/campaigns/import` | Import a portable campaign JSON document. |
-| `GET`, `POST`, `PATCH`, `DELETE` | `/api/v6/campaigns/:id/{players,sessions,story,monsters,encounters}` | Manage normalized campaign records. |
+| Method                           | Endpoint                                                             | Purpose                                                 |
+| -------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
+| `GET`, `POST`                    | `/api/v6/campaigns`                                                  | List or create campaigns.                               |
+| `GET`, `PATCH`, `DELETE`         | `/api/v6/campaigns/:id`                                              | Read, update, or delete a campaign.                     |
+| `POST`                           | `/api/v6/campaigns/:id/copy`                                         | Copy a complete campaign or create a reusable template. |
+| `GET`                            | `/api/v6/campaigns/:id/export`                                       | Download a portable campaign JSON document.             |
+| `POST`                           | `/api/v6/campaigns/import`                                           | Import a portable campaign JSON document.               |
+| `GET`, `POST`, `PATCH`, `DELETE` | `/api/v6/campaigns/:id/{players,sessions,story,monsters,encounters}` | Manage normalized campaign records.                     |
 
 Local registration, login, and logout use `/api/v6-auth`. Account and Administration operations use `/api/v6-account` and `/api/v6-admin`.
 

@@ -12,6 +12,8 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { SaveStatus } from "@/features/shared/save-status";
+import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,6 +53,8 @@ export function CampaignScreen({
 }) {
   const [name, setName] = useState(campaign.name);
   const [notes, setNotes] = useState(campaign.notes);
+  const dirty = name !== campaign.name || notes !== campaign.notes;
+  useUnsavedChanges(dirty);
   const editable = campaign.role !== "viewer";
   const [sessions, setSessions] = useState<V6Session[]>([]);
   useEffect(() => {
@@ -79,7 +83,7 @@ export function CampaignScreen({
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="sticky top-16 z-20 flex flex-col gap-4 bg-[#0b0d12]/95 py-3 backdrop-blur sm:flex-row sm:items-end sm:justify-between lg:top-0">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
             Campaign workspace
@@ -93,7 +97,10 @@ export function CampaignScreen({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-2 text-xs text-stone-500">{saveLabel}</span>
+          <SaveStatus dirty={dirty} saving={saving} label="Campaign" />
+          {saveLabel.includes("Conflict") && (
+            <span role="alert">{saveLabel}</span>
+          )}
           {campaign.role === "owner" && <MemberManager campaign={campaign} />}
           <Button variant="outline" onClick={() => onCopy("campaign")}>
             <Copy /> Copy
@@ -154,13 +161,13 @@ export function CampaignScreen({
             className="mt-2 h-12 text-lg"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            disabled={!editable}
+            disabled={!editable || saving}
           />
           <div className="mt-6">
             <p className="mb-2 text-sm font-medium text-stone-300">
               Campaign notes
             </p>
-            {editable ? (
+            {editable && !saving ? (
               <RichTextEditor
                 value={notes}
                 onChange={setNotes}

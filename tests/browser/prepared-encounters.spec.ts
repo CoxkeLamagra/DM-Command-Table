@@ -8,8 +8,12 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await page.locator('form button[type="submit"]').click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
-  const patrol = page.getByRole("button", { name: /Guard patrol/ });
-  const ambush = page.getByRole("button", { name: /Road ambush/ });
+  const patrol = page
+    .locator("button[aria-expanded]")
+    .filter({ hasText: "Guard patrol" });
+  const ambush = page
+    .locator("button[aria-expanded]")
+    .filter({ hasText: "Road ambush" });
   await expect(patrol).toHaveAttribute("aria-expanded", "false");
   await expect(ambush).toHaveAttribute("aria-expanded", "false");
   await patrol.click();
@@ -89,22 +93,32 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     await releaseResponse;
     await route.fulfill({ response });
   });
-  await section.getByRole("button", { name: "Save", exact: true }).click();
+  await section
+    .getByRole("button", { name: "Save session & encounters", exact: true })
+    .click();
   await responseReady;
   await page
     .getByRole("textbox", { name: "Name", exact: true })
     .fill("Captain after save");
   release();
   await expect(
-    section.getByRole("button", { name: "Save", exact: true }),
+    section.getByRole("button", {
+      name: "Save session & encounters",
+      exact: true,
+    }),
   ).toBeEnabled();
   await expect(
     page.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Captain after save");
   await page.unroute("**/sessions/*/save");
-  await section.getByRole("button", { name: "Save", exact: true }).click();
+  await section
+    .getByRole("button", { name: "Save session & encounters", exact: true })
+    .click();
   await expect(
-    section.getByRole("button", { name: "Save", exact: true }),
+    section.getByRole("button", {
+      name: "Save session & encounters",
+      exact: true,
+    }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Campaign", exact: true }).click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();

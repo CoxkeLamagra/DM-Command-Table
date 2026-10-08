@@ -11,6 +11,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
+import { SaveStatus } from "@/features/shared/save-status";
 import { reconcileSaved } from "@/features/encounters/drafts";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import type { EncounterDraftController } from "./api-client";
@@ -53,11 +54,15 @@ export function PreparedEncounters({
   editable,
   onOpenCombat,
   registerSave,
+  onDirtyChange,
+  savingSession = false,
 }: {
   campaignId: string;
   sessionId: string;
   editable: boolean;
   onOpenCombat: () => void;
+  onDirtyChange?: (sessionId: string, dirty: boolean) => void;
+  savingSession?: boolean;
   registerSave?: (
     sessionId: string,
     controller: EncounterDraftController,
@@ -72,6 +77,10 @@ export function PreparedEncounters({
   );
   const [dirty, setDirty] = useState<Set<string>>(() => new Set());
   useUnsavedChanges(dirty.size > 0);
+  const [savingEncounter, setSavingEncounter] = useState<string | null>(null);
+  useEffect(() => {
+    onDirtyChange?.(sessionId, dirty.size > 0);
+  }, [onDirtyChange, sessionId, dirty.size]);
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
@@ -131,6 +140,7 @@ export function PreparedEncounters({
     }
   }
   async function save(item: V6PreparedEncounter) {
+    setSavingEncounter(item.id);
     setBusy(true);
     try {
       const saved = await updatePreparedEncounter(campaignId, item);
@@ -150,6 +160,7 @@ export function PreparedEncounters({
     } catch (error) {
       report(error);
     } finally {
+      setSavingEncounter(null);
       setBusy(false);
     }
   }
@@ -479,6 +490,11 @@ export function PreparedEncounters({
                   <span className="min-w-0 flex-1 truncate font-medium">
                     {item.name || "Untitled encounter"}
                   </span>
+                  <SaveStatus
+                    dirty={dirty.has(item.id)}
+                    saving={savingSession || savingEncounter === item.id}
+                    label={`Encounter ${item.name}`}
+                  />
                   <span className="shrink-0 text-xs text-stone-500">
                     Combatants (
                     {item.monsters.reduce(
@@ -506,6 +522,8 @@ export function PreparedEncounters({
                         size="icon"
                         variant="ghost"
                         disabled={!editable || busy}
+                        aria-label={`Save encounter ${item.name}`}
+                        title="Save this encounter"
                         onClick={() => save(item)}
                       >
                         <Save />
