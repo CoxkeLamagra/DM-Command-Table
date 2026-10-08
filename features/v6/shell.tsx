@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  Rows3,
   Settings,
   Shield,
   Swords,
@@ -102,6 +103,33 @@ export function V6Shell() {
   const labelClass = sidebarCollapsed ? "lg:hidden" : "";
   const [openSessionId, setOpenSessionId] = useState<string>();
   const [openStoryId, setOpenStoryId] = useState<string>();
+  const [openPlayerId, setOpenPlayerId] = useState<string>();
+  const [openMonsterId, setOpenMonsterId] = useState<string>();
+  const [compact, setCompact] = useState(() => {
+    try {
+      return (
+        typeof window !== "undefined" &&
+        localStorage.getItem("dmct-compact-layout") === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+  function resetRecordTargets() {
+    setOpenSessionId(undefined);
+    setOpenStoryId(undefined);
+    setOpenPlayerId(undefined);
+    setOpenMonsterId(undefined);
+  }
+  function toggleDensity() {
+    const next = !compact;
+    setCompact(next);
+    try {
+      localStorage.setItem("dmct-compact-layout", String(next));
+    } catch {
+      /* The current preference still applies. */
+    }
+  }
   const sync = useV6Sync(workspace.current?.id, workspace.current?.revision);
 
   if (!workspace.loaded)
@@ -157,7 +185,7 @@ export function V6Shell() {
           </span>
           <div className={`min-w-0 flex-1 ${labelClass}`}>
             <p className="font-serif text-lg">DM Command Table</p>
-            <p className="text-xs text-stone-500">Version 6 workspace</p>
+            <p className="text-xs text-stone-400">Campaign workspace</p>
           </div>
           <Button
             className="lg:hidden"
@@ -197,7 +225,7 @@ export function V6Shell() {
           )}
           <div className={labelClass}>
             <label
-              className="text-xs uppercase tracking-wider text-stone-500"
+              className="text-xs uppercase tracking-wider text-stone-400"
               htmlFor="v6-campaign"
             >
               Campaign
@@ -208,8 +236,10 @@ export function V6Shell() {
               value={workspace.currentId}
               onChange={(event) => {
                 if (!confirmDiscardChanges()) return;
+                resetRecordTargets();
                 workspace.setCurrentId(event.target.value);
                 setSection("campaign");
+                setMenuOpen(false);
               }}
             >
               {workspace.campaigns.map((campaign) => (
@@ -225,7 +255,12 @@ export function V6Shell() {
             title="New campaign"
             className={`mt-2 w-full ${sidebarCollapsed ? "lg:px-0" : ""}`}
             onClick={() => {
-              if (confirmDiscardChanges()) void workspace.createCampaign();
+              if (!confirmDiscardChanges()) return;
+              void workspace.createCampaign().then(() => {
+                resetRecordTargets();
+                setSection("campaign");
+                setMenuOpen(false);
+              });
             }}
           >
             <Plus />
@@ -241,7 +276,12 @@ export function V6Shell() {
               title={item.label}
               aria-current={section === item.id ? "page" : undefined}
               onClick={() => {
+                if (section === item.id) {
+                  setMenuOpen(false);
+                  return;
+                }
                 if (!confirmDiscardChanges()) return;
+                resetRecordTargets();
                 setSection(item.id);
                 setMenuOpen(false);
               }}
@@ -254,7 +294,7 @@ export function V6Shell() {
           {!!workspace.archivedCampaigns.length && (
             <div className="mt-5 border-t border-white/10 pt-4">
               <p
-                className={`px-3 text-xs uppercase tracking-wider text-stone-600 ${labelClass}`}
+                className={`px-3 text-xs uppercase tracking-wider text-stone-400 ${labelClass}`}
               >
                 Archived
               </p>
@@ -264,7 +304,7 @@ export function V6Shell() {
                   type="button"
                   aria-label={`Restore ${campaign.name}`}
                   title={`Restore ${campaign.name}`}
-                  className="mt-1 flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-stone-500 hover:bg-white/5"
+                  className="mt-1 flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-stone-400 hover:bg-white/5"
                   onClick={() => {
                     if (confirmDiscardChanges())
                       void workspace.restoreCampaign(campaign);
@@ -278,10 +318,25 @@ export function V6Shell() {
           )}
         </nav>
         <div className="border-t border-white/10 p-4">
+          <Button
+            variant="ghost"
+            className="mb-2 w-full"
+            aria-label={
+              compact ? "Use comfortable layout" : "Use compact layout"
+            }
+            title={compact ? "Use comfortable layout" : "Use compact layout"}
+            aria-pressed={compact}
+            onClick={toggleDensity}
+          >
+            <Rows3 />
+            <span className={labelClass}>
+              {compact ? "Comfortable layout" : "Compact layout"}
+            </span>
+          </Button>
           <p className={`truncate text-sm ${labelClass}`}>
             {workspace.user?.displayName}
           </p>
-          <p className={`truncate text-xs text-stone-600 ${labelClass}`}>
+          <p className={`truncate text-xs text-stone-400 ${labelClass}`}>
             @{workspace.user?.username}
           </p>
           <Button
@@ -297,7 +352,7 @@ export function V6Shell() {
             <span className={labelClass}>Sign out</span>
           </Button>
           <a
-            className="mt-2 block text-xs text-stone-600 hover:text-amber-300"
+            className="mt-2 block text-xs text-stone-400 hover:text-amber-300"
             href="https://github.com/CoxkeLamagra/DM-Command-Table"
             target="_blank"
             rel="noreferrer"
@@ -356,6 +411,7 @@ export function V6Shell() {
         </div>
       )}
       <main
+        data-density={compact ? "compact" : "comfortable"}
         className={`min-h-screen p-4 sm:p-7 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"} lg:p-10`}
       >
         {workspace.current && section === "campaign" && (
@@ -407,16 +463,18 @@ export function V6Shell() {
         )}
         {workspace.current && section === "players" && (
           <PlayersScreen
-            key={`${workspace.current.id}:${sync.generation}`}
+            key={`${workspace.current.id}:${openPlayerId ?? "default"}:${sync.generation}`}
             campaignId={workspace.current.id}
             editable={workspace.current.role !== "viewer"}
+            initialOpenId={openPlayerId}
           />
         )}
         {workspace.current && section === "bestiary" && (
           <BestiaryScreen
-            key={`${workspace.current.id}:${sync.generation}`}
+            key={`${workspace.current.id}:${openMonsterId ?? "default"}:${sync.generation}`}
             campaignId={workspace.current.id}
             editable={workspace.current.role !== "viewer"}
+            initialOpenId={openMonsterId}
           />
         )}
         {workspace.current && section === "combat" && (
@@ -433,6 +491,8 @@ export function V6Shell() {
               if (!confirmDiscardChanges()) return;
               if (target === "sessions") setOpenSessionId(id);
               if (target === "story") setOpenStoryId(id);
+              if (target === "players") setOpenPlayerId(id);
+              if (target === "bestiary") setOpenMonsterId(id);
               setSection(target);
             }}
           />

@@ -86,3 +86,51 @@ test("screenshot references are explicit normalized relationships", () => {
   assert.equal(count.count, 1);
   database.close();
 });
+
+test("search distinguishes NPCs and applies type filters before the result limit", async () => {
+  const { createContentRepository } =
+    await import("../server/v6/content-repository.ts");
+  const { database, campaign, support } = fixture();
+  const content = createContentRepository(database);
+  const input = {
+    race: "",
+    className: "",
+    level: null,
+    hitPoints: null,
+    armorClass: null,
+    notes: "",
+  };
+  for (let index = 0; index < 35; index++)
+    content.createPlayer(campaign.id, "owner", {
+      ...input,
+      name: `Shared player ${index}`,
+      kind: "player",
+    });
+  const npc = content.createPlayer(campaign.id, "owner", {
+    ...input,
+    name: "Shared guide",
+    kind: "npc",
+  });
+  const results = support.search(campaign.id, "owner", "Shared", 1, "npc");
+  assert.equal(results.length, 1);
+  assert.equal(results[0].resourceId, npc.id);
+  assert.equal(results[0].resourceType, "npc");
+  assert.ok(
+    support
+      .search(campaign.id, "owner", "Shared", 100, "player")
+      .every(
+        ({ resourceType, resourceId }) =>
+          resourceType === "player" && resourceId !== npc.id,
+      ),
+  );
+  content.updatePlayer(campaign.id, "owner", npc.id, npc.revision, {
+    ...input,
+    name: npc.name,
+    kind: "player",
+  });
+  assert.equal(
+    support.search(campaign.id, "owner", "Shared", 100, "npc").length,
+    0,
+  );
+  database.close();
+});

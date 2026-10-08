@@ -12,6 +12,9 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { nextSession } from "@/features/shared/next-session";
+import { toast } from "sonner";
+import { StatusBadge } from "./progress-status";
 import { SaveStatus } from "@/features/shared/save-status";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { Button } from "@/components/ui/button";
@@ -59,26 +62,48 @@ export function CampaignScreen({
   const [sessions, setSessions] = useState<V6Session[]>([]);
   useEffect(() => {
     let live = true;
-    void listV6Sessions(campaign.id).then((items) => {
-      if (live) setSessions(items);
-    });
+    void listV6Sessions(campaign.id)
+      .then((items) => {
+        if (live) setSessions(items);
+      })
+      .catch((error: unknown) => {
+        if (live)
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Sessions could not be loaded.",
+          );
+      });
     return () => {
       live = false;
     };
   }, [campaign.id]);
 
+  const upcoming = nextSession(sessions);
+  const [creatingSession, setCreatingSession] = useState(false);
   async function save() {
     await onSave({ name: name.trim() || "Untitled campaign", notes });
   }
   async function addSession() {
-    const session = await createV6Session(campaign.id, {
-      title: "New session",
-      date: new Date().toISOString().slice(0, 10),
-      notes: "",
-      status: "planned",
-      sortOrder: sessions.length,
-    });
-    onOpenSession(session.id);
+    if (creatingSession) return;
+    setCreatingSession(true);
+    try {
+      const session = await createV6Session(campaign.id, {
+        title: "New session",
+        date: new Date().toISOString().slice(0, 10),
+        notes: "",
+        status: "planned",
+        sortOrder: sessions.length,
+      });
+      setSessions((items) => [...items, session]);
+      onOpenSession(session.id);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Session creation failed.",
+      );
+    } finally {
+      setCreatingSession(false);
+    }
   }
 
   return (
@@ -91,7 +116,7 @@ export function CampaignScreen({
           <h1 className="mt-1 font-serif text-3xl text-stone-100">
             Campaign details
           </h1>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-500">
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
             <ShieldCheck className="size-4" /> {campaign.role} access · revision{" "}
             {campaign.revision}
           </p>
@@ -181,6 +206,44 @@ export function CampaignScreen({
           </div>
         </section>
         <section>
+          <div className="mb-5 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4">
+            <p className="text-xs uppercase tracking-wider text-amber-300">
+              {upcoming?.status === "active"
+                ? "Continue session"
+                : "Next session"}
+            </p>
+            {upcoming ? (
+              <>
+                <h2 className="mt-2 font-serif text-xl">{upcoming.title}</h2>
+                <p className="mt-2 text-sm text-stone-300">
+                  {upcoming.date || "Date not set"}
+                </p>
+                <Button
+                  className="mt-3"
+                  onClick={() => onOpenSession(upcoming.id)}
+                >
+                  {upcoming.status === "active"
+                    ? "Continue session"
+                    : "Prepare next session"}
+                  <ChevronRight />
+                </Button>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-stone-400">
+                No active or planned sessions.
+              </p>
+            )}
+            {editable && (
+              <Button
+                variant="outline"
+                className="mt-3 ml-2"
+                disabled={creatingSession}
+                onClick={addSession}
+              >
+                <Plus /> New session
+              </Button>
+            )}
+          </div>
           <div className="mb-4 flex items-start justify-between">
             <div>
               <p className="text-xs uppercase tracking-[.18em] text-amber-300">
@@ -192,6 +255,7 @@ export function CampaignScreen({
               <Button
                 size="icon"
                 onClick={addSession}
+                disabled={creatingSession}
                 aria-label="Create session"
               >
                 <Plus />
@@ -211,10 +275,11 @@ export function CampaignScreen({
                     <span className="min-w-0 flex-1 truncate font-medium text-amber-100">
                       {session.title}
                     </span>
-                    <ChevronRight className="size-4 text-stone-600" />
+                    <ChevronRight className="size-4 text-stone-400" />
                   </div>
-                  <p className="mt-1 text-xs text-stone-500">
-                    {session.date || "Date not set"} · {session.status}
+                  <p className="mt-1 text-xs text-stone-400">
+                    {session.date || "Date not set"} ·{" "}
+                    <StatusBadge status={session.status} />
                   </p>
                   <p className="mt-3 line-clamp-6 whitespace-pre-line text-sm text-stone-400">
                     {session.notes.replace(/<[^>]*>/g, "").slice(0, 2000) ||
@@ -223,7 +288,7 @@ export function CampaignScreen({
                 </button>
               ))}
             {!sessions.length && (
-              <p className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-stone-600">
+              <p className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-stone-400">
                 No sessions yet.
               </p>
             )}

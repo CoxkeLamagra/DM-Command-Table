@@ -444,7 +444,7 @@ export function PreparedEncounters({
       {open && (
         <div className="mt-3 space-y-3">
           {items.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-stone-600">
+            <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-stone-400">
               No encounters prepared yet.
             </p>
           ) : (
@@ -522,7 +522,7 @@ export function PreparedEncounters({
                       )}
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                      <p className="text-xs font-medium uppercase tracking-wider text-stone-500">
+                      <p className="text-xs font-medium uppercase tracking-wider text-stone-400">
                         Bestiary monsters (
                         {item.monsters.reduce(
                           (total, entry) => total + entry.quantity,
@@ -557,7 +557,7 @@ export function PreparedEncounters({
                                 ? ` #${entry.displayNumber}`
                                 : ""}
                             </span>
-                            <span className="text-xs text-stone-500">
+                            <span className="text-xs text-stone-400">
                               × {entry.quantity}
                             </span>
                             {editable && (

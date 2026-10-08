@@ -10,6 +10,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
+import { useRecordFocus } from "@/features/shared/use-record-focus";
 import { SaveStatus } from "@/features/shared/save-status";
 import { reconcileSaved } from "@/features/encounters/drafts";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
@@ -104,6 +105,10 @@ export function SessionsScreen({
       live = false;
     };
   }, [campaignId]);
+  useRecordFocus(
+    initialOpenId ? `session-${initialOpenId}` : undefined,
+    sessions.some(({ id }) => id === initialOpenId),
+  );
   function report(error: unknown) {
     toast.error(
       error instanceof Error ? error.message : "Session update failed.",
@@ -307,13 +312,15 @@ export function SessionsScreen({
           );
           return (
             <article
+              id={`session-${item.id}`}
+              tabIndex={-1}
               key={item.id}
               hidden={!visible.some(({ id }) => id === item.id)}
               className="rounded-xl border border-white/10 bg-[#13161d]"
             >
               <button
                 type="button"
-                className="flex w-full items-center gap-3 p-4 text-left"
+                className="record-row flex w-full items-center gap-3 p-4 text-left"
                 aria-expanded={open}
                 onClick={() => toggle(item.id)}
               >
@@ -325,7 +332,7 @@ export function SessionsScreen({
                 <span className="min-w-0 flex-1 truncate font-medium">
                   {item.title || "Untitled session"}
                 </span>
-                <span className="hidden text-xs text-stone-500 sm:block">
+                <span className="hidden text-xs text-stone-400 sm:block">
                   {item.date}
                 </span>
                 <SaveStatus
@@ -419,7 +426,7 @@ export function SessionsScreen({
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-stone-500">
+                        <p className="text-sm text-stone-400">
                           No stories linked to this session. Link a session from
                           the Story workspace.
                         </p>
@@ -500,7 +507,7 @@ export function SessionsScreen({
               </div>
             ))}
             {!templates.length && (
-              <p className="text-sm text-stone-500">No templates saved yet.</p>
+              <p className="text-sm text-stone-400">No templates saved yet.</p>
             )}
           </div>
         </DialogContent>
@@ -532,7 +539,7 @@ export function Section({
             Campaign workspace
           </p>
           <h1 className="mt-1 font-serif text-3xl">{title}</h1>
-          <p className="mt-1 text-sm text-stone-500">{description}</p>
+          <p className="mt-1 text-sm text-stone-400">{description}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
@@ -551,7 +558,7 @@ export function Section({
 }
 export function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-xl border border-dashed border-white/10 p-10 text-center text-sm text-stone-600">
+    <p className="rounded-xl border border-dashed border-white/10 p-10 text-center text-sm text-stone-400">
       {children}
     </p>
   );

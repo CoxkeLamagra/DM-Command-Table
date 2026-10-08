@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -37,9 +37,11 @@ import type { V6Player } from "./types";
 export function PlayersScreen({
   campaignId,
   editable,
+  initialOpenId,
 }: {
   campaignId: string;
   editable: boolean;
+  initialOpenId?: string;
 }) {
   const [players, setPlayers] = useState<V6Player[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -48,22 +50,38 @@ export function PlayersScreen({
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
+  const pendingSave = useRef(false);
+  const isNew = editing?.id.startsWith("draft:") ?? false;
   const dirty =
     !!editing &&
-    JSON.stringify(editing) !==
-      JSON.stringify(players.find(({ id }) => id === editing.id));
+    (isNew
+      ? Boolean(
+          editing.name ||
+          editing.race ||
+          editing.className ||
+          editing.notes ||
+          editing.level !== null ||
+          editing.hitPoints !== null ||
+          editing.armorClass !== null,
+        )
+      : JSON.stringify(editing) !==
+        JSON.stringify(players.find(({ id }) => id === editing.id)));
   useUnsavedChanges(dirty);
   useEffect(() => {
     let live = true;
     void listV6Players(campaignId)
       .then((items) => {
-        if (live) setPlayers(items);
+        if (live) {
+          setPlayers(items);
+          if (initialOpenId)
+            setEditing(items.find(({ id }) => id === initialOpenId) ?? null);
+        }
       })
       .catch(report);
     return () => {
       live = false;
     };
-  }, [campaignId]);
+  }, [campaignId, initialOpenId]);
   function report(error: unknown) {
     toast.error(
       error instanceof Error ? error.message : "Player update failed.",
@@ -81,40 +99,72 @@ export function PlayersScreen({
         ),
     );
   }, [players, query, kindFilter]);
-  async function add(kind: "player" | "npc") {
-    setBusy(true);
-    try {
-      const item = await createV6Player(
-        campaignId,
-        kind === "npc" ? "New NPC" : "New player",
-        kind,
-      );
-      setPlayers((all) => [...all, item]);
-      setEditing(item);
-    } catch (error) {
-      report(error);
-    } finally {
-      setBusy(false);
-    }
+  function add(kind: "player" | "npc") {
+    setEditing({
+      id: `draft:${crypto.randomUUID()}`,
+      campaignId,
+      kind,
+      name: "",
+      race: "",
+      className: "",
+      level: null,
+      hitPoints: null,
+      armorClass: null,
+      notes: "",
+      revision: 0,
+      createdAt: "",
+      updatedAt: "",
+    });
   }
   async function save() {
-    if (!editing || saving) return;
+    if (!editing || pendingSave.current || !editing.name.trim()) return;
+    pendingSave.current = true;
     setSaving(true);
     setBusy(true);
     try {
-      const saved = await updateV6Player(campaignId, editing);
+      const input = { ...editing, name: editing.name.trim() };
+      const {
+        name,
+        kind,
+        race,
+        className,
+        level,
+        hitPoints,
+        armorClass,
+        notes,
+      } = input;
+      const saved = isNew
+        ? await createV6Player(campaignId, {
+            name,
+            kind,
+            race,
+            className,
+            level,
+            hitPoints,
+            armorClass,
+            notes,
+          })
+        : await updateV6Player(campaignId, input);
       setPlayers((all) =>
-        all.map((item) => (item.id === saved.id ? saved : item)),
+        isNew
+          ? [...all, saved]
+          : all.map((item) => (item.id === saved.id ? saved : item)),
       );
       setEditing((current) =>
-        current?.id === saved.id
-          ? reconcileSaved(current, editing, saved)
+        current?.id === editing.id
+          ? {
+              ...reconcileSaved(current, editing, saved),
+              id: saved.id,
+              createdAt: saved.createdAt,
+              updatedAt: saved.updatedAt,
+            }
           : current,
       );
       toast.success("Player / NPC saved");
     } catch (error) {
       report(error);
     } finally {
+      pendingSave.current = false;
       setSaving(false);
       setBusy(false);
     }
@@ -176,26 +226,27 @@ export function PlayersScreen({
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <RosterFilter value={kindFilter} onChange={setKindFilter} />
-          <p role="status" className="text-sm text-stone-500">
+          <p role="status" className="text-sm text-stone-400">
             {visible.length} of {players.length} records · {selected.size}{" "}
             selected
           </p>
         </div>
         <div className="overflow-hidden rounded-xl border border-white/10 bg-[#13161d]">
-          <div className="grid grid-cols-[2.5rem_1fr_1fr_1fr_5rem_5rem] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-wider text-stone-600">
+          <div className="record-row grid grid-cols-[2rem_minmax(0,1fr)_5rem] md:grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_4rem_5rem] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-wider text-stone-400">
             <span />
             <span>Name</span>
-            <span>Race</span>
-            <span>Class</span>
-            <span>Level</span>
+            <span className="hidden md:block">Race</span>
+            <span className="hidden md:block">Class</span>
+            <span className="hidden md:block">Level</span>
             <span>HP / AC</span>
           </div>
           {visible.map((player) => (
             <div
               key={player.id}
-              className="grid grid-cols-[2.5rem_1fr_1fr_1fr_5rem_5rem] items-center gap-3 border-b border-white/5 px-4 py-3 text-sm last:border-0"
+              className="record-row grid grid-cols-[2rem_minmax(0,1fr)_5rem] md:grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_4rem_5rem] items-center gap-3 border-b border-white/5 px-4 py-3 text-sm last:border-0"
             >
               <Checkbox
+                aria-label={`Select ${player.name}`}
                 checked={selected.has(player.id)}
                 disabled={!editable}
                 onCheckedChange={(checked) =>
@@ -208,23 +259,32 @@ export function PlayersScreen({
                 }
               />
               <button
-                className={`truncate text-left font-medium hover:underline ${player.kind === "npc" ? "text-blue-300" : "text-emerald-300"}`}
+                className={`min-w-0 text-left font-medium hover:underline ${player.kind === "npc" ? "text-blue-300" : "text-emerald-300"}`}
                 onClick={() => setEditing(player)}
               >
-                {player.name}
+                <span className="block truncate md:inline">{player.name}</span>
                 <span
                   className={`ml-2 rounded px-2 py-0.5 text-xs ${player.kind === "npc" ? "bg-blue-500/10 text-blue-300" : "bg-emerald-500/10 text-emerald-300"}`}
                 >
                   {player.kind === "npc" ? "NPC" : "Player"}
                 </span>
+                <span className="mt-1 block truncate text-xs font-normal text-stone-400 md:hidden">
+                  {[
+                    player.race,
+                    player.className,
+                    player.level ? `Level ${player.level}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "No race or class set"}
+                </span>
               </button>
-              <span className="truncate text-stone-400">
+              <span className="hidden truncate text-stone-400 md:block">
                 {player.race || "—"}
               </span>
-              <span className="truncate text-stone-400">
+              <span className="hidden truncate text-stone-400 md:block">
                 {player.className || "—"}
               </span>
-              <span>{player.level ?? "—"}</span>
+              <span className="hidden md:block">{player.level ?? "—"}</span>
               <span>
                 {player.hitPoints ?? "—"} / {player.armorClass ?? "—"}
               </span>
@@ -252,9 +312,18 @@ export function PlayersScreen({
             <>
               <DialogHeader>
                 <DialogTitle className="font-serif text-2xl">
-                  {editable ? "Edit player / NPC" : editing.name}
+                  {editable
+                    ? isNew
+                      ? "New player / NPC"
+                      : "Edit player / NPC"
+                    : editing.name}
                 </DialogTitle>
               </DialogHeader>
+              {isNew && (
+                <p className="text-sm text-stone-400">
+                  This draft is added to the campaign only when you save it.
+                </p>
+              )}
               <Field label="Type">
                 <select
                   aria-label="Type"
@@ -276,6 +345,9 @@ export function PlayersScreen({
                 <Field label="Name">
                   <Input
                     aria-label="Name"
+                    maxLength={120}
+                    required
+                    autoFocus
                     value={editing.name}
                     disabled={!editable}
                     onChange={(event) =>
@@ -367,15 +439,37 @@ export function PlayersScreen({
               </Field>
               {editable && (
                 <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-white/10 bg-[#151820]/95 py-3 backdrop-blur">
-                  <Button variant="ghost" onClick={() => remove([editing.id])}>
-                    <Trash2 /> Delete
-                  </Button>
+                  {isNew ? (
+                    <Button
+                      variant="ghost"
+                      disabled={saving}
+                      onClick={() => {
+                        if (
+                          !dirty ||
+                          window.confirm("Discard this unsaved record?")
+                        )
+                          setEditing(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      onClick={() => remove([editing.id])}
+                    >
+                      <Trash2 /> Delete
+                    </Button>
+                  )}
                   <SaveStatus
-                    dirty={dirty}
+                    dirty={isNew || dirty}
                     saving={saving}
                     label="Player / NPC"
                   />
-                  <Button onClick={save} disabled={busy}>
+                  <Button
+                    onClick={save}
+                    disabled={busy || !editing.name.trim()}
+                  >
                     <Save /> Save
                   </Button>
                 </div>
@@ -396,7 +490,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="block text-xs text-stone-500">
+    <div className="block text-xs text-stone-400">
       <span>{label}</span>
       <div className="mt-1">{children}</div>
     </div>
