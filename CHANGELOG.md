@@ -2,6 +2,36 @@
 
 All notable DM Command Table releases are documented here.
 
+## 8.0.0 — 2026-10-08
+
+### Combat usability
+
+- Apply damage and healing by amount, with immediate Undo HP change and bounds at zero/maximum HP.
+- Keep Save and Next turn visible while scrolling; group reset and clear operations in Encounter actions with explanations and confirmations.
+- Add Initiative/Details views on smaller screens while retaining the wide split layout.
+
+### Campaign preparation
+
+- Use one Add combatants picker for Campaign roster, Bestiary, and Single-use records in Combat and prepared encounters.
+- Retain mixed selections across sources and searches, filter Players/NPCs, show selection totals, and enter monster quantities.
+- Retain single-use Players, NPCs, and Monsters and independent prepared-encounter roster copies.
+- Show richer collapsed encounter summaries with type counts, quantities, combatant previews, notes, and missing Bestiary warnings.
+- Focus Session preparation through Notes, Encounters, and Linked stories tabs, retaining drafts and saving hidden encounter edits.
+
+### Records and navigation
+
+- Show Saved, Saving, and Unsaved changes across editors; protect unsaved navigation and preserve edits made during saves.
+- Label the combined preparation action Save session & encounters and keep save controls visible while scrolling.
+- Start Player/NPC creation as drafts, saving all entered fields together; cancellation leaves no placeholder records.
+- Add next-session shortcuts, exact-record search navigation, match highlighting, Player/NPC result filters, and search loading/error/empty states.
+- Improve roster responsiveness and secondary-text readability, and remember optional compact list spacing locally.
+- Fix New campaign navigation and clear stale record targets during general navigation.
+
+### Validation and storage
+
+- Pass dependency audit, formatting, lint, TypeScript, production build, 52 unit/integration tests, and nine browser tests on Node 22 and 24.
+- Retain server-local SQLite and uploaded-file storage. No new database migration is required for this release.
+
 ## 7.4.0 — 2026-10-08
 
 - Add Collapse menu / Expand menu controls for an icon-only desktop sidebar with more space for the active screen.
