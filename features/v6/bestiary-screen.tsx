@@ -34,9 +34,11 @@ import { V6BestiaryImport } from "./bestiary-import";
 export function BestiaryScreen({
   campaignId,
   editable,
+  initialOpenId,
 }: {
   campaignId: string;
   editable: boolean;
+  initialOpenId?: string;
 }) {
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -53,13 +55,17 @@ export function BestiaryScreen({
     let live = true;
     void listV6Monsters(campaignId)
       .then((items) => {
-        if (live) setMonsters(items);
+        if (live) {
+          setMonsters(items);
+          if (initialOpenId)
+            setEditing(items.find(({ id }) => id === initialOpenId) ?? null);
+        }
       })
       .catch(report);
     return () => {
       live = false;
     };
-  }, [campaignId]);
+  }, [campaignId, initialOpenId]);
   function report(error: unknown) {
     toast.error(
       error instanceof Error ? error.message : "Bestiary update failed.",
@@ -183,7 +189,7 @@ export function BestiaryScreen({
         }
       >
         <div className="overflow-hidden rounded-xl border border-white/10 bg-[#13161d]">
-          <div className="grid grid-cols-[2.5rem_2.5rem_1.5fr_1fr_5rem_5rem_5rem] items-center gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-wider text-stone-600">
+          <div className="record-row grid grid-cols-[2rem_2rem_minmax(0,1fr)_3rem] md:grid-cols-[2.5rem_2.5rem_minmax(0,1.5fr)_minmax(0,1fr)_4rem_4rem_4rem] items-center gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-wider text-stone-400">
             <Checkbox
               aria-label="Select all visible monsters"
               title="Select all visible monsters"
@@ -208,15 +214,15 @@ export function BestiaryScreen({
             />
             <span />
             <span>Name</span>
-            <span>Type</span>
+            <span className="hidden md:block">Type</span>
             <span>CR</span>
-            <span>HP</span>
-            <span>AC</span>
+            <span className="hidden md:block">HP</span>
+            <span className="hidden md:block">AC</span>
           </div>
           {visible.map((monster) => (
             <div
               key={monster.id}
-              className="grid grid-cols-[2.5rem_2.5rem_1.5fr_1fr_5rem_5rem_5rem] items-center gap-3 border-b border-white/5 px-4 py-3 text-sm last:border-0"
+              className="record-row grid grid-cols-[2rem_2rem_minmax(0,1fr)_3rem] md:grid-cols-[2.5rem_2.5rem_minmax(0,1.5fr)_minmax(0,1fr)_4rem_4rem_4rem] items-center gap-3 border-b border-white/5 px-4 py-3 text-sm last:border-0"
             >
               <Checkbox
                 checked={selected.has(monster.id)}
@@ -246,14 +252,18 @@ export function BestiaryScreen({
                 className="truncate text-left font-medium text-amber-200 hover:underline"
                 onClick={() => setEditing(monster)}
               >
-                {monster.name}
+                <span className="block truncate">{monster.name}</span>
+                <span className="mt-1 block truncate text-xs font-normal text-stone-400 md:hidden">
+                  {monster.type || "Unknown type"} · HP {monster.hitPoints} · AC{" "}
+                  {monster.armorClass}
+                </span>
               </button>
-              <span className="truncate text-stone-400">
+              <span className="hidden truncate text-stone-400 md:block">
                 {monster.type || "—"}
               </span>
               <span>{monster.challengeRating || "—"}</span>
-              <span>{monster.hitPoints}</span>
-              <span>{monster.armorClass}</span>
+              <span className="hidden md:block">{monster.hitPoints}</span>
+              <span className="hidden md:block">{monster.armorClass}</span>
             </div>
           ))}
         </div>
@@ -448,7 +458,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="block text-xs text-stone-500">
+    <div className="block text-xs text-stone-400">
       <span>{label}</span>
       <div className="mt-1">{children}</div>
     </div>

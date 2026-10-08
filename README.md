@@ -21,6 +21,7 @@ The current release line is **v7**. The established v6 storage and API formats r
 - Assign **Editor** access for collaboration or **Viewer** access for read-only use.
 - Detect same-browser changes immediately and poll revisions for changes from other devices.
 - Manage the campaign name and general campaign notes from a dedicated **Campaign** screen.
+- Continue an active session or prepare the earliest planned session directly from Campaign. Undated sessions follow dated sessions.
 - Review a chronological campaign timeline generated automatically from session entries.
 - Keep the Campaign screen focused with a 70% Campaign-details and 30% Timeline layout, with Session-note previews limited to 2,000 characters.
 - Select a timeline entry to open and focus its corresponding session note.
@@ -44,6 +45,7 @@ An administrator cannot delete their own account or remove their own administrat
 ### Combat tracker
 
 - Give each encounter its own editable name.
+- On smaller screens, switch between Initiative and Details; selecting a combatant or advancing its turn opens Details while retaining edits. Wide screens keep the split view.
 - Add ad-hoc players, monsters, or NPCs.
 - Use one Add combatants picker for the Campaign roster, Bestiary, and Single-use records. Keep selections across searches and source tabs, filter Players/NPCs, and enter monster quantities before adding.
 - Add reusable Players and NPCs from the campaign roster, retaining their type, HP, AC, and notes.
@@ -61,6 +63,8 @@ An administrator cannot delete their own account or remove their own administrat
 ### Players / NPCs
 
 Campaign records have an editable Player or NPC type. Prepared encounters can import editable copies of campaign Players and NPCs. Changes to those copies do not modify the roster. Single-use Players and NPCs remain available in Combat and prepared encounters.
+
+New Players and NPCs start as drafts. Save creates the roster record with all entered fields; cancelling leaves no placeholder behind. Narrow roster rows show race/class/level beneath the name while wider screens retain the full columns.
 
 - Save reusable Player and NPC records per campaign, with green Player and blue NPC type tags.
 - Record name, race, class, level, optional HP, optional AC, and notes.
@@ -93,6 +97,8 @@ Imported monster data belongs to the current campaign and remains editable after
 - Create dated session preparation and recap notes.
 - Assign **Planned**, **Active now**, or **Happened** status to Sessions and Story beats.
 - Search Session and Story content with typeahead filtering.
+- Search campaign records with result-type filters for Sessions, Stories, Players, NPCs, and Bestiary monsters. Highlight matches and open the exact result directly.
+- Choose comfortable or compact list spacing from the sidebar; the preference is remembered in this browser.
 - Start with compact collapsed Sessions and Story beats, expand individual entries as needed, or expand and collapse every entry at once.
 - Prepare multiple named encounters inside each session.
 - Switch between Notes, Encounters, and Linked stories tabs without losing drafts. Save session & encounters saves the whole preparation workspace, including hidden tabs.

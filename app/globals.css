@@ -140,3 +140,10 @@ body {
 .font-serif {
   font-family: Georgia, "Times New Roman", serif;
 }
+
+/* User-selected density changes list spacing without reducing touch targets. */
+[data-density="compact"] .record-row {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  min-height: 44px;
+}

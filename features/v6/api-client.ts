@@ -384,24 +384,39 @@ export async function listV6Players(campaignId: string): Promise<V6Player[]> {
     )
   ).players;
 }
+export type PlayerDraft = Pick<
+  V6Player,
+  | "name"
+  | "kind"
+  | "race"
+  | "className"
+  | "level"
+  | "hitPoints"
+  | "armorClass"
+  | "notes"
+>;
 export async function createV6Player(
   campaignId: string,
-  sortName = "New player",
+  nameOrDraft: string | PlayerDraft = "New player",
   kind: "player" | "npc" = "player",
 ): Promise<V6Player> {
+  const input =
+    typeof nameOrDraft === "string"
+      ? {
+          name: nameOrDraft,
+          kind,
+          race: "",
+          className: "",
+          level: null,
+          hitPoints: null,
+          armorClass: null,
+          notes: "",
+        }
+      : nameOrDraft;
   return (
     await v6Request<{ player: V6Player }>(
       `/api/v6/campaigns/${campaignId}/players`,
-      json("POST", {
-        name: sortName,
-        kind,
-        race: "",
-        className: "",
-        level: null,
-        hitPoints: null,
-        armorClass: null,
-        notes: "",
-      }),
+      json("POST", input),
     )
   ).player;
 }
@@ -552,10 +567,11 @@ export async function undoV6Combat(campaignId: string): Promise<V6Combat> {
 export async function searchV6Campaign(
   campaignId: string,
   query: string,
+  type = "all",
 ): Promise<V6SearchResult[]> {
   return (
     await v6Request<{ results: V6SearchResult[] }>(
-      `/api/v6/campaigns/${campaignId}/search?q=${encodeURIComponent(query)}`,
+      `/api/v6/campaigns/${campaignId}/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`,
     )
   ).results;
 }

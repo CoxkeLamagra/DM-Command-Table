@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useRecordFocus } from "@/features/shared/use-record-focus";
 import { SaveStatus } from "@/features/shared/save-status";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { reconcileSaved } from "@/features/encounters/drafts";
@@ -78,6 +79,10 @@ export function StoryScreen({
       live = false;
     };
   }, [campaignId]);
+  useRecordFocus(
+    initialOpenId ? `story-${initialOpenId}` : undefined,
+    story.some(({ id }) => id === initialOpenId),
+  );
   function report(error: unknown) {
     toast.error(
       error instanceof Error ? error.message : "Story update failed.",
@@ -202,12 +207,14 @@ export function StoryScreen({
         );
         return (
           <article
+            id={`story-${beat.id}`}
+            tabIndex={-1}
             key={beat.id}
             className="rounded-xl border border-white/10 bg-[#13161d]"
           >
             <button
               type="button"
-              className="flex w-full items-center gap-3 p-4 text-left"
+              className="record-row flex w-full items-center gap-3 p-4 text-left"
               onClick={() => toggle(beat.id)}
             >
               {open ? (
@@ -219,7 +226,7 @@ export function StoryScreen({
                 {beat.title || "Untitled story beat"}
               </span>
               {beat.chapter && (
-                <span className="hidden text-xs text-stone-500 sm:block">
+                <span className="hidden text-xs text-stone-400 sm:block">
                   {beat.chapter}
                 </span>
               )}
@@ -268,7 +275,7 @@ export function StoryScreen({
                   )}
                 </div>
                 <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
-                  <p className="text-xs font-medium uppercase tracking-wider text-stone-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-stone-400">
                     Linked sessions
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">

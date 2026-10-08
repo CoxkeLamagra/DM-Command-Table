@@ -462,6 +462,10 @@ export async function handleV6Api(
           campaignId,
           context.userId,
           url.searchParams.get("q") ?? "",
+          100,
+          z
+            .enum(["all", "session", "story", "player", "npc", "monster"])
+            .parse(url.searchParams.get("type") ?? "all"),
         ),
       });
     }

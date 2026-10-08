@@ -168,22 +168,26 @@ export function createSupportRepository(database: DatabaseSync) {
       actorUserId: string,
       query: string,
       limit = 30,
+      type = "all",
     ): CampaignSearchResult[] {
       requireCampaignRead(database, campaignId, actorUserId);
       const expression = searchExpression(query);
       if (!expression) return [];
       return database
         .prepare(
-          `SELECT resource_type AS resourceType, resource_id AS resourceId,
+          `SELECT CASE WHEN resource_type = 'player' AND EXISTS (SELECT 1 FROM players p WHERE p.id = search_index.resource_id AND p.campaign_id = search_index.campaign_id AND p.kind = 'npc') THEN 'npc' ELSE resource_type END AS resourceType, resource_id AS resourceId,
                 title, snippet(search_index, 4, '<mark>', '</mark>', '…', 18) AS excerpt,
                 bm25(search_index) AS rank
            FROM search_index
           WHERE search_index MATCH ? AND campaign_id = ?
+            AND (? = 'all' OR CASE WHEN resource_type = 'player' AND EXISTS (SELECT 1 FROM players p WHERE p.id = search_index.resource_id AND p.campaign_id = search_index.campaign_id AND p.kind = 'npc') THEN 'npc' ELSE resource_type END = ?)
           ORDER BY rank LIMIT ?`,
         )
         .all(
           expression,
           campaignId,
+          type,
+          type,
           Math.max(1, Math.min(limit, 100)),
         ) as CampaignSearchResult[];
     },

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { adjustHitPoints } from "@/features/combat/hit-points";
 import { SaveStatus } from "@/features/shared/save-status";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
+import { Tabs } from "radix-ui";
 import { DropdownMenu } from "radix-ui";
 import {
   ChevronDown,
@@ -73,6 +74,7 @@ export function CombatScreen({
   const [players, setPlayers] = useState<V6Player[]>([]);
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [mobileView, setMobileView] = useState("initiative");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -194,7 +196,10 @@ export function CombatScreen({
       },
       "next_turn",
     );
-    if (saved) setSelectedId(incoming.id);
+    if (saved) {
+      setSelectedId(incoming.id);
+      setMobileView("details");
+    }
   }
   function adjustHp(amount: number, action: "damage" | "heal") {
     if (!selected || pending.current) return;
@@ -371,12 +376,13 @@ export function CombatScreen({
         combatants: [...combat.combatants, ...additions],
       });
       setSelectedId(additions.at(-1)?.id ?? "");
+      setMobileView("details");
     }
   }
 
   if (!combat)
     return (
-      <div className="grid min-h-96 place-items-center text-stone-500">
+      <div className="grid min-h-96 place-items-center text-stone-400">
         Loading combat tracker…
       </div>
     );
@@ -406,15 +412,15 @@ export function CombatScreen({
       </header>
       <div
         aria-label="Combat turn controls"
-        className="sticky top-16 z-20 flex flex-wrap items-center gap-4 rounded-xl border border-amber-300/20 bg-[#17171a]/95 p-4 shadow-lg backdrop-blur lg:top-0"
+        className="sticky top-16 z-20 flex flex-wrap items-center gap-2 sm:gap-4 rounded-xl border border-amber-300/20 bg-[#17171a]/95 p-4 shadow-lg backdrop-blur lg:top-0"
       >
         <div>
-          <p className="text-xs uppercase text-stone-500">Round</p>
+          <p className="text-xs uppercase text-stone-400">Round</p>
           <p className="font-serif text-2xl text-amber-200">{combat.round}</p>
         </div>
         <div className="h-10 w-px bg-white/10" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase text-stone-500">Current turn</p>
+          <p className="text-xs uppercase text-stone-400">Current turn</p>
           <p className="truncate">
             {active ? displayName(active) : "No combatants"}
           </p>
@@ -471,97 +477,134 @@ export function CombatScreen({
           </div>
         )}
       </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
-        <div className="space-y-2">
-          {ordered.map((item, index) => {
-            const isSelected = selected?.id === item.id;
-            const hpPercent =
-              item.maximumHitPoints > 0
-                ? Math.max(
-                    0,
-                    Math.min(
-                      100,
-                      (item.hitPoints / item.maximumHitPoints) * 100,
-                    ),
-                  )
-                : 0;
-            return (
-              <button
-                key={item.id}
-                aria-pressed={isSelected}
-                className={`relative flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${combatantKindBackground(item.kind)} ${isSelected ? "border-sky-300/70 after:absolute after:inset-y-2 after:left-0 after:w-1 after:rounded-r-full after:bg-sky-300 after:content-['']" : "border-white/10 hover:border-white/20"} ${index === combat.turn ? "outline outline-2 -outline-offset-2 outline-amber-300" : ""}`}
-                onClick={() => setSelectedId(item.id)}
-              >
-                <span
-                  className={`grid size-10 shrink-0 place-items-center rounded-full bg-black/30 font-mono text-sm ${combatantKindText(item.kind)}`}
+      <Tabs.Root value={mobileView} onValueChange={setMobileView}>
+        <Tabs.List
+          aria-label="Combat view"
+          className="mb-4 flex gap-2 rounded-lg bg-white/5 p-1 xl:hidden"
+        >
+          <Tabs.Trigger
+            value="initiative"
+            className="flex-1 rounded px-3 py-2 text-sm data-[state=active]:bg-white/10 data-[state=active]:text-amber-200"
+          >
+            Initiative ({ordered.length})
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="details"
+            className="flex-1 rounded px-3 py-2 text-sm data-[state=active]:bg-white/10 data-[state=active]:text-amber-200"
+          >
+            Details
+          </Tabs.Trigger>
+        </Tabs.List>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
+          <Tabs.Content
+            value="initiative"
+            forceMount
+            className="min-w-0 space-y-2 data-[state=inactive]:hidden xl:data-[state=inactive]:block"
+          >
+            {ordered.map((item, index) => {
+              const isSelected = selected?.id === item.id;
+              const hpPercent =
+                item.maximumHitPoints > 0
+                  ? Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        (item.hitPoints / item.maximumHitPoints) * 100,
+                      ),
+                    )
+                  : 0;
+              return (
+                <button
+                  key={item.id}
+                  aria-pressed={isSelected}
+                  className={`record-row relative flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${combatantKindBackground(item.kind)} ${isSelected ? "border-sky-300/70 after:absolute after:inset-y-2 after:left-0 after:w-1 after:rounded-r-full after:bg-sky-300 after:content-['']" : "border-white/10 hover:border-white/20"} ${index === combat.turn ? "outline outline-2 -outline-offset-2 outline-amber-300" : ""}`}
+                  onClick={() => {
+                    setSelectedId(item.id);
+                    setMobileView("details");
+                  }}
                 >
-                  {item.initiative}
-                </span>
-                <span
-                  className={`size-2.5 shrink-0 rounded-full ${combatantKindDot(item.kind)}`}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <strong
-                      className={`truncate ${item.hitPoints <= 0 ? "text-red-300 line-through" : "text-stone-100"}`}
-                    >
-                      {displayName(item)}
-                    </strong>
-                    {index === combat.turn && (
-                      <span className="rounded-full bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-200">
-                        Turn
-                      </span>
-                    )}
-                    {isSelected && (
-                      <span className="rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-200">
-                        Viewing
-                      </span>
-                    )}
-                  </span>
-                  <span className="mt-1 block truncate text-xs text-stone-500">
-                    {combatantSummary(item, players, monsters)}
-                  </span>
-                </span>
-                <span className="w-20 shrink-0 text-right">
-                  <span className="block text-xs text-stone-200">
-                    {item.hitPoints}/{item.maximumHitPoints} HP
-                  </span>
-                  <Progress
-                    value={hpPercent}
-                    className="mt-2 h-1.5 bg-white/10"
-                  />
-                </span>
-                {item.conditions.length > 0 && (
                   <span
-                    className="flex text-violet-300"
-                    title={item.conditions.map(({ name }) => name).join(", ")}
+                    className={`grid size-10 shrink-0 place-items-center rounded-full bg-black/30 font-mono text-sm ${combatantKindText(item.kind)}`}
                   >
-                    <ConditionIcon name={item.conditions[0].name} />
-                    {item.conditions.length > 1 && (
-                      <small>+{item.conditions.length - 1}</small>
-                    )}
+                    {item.initiative}
                   </span>
-                )}
-              </button>
-            );
-          })}
+                  <span
+                    className={`size-2.5 shrink-0 rounded-full ${combatantKindDot(item.kind)}`}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <strong
+                        className={`truncate ${item.hitPoints <= 0 ? "text-red-300 line-through" : "text-stone-100"}`}
+                      >
+                        {displayName(item)}
+                      </strong>
+                      {index === combat.turn && (
+                        <span className="rounded-full bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-200">
+                          Turn
+                        </span>
+                      )}
+                      {isSelected && (
+                        <span className="rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-200">
+                          Viewing
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-stone-400">
+                      {combatantSummary(item, players, monsters)}
+                    </span>
+                  </span>
+                  <span className="w-20 shrink-0 text-right">
+                    <span className="block text-xs text-stone-200">
+                      {item.hitPoints}/{item.maximumHitPoints} HP
+                    </span>
+                    <Progress
+                      value={hpPercent}
+                      className="mt-2 h-1.5 bg-white/10"
+                    />
+                  </span>
+                  {item.conditions.length > 0 && (
+                    <span
+                      className="flex text-violet-300"
+                      title={item.conditions.map(({ name }) => name).join(", ")}
+                    >
+                      <ConditionIcon name={item.conditions[0].name} />
+                      {item.conditions.length > 1 && (
+                        <small>+{item.conditions.length - 1}</small>
+                      )}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            {!ordered.length && (
+              <p className="rounded-lg border border-dashed border-white/10 p-5 text-sm text-stone-400">
+                No combatants in initiative order.
+              </p>
+            )}
+          </Tabs.Content>
+          <Tabs.Content
+            value="details"
+            forceMount
+            className="min-w-0 data-[state=inactive]:hidden xl:data-[state=inactive]:block"
+          >
+            <CombatantEditor
+              key={selected?.id ?? "empty"}
+              combatant={selected}
+              monster={monsters.find(({ id }) => id === selected?.monsterId)}
+              editable={editable && !busy}
+              adjustHp={adjustHp}
+              undoHp={undoHp}
+              canUndoHp={
+                !!hpUndo &&
+                hpUndo.id === selected?.id &&
+                hpUndo.after === selected?.hitPoints
+              }
+              update={patchSelected}
+              remove={removeSelected}
+            />
+          </Tabs.Content>
         </div>
-        <CombatantEditor
-          key={selected?.id ?? "empty"}
-          combatant={selected}
-          monster={monsters.find(({ id }) => id === selected?.monsterId)}
-          editable={editable && !busy}
-          adjustHp={adjustHp}
-          undoHp={undoHp}
-          canUndoHp={
-            !!hpUndo &&
-            hpUndo.id === selected?.id &&
-            hpUndo.after === selected?.hitPoints
-          }
-          update={patchSelected}
-          remove={removeSelected}
-        />
-      </div>
+      </Tabs.Root>
       <Dialog
         open={!!confirmAction}
         onOpenChange={(open) => {
@@ -647,7 +690,7 @@ function CombatantEditor({
   const [hpAmount, setHpAmount] = useState("");
   if (!combatant)
     return (
-      <div className="rounded-xl border border-dashed border-white/10 p-12 text-center text-stone-600">
+      <div className="rounded-xl border border-dashed border-white/10 p-12 text-center text-stone-400">
         Add a combatant to begin.
       </div>
     );
@@ -682,6 +725,7 @@ function CombatantEditor({
       <div className="flex items-start gap-2">
         <Input
           className="h-11 min-w-0 flex-1 font-serif text-lg text-amber-100"
+          aria-label="Combatant name"
           value={combatant.name}
           disabled={!editable}
           onFocus={(event) => event.currentTarget.select()}
@@ -710,7 +754,7 @@ function CombatantEditor({
           <Button
             size="icon"
             variant="ghost"
-            className="text-stone-600 hover:text-red-300"
+            className="text-stone-400 hover:text-red-300"
             onClick={remove}
           >
             <Trash2 />
@@ -718,7 +762,7 @@ function CombatantEditor({
         )}
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <label className="text-xs text-stone-500">
+        <label className="text-xs text-stone-400">
           Type
           <select
             className={`mt-1 h-10 w-full rounded-md border border-white/10 bg-[#191d27] px-2 text-sm font-medium ${combatantKindText(combatant.kind)}`}
@@ -810,7 +854,7 @@ function CombatantEditor({
                   update({ hitPoints: Number(event.target.value) })
                 }
               />
-              <span className="text-stone-600">/</span>
+              <span className="text-stone-400">/</span>
               <Input
                 aria-label="Maximum hit points"
                 className="w-20 text-center"
@@ -865,7 +909,7 @@ function CombatantEditor({
               </button>
             ))
           ) : (
-            <span className="text-sm text-stone-600">No active conditions</span>
+            <span className="text-sm text-stone-400">No active conditions</span>
           )}
         </div>
         {editable && (
@@ -923,7 +967,7 @@ function CombatantEditor({
         )}
       </section>
       <div className="mt-5">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-stone-500">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-stone-400">
           Encounter notes
         </p>
         {editable ? (
@@ -937,7 +981,7 @@ function CombatantEditor({
         ) : combatant.notes ? (
           <RichTextContent value={combatant.notes} />
         ) : (
-          <p className="text-sm text-stone-600">No encounter notes.</p>
+          <p className="text-sm text-stone-400">No encounter notes.</p>
         )}
       </div>
       {combatant.kind === "monster" && <MonsterStatBlock monster={monster} />}
@@ -948,7 +992,7 @@ function CombatantEditor({
 function MonsterStatBlock({ monster }: { monster?: V6Monster }) {
   if (!monster)
     return (
-      <div className="mt-6 rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-500">
+      <div className="mt-6 rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-400">
         This one-time monster has no linked Bestiary stat block.
       </div>
     );
@@ -959,7 +1003,7 @@ function MonsterStatBlock({ monster }: { monster?: V6Monster }) {
     <section className="mt-6 border-t border-white/10 pt-5">
       <div className="mb-4">
         <h3 className="font-serif text-2xl text-amber-100">{monster.name}</h3>
-        <p className="text-sm italic text-stone-500">
+        <p className="text-sm italic text-stone-400">
           {monster.type || "Unknown type"} · CR {monster.challengeRating || "—"}
           {monster.source ? ` · ${monster.source}` : ""}
         </p>
@@ -992,7 +1036,7 @@ function MonsterStatBlock({ monster }: { monster?: V6Monster }) {
         {monster.spells ? (
           <RichTextContent value={monster.spells} />
         ) : (
-          <p className="text-stone-600">
+          <p className="text-stone-400">
             No spellcasting information recorded.
           </p>
         )}
@@ -1020,7 +1064,7 @@ function MonsterDetail({ title, value }: { title: string; value: string }) {
       {value ? (
         <RichTextContent value={value} />
       ) : (
-        <p className="text-stone-600">No information recorded.</p>
+        <p className="text-stone-400">No information recorded.</p>
       )}
     </DetailSection>
   );
@@ -1038,7 +1082,7 @@ function NumberField({
   change: (value: number) => void;
 }) {
   return (
-    <label className="text-xs text-stone-500">
+    <label className="text-xs text-stone-400">
       {label}
       <Input
         className="mt-1"
