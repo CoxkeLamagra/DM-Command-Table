@@ -11,6 +11,8 @@ import {
   LogOut,
   Menu,
   Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Settings,
   Shield,
@@ -78,6 +80,26 @@ export function V6Shell() {
   const workspace = useV6Workspace();
   const [section, setSection] = useState<V6Section>("campaign");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return (
+        typeof window !== "undefined" &&
+        localStorage.getItem("dmct-sidebar-collapsed") === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+  function toggleSidebar() {
+    const next = !sidebarCollapsed;
+    setSidebarCollapsed(next);
+    try {
+      localStorage.setItem("dmct-sidebar-collapsed", String(next));
+    } catch {
+      // Persistence is optional; the current preference still applies.
+    }
+  }
+  const labelClass = sidebarCollapsed ? "lg:hidden" : "";
   const [openSessionId, setOpenSessionId] = useState<string>();
   const [openStoryId, setOpenStoryId] = useState<string>();
   const sync = useV6Sync(workspace.current?.id, workspace.current?.revision);
@@ -123,13 +145,17 @@ export function V6Shell() {
         <span className="font-serif text-lg">DM Command Table</span>
       </header>
       <aside
-        className={`${menuOpen ? "translate-x-0" : "-translate-x-full"} fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/10 bg-[#10131a] transition-transform lg:translate-x-0`}
+        id="workspace-sidebar"
+        aria-label="Workspace menu"
+        className={`${sidebarCollapsed ? "lg:w-20" : "lg:w-72"} ${menuOpen ? "translate-x-0" : "-translate-x-full"} fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/10 bg-[#10131a] transition-transform lg:translate-x-0`}
       >
-        <div className="flex h-20 items-center gap-3 border-b border-white/10 px-5">
+        <div
+          className={`flex h-20 items-center gap-3 border-b border-white/10 px-5 ${sidebarCollapsed ? "lg:justify-center lg:px-3" : ""}`}
+        >
           <span className="grid size-10 place-items-center rounded-xl bg-amber-300 text-black">
             <Swords />
           </span>
-          <div className="min-w-0 flex-1">
+          <div className={`min-w-0 flex-1 ${labelClass}`}>
             <p className="font-serif text-lg">DM Command Table</p>
             <p className="text-xs text-stone-500">Version 6 workspace</p>
           </div>
@@ -138,41 +164,72 @@ export function V6Shell() {
             size="icon-sm"
             variant="ghost"
             onClick={() => setMenuOpen(false)}
+            aria-label="Close menu"
           >
             <X />
           </Button>
         </div>
+        <div className="hidden border-b border-white/10 p-3 lg:block">
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
+            title={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="workspace-sidebar"
+          >
+            {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            <span className={labelClass}>Collapse menu</span>
+          </Button>
+        </div>
         <div className="border-b border-white/10 p-4">
-          <label
-            className="text-xs uppercase tracking-wider text-stone-500"
-            htmlFor="v6-campaign"
-          >
-            Campaign
-          </label>
-          <select
-            id="v6-campaign"
-            className="mt-2 h-10 w-full rounded-md border border-white/10 bg-[#191d27] px-3 text-sm"
-            value={workspace.currentId}
-            onChange={(event) => {
-              if (!confirmDiscardChanges()) return;
-              workspace.setCurrentId(event.target.value);
-              setSection("campaign");
-            }}
-          >
-            {workspace.campaigns.map((campaign) => (
-              <option key={campaign.id} value={campaign.id}>
-                {campaign.name}
-              </option>
-            ))}
-          </select>
+          {sidebarCollapsed && (
+            <Button
+              variant="ghost"
+              className="hidden w-full lg:flex"
+              aria-label="Choose campaign"
+              title={`Choose campaign: ${workspace.current?.name ?? "No campaign"}`}
+              onClick={toggleSidebar}
+            >
+              <BookOpen />
+            </Button>
+          )}
+          <div className={labelClass}>
+            <label
+              className="text-xs uppercase tracking-wider text-stone-500"
+              htmlFor="v6-campaign"
+            >
+              Campaign
+            </label>
+            <select
+              id="v6-campaign"
+              className="mt-2 h-10 w-full rounded-md border border-white/10 bg-[#191d27] px-3 text-sm"
+              value={workspace.currentId}
+              onChange={(event) => {
+                if (!confirmDiscardChanges()) return;
+                workspace.setCurrentId(event.target.value);
+                setSection("campaign");
+              }}
+            >
+              {workspace.campaigns.map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {campaign.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <Button
             variant="outline"
-            className="mt-2 w-full"
+            aria-label="New campaign"
+            title="New campaign"
+            className={`mt-2 w-full ${sidebarCollapsed ? "lg:px-0" : ""}`}
             onClick={() => {
               if (confirmDiscardChanges()) void workspace.createCampaign();
             }}
           >
-            <Plus /> New campaign
+            <Plus />
+            <span className={labelClass}>New campaign</span>
           </Button>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
@@ -180,52 +237,64 @@ export function V6Shell() {
             <button
               key={item.id}
               type="button"
+              aria-label={item.label}
+              title={item.label}
+              aria-current={section === item.id ? "page" : undefined}
               onClick={() => {
                 if (!confirmDiscardChanges()) return;
                 setSection(item.id);
                 setMenuOpen(false);
               }}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${section === item.id ? "bg-amber-300 text-black" : "text-stone-400 hover:bg-white/5 hover:text-stone-100"}`}
+              className={`flex w-full items-center gap-3 rounded-lg ${sidebarCollapsed ? "lg:justify-center" : ""} px-3 py-2.5 text-left text-sm transition ${section === item.id ? "bg-amber-300 text-black" : "text-stone-400 hover:bg-white/5 hover:text-stone-100"}`}
             >
               <item.icon className="size-4" />
-              {item.label}
+              <span className={labelClass}>{item.label}</span>
             </button>
           ))}
           {!!workspace.archivedCampaigns.length && (
             <div className="mt-5 border-t border-white/10 pt-4">
-              <p className="px-3 text-xs uppercase tracking-wider text-stone-600">
+              <p
+                className={`px-3 text-xs uppercase tracking-wider text-stone-600 ${labelClass}`}
+              >
                 Archived
               </p>
               {workspace.archivedCampaigns.map((campaign) => (
                 <button
                   key={campaign.id}
                   type="button"
+                  aria-label={`Restore ${campaign.name}`}
+                  title={`Restore ${campaign.name}`}
                   className="mt-1 flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-stone-500 hover:bg-white/5"
                   onClick={() => {
                     if (confirmDiscardChanges())
                       void workspace.restoreCampaign(campaign);
                   }}
                 >
-                  <ArchiveRestore className="size-3.5" /> Restore{" "}
-                  {campaign.name}
+                  <ArchiveRestore className="size-3.5 shrink-0" />
+                  <span className={labelClass}>Restore {campaign.name}</span>
                 </button>
               ))}
             </div>
           )}
         </nav>
         <div className="border-t border-white/10 p-4">
-          <p className="truncate text-sm">{workspace.user?.displayName}</p>
-          <p className="truncate text-xs text-stone-600">
+          <p className={`truncate text-sm ${labelClass}`}>
+            {workspace.user?.displayName}
+          </p>
+          <p className={`truncate text-xs text-stone-600 ${labelClass}`}>
             @{workspace.user?.username}
           </p>
           <Button
             variant="ghost"
-            className="mt-2 w-full justify-start"
+            className={`mt-2 w-full ${sidebarCollapsed ? "lg:justify-center lg:px-0" : "justify-start"}`}
+            aria-label="Sign out"
+            title="Sign out"
             onClick={() => {
               if (confirmDiscardChanges()) void workspace.signOut();
             }}
           >
-            <LogOut /> Sign out
+            <LogOut />
+            <span className={labelClass}>Sign out</span>
           </Button>
           <a
             className="mt-2 block text-xs text-stone-600 hover:text-amber-300"
@@ -233,7 +302,15 @@ export function V6Shell() {
             target="_blank"
             rel="noreferrer"
           >
-            Version {APPLICATION_VERSION}
+            <span className={labelClass}>Version {APPLICATION_VERSION}</span>
+            {sidebarCollapsed && (
+              <span
+                className="hidden text-center lg:block"
+                title={`Version ${APPLICATION_VERSION}`}
+              >
+                v{APPLICATION_VERSION}
+              </span>
+            )}
           </a>
         </div>
       </aside>
@@ -278,7 +355,9 @@ export function V6Shell() {
           )}
         </div>
       )}
-      <main className="min-h-screen p-4 sm:p-7 lg:ml-72 lg:p-10">
+      <main
+        className={`min-h-screen p-4 sm:p-7 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"} lg:p-10`}
+      >
         {workspace.current && section === "campaign" && (
           <CampaignScreen
             key={`${workspace.current.id}:${workspace.current.revision}:${sync.generation}`}

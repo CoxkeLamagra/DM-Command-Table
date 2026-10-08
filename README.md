@@ -2,6 +2,8 @@
 
 DM Command Table is a browser-based workspace for preparing and running tabletop RPG campaigns. It combines campaign management, reusable player and monster records, live encounter tracking, session notes, and story planning in one responsive interface.
 
+On desktop, the left menu can collapse to icons only using **Collapse menu**, then reopen using **Expand menu**. Icons retain hover labels, and the browser remembers your preference. Mobile navigation opens with full labels.
+
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
 The current release line is **v7**. The established v6 storage and API formats remain stable so existing local installations continue to use their data without migration.
