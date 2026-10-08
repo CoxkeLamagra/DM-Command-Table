@@ -8,8 +8,12 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await page.locator('form button[type="submit"]').click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();
-  const patrol = page.getByRole("button", { name: /Guard patrol/ });
-  const ambush = page.getByRole("button", { name: /Road ambush/ });
+  const patrol = page
+    .locator("button[aria-expanded]")
+    .filter({ hasText: "Guard patrol" });
+  const ambush = page
+    .locator("button[aria-expanded]")
+    .filter({ hasText: "Road ambush" });
   await expect(patrol).toHaveAttribute("aria-expanded", "false");
   await expect(ambush).toHaveAttribute("aria-expanded", "false");
   await patrol.click();
