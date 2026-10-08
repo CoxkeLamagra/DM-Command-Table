@@ -387,12 +387,14 @@ export async function listV6Players(campaignId: string): Promise<V6Player[]> {
 export async function createV6Player(
   campaignId: string,
   sortName = "New player",
+  kind: "player" | "npc" = "player",
 ): Promise<V6Player> {
   return (
     await v6Request<{ player: V6Player }>(
       `/api/v6/campaigns/${campaignId}/players`,
       json("POST", {
         name: sortName,
+        kind,
         race: "",
         className: "",
         level: null,

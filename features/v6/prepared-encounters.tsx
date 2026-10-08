@@ -34,6 +34,7 @@ import {
   getV6Combat,
   listPreparedEncounters,
   listV6Monsters,
+  listV6Players,
   saveV6Combat,
   updatePreparedEncounter,
   uploadV6Screenshot,
@@ -42,6 +43,7 @@ import type {
   PreparedCombatant,
   V6Combatant,
   V6Monster,
+  V6Player,
   V6PreparedEncounter,
 } from "./types";
 
@@ -73,6 +75,8 @@ export function PreparedEncounters({
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [monsters, setMonsters] = useState<V6Monster[]>([]);
+  const [players, setPlayers] = useState<V6Player[]>([]);
+  const [addingPlayers, setAddingPlayers] = useState(false);
   const [addingTo, setAddingTo] = useState<string>();
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -83,13 +87,15 @@ export function PreparedEncounters({
     void Promise.all([
       listPreparedEncounters(campaignId, sessionId),
       listV6Monsters(campaignId),
+      listV6Players(campaignId),
     ])
-      .then(([value, bestiary]) => {
+      .then(([value, bestiary, characters]) => {
         if (live) {
           setExpanded(new Set());
           setItems(value);
           itemsRef.current = value;
           setMonsters(bestiary);
+          setPlayers(characters);
           setOpen(value.length > 0);
         }
       })
@@ -212,12 +218,20 @@ export function PreparedEncounters({
   const allExpanded =
     items.length > 0 && items.every(({ id }) => expanded.has(id));
 
-  function addCustom(item: V6PreparedEncounter, kind: "monster" | "npc") {
+  function addCustom(
+    item: V6PreparedEncounter,
+    kind: "monster" | "npc" | "player",
+  ) {
     const combatant: V6Combatant = {
       id: crypto.randomUUID(),
       playerId: null,
       monsterId: null,
-      name: kind === "npc" ? "New NPC" : "New combatant",
+      name:
+        kind === "npc"
+          ? "New NPC"
+          : kind === "player"
+            ? "New player"
+            : "New combatant",
       kind,
       displayNumber: null,
       initiative: 10,
@@ -281,6 +295,26 @@ export function PreparedEncounters({
     setItems((all) =>
       all.map((item) => {
         if (item.id !== addingTo) return item;
+        if (addingPlayers) {
+          const additions: PreparedCombatant[] = players
+            .filter(({ id }) => chosen.has(id))
+            .map((player, offset) => ({
+              id: crypto.randomUUID(),
+              name: player.name,
+              kind: player.kind ?? "player",
+              notes: player.notes,
+              displayNumber: null,
+              initiative: 10,
+              hitPoints: player.hitPoints ?? 10,
+              maximumHitPoints: player.hitPoints ?? 10,
+              armorClass: player.armorClass ?? 10,
+              sortOrder: (item.combatants?.length ?? 0) + offset,
+            }));
+          return {
+            ...item,
+            combatants: [...(item.combatants ?? []), ...additions],
+          };
+        }
         const additions = [...chosen].map((monsterId, offset) => {
           const existing = item.monsters
             .filter((entry) => entry.monsterId === monsterId)
@@ -512,6 +546,23 @@ export function PreparedEncounters({
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => {
+                              setAddingPlayers(true);
+                              setAddingTo(item.id);
+                            }}
+                          >
+                            <Plus /> Campaign players / NPCs
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addCustom(item, "player")}
+                          >
+                            <Plus /> Player
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => addCustom(item, "npc")}
                           >
                             <Plus /> NPC
@@ -526,7 +577,10 @@ export function PreparedEncounters({
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setAddingTo(item.id)}
+                            onClick={() => {
+                              setAddingPlayers(false);
+                              setAddingTo(item.id);
+                            }}
                           >
                             <Plus /> Bestiary
                           </Button>
@@ -647,77 +701,124 @@ export function PreparedEncounters({
       >
         <DialogContent className="border-white/10 bg-[#151820] text-stone-100">
           <DialogHeader>
-            <DialogTitle>Add bestiary monsters</DialogTitle>
+            <DialogTitle>
+              {addingPlayers
+                ? "Add campaign players / NPCs"
+                : "Add bestiary monsters"}
+            </DialogTitle>
           </DialogHeader>
           <Input
             type="search"
-            placeholder="Search by name, type, or CR…"
+            placeholder={
+              addingPlayers
+                ? "Search players / NPCs…"
+                : "Search by name, type, or CR…"
+            }
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
           <div className="max-h-72 space-y-1 overflow-y-auto">
-            {monsters
-              .filter((monster) =>
-                `${monster.name} ${monster.type} ${monster.challengeRating}`
-                  .toLowerCase()
-                  .includes(query.toLowerCase()),
-              )
-              .map((monster) => {
-                const checked = chosen.has(monster.id);
-                return (
+            {addingPlayers &&
+              players
+                .filter((player) =>
+                  `${player.name} ${player.kind ?? "player"}`
+                    .toLowerCase()
+                    .includes(query.toLowerCase()),
+                )
+                .map((player) => (
                   <div
-                    key={monster.id}
-                    className="flex items-center gap-3 rounded px-3 py-2 hover:bg-white/5"
+                    key={player.id}
+                    className="flex items-center gap-3 rounded p-2"
                   >
                     <Checkbox
-                      aria-label={`Select ${monster.name}`}
-                      checked={checked}
+                      aria-label={`Select ${player.name}`}
+                      checked={chosen.has(player.id)}
                       onCheckedChange={(value) =>
                         setChosen((current) => {
                           const next = new Set(current);
-                          if (value) next.add(monster.id);
-                          else next.delete(monster.id);
+                          if (value) next.add(player.id);
+                          else next.delete(player.id);
                           return next;
                         })
                       }
                     />
-                    <span className="min-w-0 flex-1 truncate">
-                      {monster.name}
-                    </span>
-                    <span className="shrink-0 text-xs text-stone-500">
-                      {monster.type} · CR {monster.challengeRating}
-                    </span>
-                    <Input
-                      aria-label={`Quantity for ${monster.name}`}
-                      title={`Quantity for ${monster.name}`}
-                      className="h-8 w-20 text-center"
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={quantities[monster.id] ?? 1}
-                      onFocus={() =>
-                        setChosen((current) => new Set(current).add(monster.id))
+                    <span className="flex-1">{player.name}</span>
+                    <span
+                      className={
+                        player.kind === "npc"
+                          ? "text-blue-300"
+                          : "text-emerald-300"
                       }
-                      onChange={(event) => {
-                        const quantity = Math.max(
-                          1,
-                          Math.min(
-                            99,
-                            Number.parseInt(event.target.value, 10) || 1,
-                          ),
-                        );
-                        setQuantities((current) => ({
-                          ...current,
-                          [monster.id]: quantity,
-                        }));
-                        setChosen((current) =>
-                          new Set(current).add(monster.id),
-                        );
-                      }}
-                    />
+                    >
+                      {player.kind === "npc" ? "NPC" : "Player"}
+                    </span>
                   </div>
-                );
-              })}
+                ))}
+            {!addingPlayers &&
+              monsters
+                .filter((monster) =>
+                  `${monster.name} ${monster.type} ${monster.challengeRating}`
+                    .toLowerCase()
+                    .includes(query.toLowerCase()),
+                )
+                .map((monster) => {
+                  const checked = chosen.has(monster.id);
+                  return (
+                    <div
+                      key={monster.id}
+                      className="flex items-center gap-3 rounded px-3 py-2 hover:bg-white/5"
+                    >
+                      <Checkbox
+                        aria-label={`Select ${monster.name}`}
+                        checked={checked}
+                        onCheckedChange={(value) =>
+                          setChosen((current) => {
+                            const next = new Set(current);
+                            if (value) next.add(monster.id);
+                            else next.delete(monster.id);
+                            return next;
+                          })
+                        }
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {monster.name}
+                      </span>
+                      <span className="shrink-0 text-xs text-stone-500">
+                        {monster.type} · CR {monster.challengeRating}
+                      </span>
+                      <Input
+                        aria-label={`Quantity for ${monster.name}`}
+                        title={`Quantity for ${monster.name}`}
+                        className="h-8 w-20 text-center"
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={quantities[monster.id] ?? 1}
+                        onFocus={() =>
+                          setChosen((current) =>
+                            new Set(current).add(monster.id),
+                          )
+                        }
+                        onChange={(event) => {
+                          const quantity = Math.max(
+                            1,
+                            Math.min(
+                              99,
+                              Number.parseInt(event.target.value, 10) || 1,
+                            ),
+                          );
+                          setQuantities((current) => ({
+                            ...current,
+                            [monster.id]: quantity,
+                          }));
+                          setChosen((current) =>
+                            new Set(current).add(monster.id),
+                          );
+                        }}
+                      />
+                    </div>
+                  );
+                })}
           </div>
           <Button disabled={!chosen.size} onClick={addChosen}>
             Add selected (

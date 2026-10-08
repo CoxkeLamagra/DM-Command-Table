@@ -303,6 +303,11 @@ export const migrations: readonly Migration[] = [
     name: "prepared-custom-combatants",
     sql: `ALTER TABLE prepared_encounters ADD COLUMN combatants TEXT NOT NULL DEFAULT '[]';`,
   },
+  {
+    version: 5,
+    name: "campaign-character-kind",
+    sql: "ALTER TABLE players ADD COLUMN kind TEXT NOT NULL DEFAULT 'player' CHECK (kind IN ('player', 'npc'));",
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {

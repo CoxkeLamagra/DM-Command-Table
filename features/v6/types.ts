@@ -66,6 +66,7 @@ export type V6StoryBeat = {
 };
 
 export type V6Player = {
+  kind?: "player" | "npc";
   id: string;
   campaignId: string;
   name: string;

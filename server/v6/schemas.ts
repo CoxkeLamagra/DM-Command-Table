@@ -22,6 +22,7 @@ export const membershipSchema = z.object({
 });
 
 export const playerSchema = z.object({
+  kind: z.enum(["player", "npc"]).default("player"),
   name: z.string().max(120),
   race: z.string().max(120),
   className: z.string().max(120),

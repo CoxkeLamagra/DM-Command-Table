@@ -51,6 +51,7 @@ test("portable v6 campaign exports round-trip with remapped relationships", () =
     tagIds: [tag.id],
   });
   const player = content.createPlayer(campaign.id, "owner", {
+    kind: "npc",
     name: "Ireena",
     race: "Human",
     className: "Noble",
@@ -100,7 +101,7 @@ test("portable v6 campaign exports round-trip with remapped relationships", () =
         monsterId: null,
         name: player.name,
         displayNumber: null,
-        kind: "player",
+        kind: "npc",
         notes: "Keep Ireena safe",
         initiative: 18,
         hitPoints: 20,
@@ -131,6 +132,8 @@ test("portable v6 campaign exports round-trip with remapped relationships", () =
   assert.equal(importedMonsters[0]?.tags[0]?.name, "Undead");
   assert.notEqual(importedMonsters[0]?.id, monster.id);
   assert.notEqual(importedPlayers[0]?.id, player.id);
+  assert.equal(importedPlayers[0]?.kind, "npc");
+  assert.equal(importedCombat.combatants[0]?.kind, "npc");
   assert.deepEqual(importedStory[0]?.sessionIds, [importedSessions[0]?.id]);
   const prepared = encounters.listPrepared(
     imported.id,

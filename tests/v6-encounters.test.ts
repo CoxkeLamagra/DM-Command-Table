@@ -259,3 +259,60 @@ test("prepared custom combatants persist independently with editable combat deta
   assert.equal(reloaded.combatants?.[0].armorClass, 16);
   database.close();
 });
+
+test("campaign NPCs persist their type and import into combat with duplicate protection", () => {
+  const { database, campaign, content, encounters } = fixture();
+  const npc = content.createPlayer(campaign.id, "owner", {
+    kind: "npc",
+    name: "Mira",
+    race: "Human",
+    className: "Guard",
+    level: 2,
+    hitPoints: 18,
+    armorClass: 14,
+    notes: "Campaign ally",
+  });
+  assert.equal(content.listPlayers(campaign.id, "owner")[0].kind, "npc");
+  const initial = encounters.getCombat(campaign.id, "owner");
+  const entry: V6Combatant = {
+    id: crypto.randomUUID(),
+    playerId: npc.id,
+    monsterId: null,
+    name: npc.name,
+    kind: "npc",
+    notes: npc.notes,
+    displayNumber: null,
+    initiative: 10,
+    hitPoints: 18,
+    maximumHitPoints: 18,
+    armorClass: 14,
+    sortOrder: 0,
+    conditions: [],
+    revision: 1,
+  };
+  const saved = encounters.saveCombat(campaign.id, "owner", initial.revision, {
+    name: "NPC encounter",
+    round: 1,
+    turn: 0,
+    combatants: [entry],
+  });
+  assert.equal(saved.combatants[0].kind, "npc");
+  assert.equal(saved.combatants[0].playerId, npc.id);
+  assert.throws(() =>
+    encounters.saveCombat(campaign.id, "owner", saved.revision, {
+      name: saved.name,
+      round: 1,
+      turn: 0,
+      combatants: [entry, { ...entry, id: crypto.randomUUID() }],
+    }),
+  );
+  const updated = content.updatePlayer(
+    campaign.id,
+    "owner",
+    npc.id,
+    npc.revision,
+    { ...npc, kind: "player" },
+  );
+  assert.equal(updated.kind, "player");
+  database.close();
+});
