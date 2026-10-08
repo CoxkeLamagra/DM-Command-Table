@@ -2,6 +2,12 @@
 
 All notable DM Command Table releases are documented here.
 
+## 8.1.0 — 2026-10-08
+
+- Show the prepared-encounter count on the Session Encounters tab, matching the Linked stories count.
+- Update counts after loading, creating, and deleting encounters while retaining the unsaved-change dot.
+- Add browser coverage for encounter-count changes and accessible encounter deletion.
+
 ## 8.0.0 — 2026-10-08
 
 ### Combat usability
