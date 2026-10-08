@@ -2,6 +2,13 @@
 
 All notable DM Command Table releases are documented here.
 
+## 7.4.0 — 2026-10-08
+
+- Add Collapse menu / Expand menu controls for an icon-only desktop sidebar with more space for the active screen.
+- Retain accessible navigation labels, hover titles, active-section highlighting, campaign selection and creation, archived campaign restoration, and sign-out.
+- Remember the sidebar preference locally in the browser; mobile navigation retains full labels.
+- Add browser regression coverage for sidebar layout, icon navigation, preference persistence and mobile behaviour.
+
 ## 7.3.0 — 2026-10-08
 
 - Update Next.js and its lint configuration to patched version 16.3.8.
