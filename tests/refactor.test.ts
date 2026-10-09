@@ -285,3 +285,230 @@ test("server combat commands retain submitted drafts and reject stale revisions"
     database.close();
   }
 });
+
+test("prepared loading rejects Viewers before reading their request body", async () => {
+  const { database, campaign } = fixture();
+  database
+    .prepare(
+      "UPDATE campaign_members SET role = 'viewer' WHERE campaign_id = ? AND user_id = 'editor'",
+    )
+    .run(campaign.id);
+  const request = new Request(
+    `http://local/api/campaigns/${campaign.id}/combat/load-prepared`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "invalid JSON",
+    },
+  );
+  try {
+    const response = await handleApi(request, database, {
+      userId: "editor",
+      isAdmin: false,
+    });
+    assert.equal(response.status, 403);
+    assert.equal(request.bodyUsed, false);
+    assert.equal((await response.json()).code, "forbidden");
+  } finally {
+    database.close();
+  }
+});
+
+test("prepared loading bounds expanded quantities before any combatant allocation", async () => {
+  const { loadPreparation, CombatCapacityError } =
+    await import("../domain/combat.ts");
+  const { preparedEncounterSchema } = await import("../server/http/schemas.ts");
+  const { apiError } = await import("../server/http/http.ts");
+  const { database, campaign, content, encounters } = fixture();
+  try {
+    const combat = encounters.getCombat(campaign.id, "owner");
+    const monsterId = crypto.randomUUID();
+    const prepared = {
+      id: crypto.randomUUID(),
+      sessionId: crypto.randomUUID(),
+      revision: 1,
+      createdAt: "",
+      updatedAt: "",
+      name: "Bounded",
+      notes: "",
+      sortOrder: 0,
+      monsters: Array.from({ length: 11 }, (_, sortOrder) => ({
+        id: crypto.randomUUID(),
+        monsterId,
+        quantity: 1000,
+        displayNumber: null,
+        sortOrder,
+      })),
+      combatants: [],
+    };
+    let allocations = 0;
+    const id = () => {
+      allocations++;
+      return crypto.randomUUID();
+    };
+    const sources = [
+      { id: monsterId, name: "Goblin", hitPoints: 7, armorClass: 15 },
+    ];
+    assert.throws(
+      () => loadPreparation(combat, prepared, sources, id),
+      CombatCapacityError,
+    );
+    assert.equal(allocations, 0);
+    assert.equal(preparedEncounterSchema.safeParse(prepared).success, false);
+    const bounded = { ...prepared, monsters: prepared.monsters.slice(0, 10) };
+    const result = loadPreparation(combat, bounded, sources, id);
+    assert.equal(result.combatants.length, 10000);
+    assert.equal(result.name, "Bounded");
+    assert.equal(result.combatants[0].kind, "monster");
+    allocations = 0;
+    const survivor = entry(crypto.randomUUID(), 12);
+    assert.throws(
+      () =>
+        loadPreparation(
+          { ...combat, combatants: [survivor] },
+          bounded,
+          sources,
+          id,
+        ),
+      CombatCapacityError,
+    );
+    assert.throws(
+      () =>
+        loadPreparation(
+          combat,
+          { ...bounded, combatants: [survivor] },
+          sources,
+          id,
+        ),
+      CombatCapacityError,
+    );
+    assert.equal(allocations, 0);
+    assert.equal(
+      preparedEncounterSchema.safeParse({ ...bounded, combatants: [survivor] })
+        .success,
+      false,
+    );
+    assert.equal(apiError(new CombatCapacityError()).status, 400);
+    const session = content.createSession(campaign.id, "owner", {
+      title: "Limits",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 0,
+    });
+    for (const [path, payload] of [
+      [
+        `combat/load-prepared`,
+        {
+          revision: combat.revision,
+          prepared: { ...prepared, sessionId: session.id },
+        },
+      ],
+      [
+        `sessions/${session.id}/save`,
+        {
+          session,
+          encounters: [
+            { ...bounded, sessionId: session.id, combatants: [survivor] },
+          ],
+        },
+      ],
+    ] as const) {
+      const response = await handleApi(
+        new Request(`http://local/api/campaigns/${campaign.id}/${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+        database,
+        { userId: "owner", isAdmin: true },
+      );
+      assert.equal(response.status, 400);
+    }
+    assert.equal(
+      encounters.getCombat(campaign.id, "owner").revision,
+      combat.revision,
+    );
+    assert.throws(
+      () =>
+        encounters.createPrepared(campaign.id, "owner", session.id, {
+          ...bounded,
+          combatants: [survivor],
+        }),
+      CombatCapacityError,
+    );
+    assert.equal(
+      encounters.listPrepared(campaign.id, "owner", session.id).length,
+      0,
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test("editors can load prepared Players and NPCs while retaining existing combatants", async () => {
+  const { database, campaign, content, encounters } = fixture();
+  try {
+    const session = content.createSession(campaign.id, "owner", {
+      title: "Allies",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 0,
+    });
+    const retained = {
+      ...entry(crypto.randomUUID(), 15),
+      kind: "player" as const,
+      name: "Hero",
+    };
+    const initial = encounters.getCombat(campaign.id, "owner");
+    const combat = encounters.saveCombat(
+      campaign.id,
+      "owner",
+      initial.revision,
+      { ...initial, combatants: [retained] },
+    );
+    const prepared = encounters.createPrepared(
+      campaign.id,
+      "owner",
+      session.id,
+      {
+        name: "Allies",
+        notes: "",
+        sortOrder: 0,
+        monsters: [],
+        combatants: [
+          entry(crypto.randomUUID(), 10),
+          { ...entry(crypto.randomUUID(), 12), kind: "player" },
+        ],
+      },
+    );
+    const response = await handleApi(
+      new Request(
+        `http://local/api/campaigns/${campaign.id}/combat/load-prepared`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ revision: combat.revision, prepared }),
+        },
+      ),
+      database,
+      { userId: "editor", isAdmin: false },
+    );
+    assert.equal(response.status, 200);
+    const saved = encounters.getCombat(campaign.id, "owner");
+    assert.equal(saved.combatants.length, 3);
+    assert.equal(
+      saved.combatants.filter(({ kind }) => kind === "player").length,
+      2,
+    );
+    assert.equal(
+      saved.combatants.filter(({ kind }) => kind === "npc").length,
+      1,
+    );
+    assert.equal(saved.combatants[0].id, retained.id);
+    assert.equal(saved.round, 1);
+  } finally {
+    database.close();
+  }
+});

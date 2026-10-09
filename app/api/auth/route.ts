@@ -11,18 +11,35 @@ import {
 } from "@/server/identity/auth";
 import { apiError, apiJson, jsonBody } from "@/server/http/http";
 import { clientAddress, rateLimitResponse } from "@/server/security/rate-limit";
-import { consumePersistentRateLimit } from "@/server/security/sqlite-rate-limit";
+import {
+  consumeAuthRateLimit,
+  withAuthWork,
+} from "@/server/security/auth-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const authSchema = z.object({
-  action: z.enum(["login", "register", "logout"]),
-  username: z.string().max(32).optional(),
-  password: z.string().max(128).optional(),
-  displayName: z.string().max(80).optional(),
-  bootstrapToken: z.string().max(512).optional(),
-});
+const authSchema = z
+  .object({
+    action: z.enum(["login", "register", "logout"]),
+    username: z.string().max(32).optional(),
+    password: z.string().max(128).optional(),
+    displayName: z.string().max(80).optional(),
+    bootstrapToken: z.string().max(512).optional(),
+  })
+  .superRefine((input, context) => {
+    if (input.action === "logout") return;
+    for (const field of ["username", "password"] as const) {
+      if (
+        field === "username" ? !input.username?.trim() : !input.password?.length
+      )
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `${field} is required.`,
+        });
+    }
+  });
 
 export async function GET() {
   const database = getDatabase();
@@ -40,40 +57,35 @@ export async function POST(request: Request) {
       await destroySession(database);
       return apiJson({ signedOut: true });
     }
-    const globalLimit = consumePersistentRateLimit(
+    const rateLimit = consumeAuthRateLimit(
       database,
-      `auth:${input.action}:global`,
-      input.action === "login" ? 300 : 30,
-      input.action === "login" ? 15 * 60 * 1000 : 60 * 60 * 1000,
-    );
-    if (!globalLimit.allowed)
-      return rateLimitResponse(globalLimit.retryAfterSeconds);
-    const rateLimit = consumePersistentRateLimit(
-      database,
-      `auth:${input.action}:${clientAddress(request)}:${(input.username ?? "").toLowerCase()}`,
-      input.action === "login" ? 10 : 5,
-      input.action === "login" ? 15 * 60 * 1000 : 60 * 60 * 1000,
+      input.action,
+      clientAddress(request),
+      input.username ?? "",
     );
     if (!rateLimit.allowed)
       return rateLimitResponse(rateLimit.retryAfterSeconds);
-    if (input.action === "register") {
-      const user = await registerUser(database, {
-        username: input.username ?? "",
-        displayName: input.displayName ?? input.username ?? "",
-        password: input.password ?? "",
-        bootstrapToken: input.bootstrapToken,
-      });
+    return await withAuthWork(async () => {
+      if (input.action === "register") {
+        const user = await registerUser(database, {
+          username: input.username ?? "",
+          displayName: input.displayName ?? input.username ?? "",
+          password: input.password ?? "",
+          bootstrapToken: input.bootstrapToken,
+        });
+        await createSession(user.userId, database);
+        return apiJson({ user }, 201);
+      }
+      const user = await authenticateUser(
+        database,
+        input.username ?? "",
+        input.password ?? "",
+      );
+      if (!user)
+        return apiJson({ error: "Invalid username or password." }, 401);
       await createSession(user.userId, database);
-      return apiJson({ user }, 201);
-    }
-    const user = await authenticateUser(
-      database,
-      input.username ?? "",
-      input.password ?? "",
-    );
-    if (!user) return apiJson({ error: "Invalid username or password." }, 401);
-    await createSession(user.userId, database);
-    return apiJson({ user });
+      return apiJson({ user });
+    });
   } catch (error) {
     return apiError(error);
   }

@@ -127,3 +127,172 @@ test("multipart readers enforce actual streamed bytes despite a misleading lengt
     name: "RequestTooLargeError",
   });
 });
+
+test("denied auth attempts and rotating usernames cannot exhaust the shared login budget", async () => {
+  const { consumeAuthRateLimit } =
+    await import("../server/security/auth-rate-limit.ts");
+  const database = new DatabaseSync(":memory:");
+  runMigrations(database);
+  try {
+    for (let attempt = 0; attempt < 10; attempt++)
+      assert.equal(
+        consumeAuthRateLimit(database, "login", "attacker", " Missing ", 1000)
+          .allowed,
+        true,
+      );
+    for (let attempt = 0; attempt < 300; attempt++)
+      assert.equal(
+        consumeAuthRateLimit(database, "login", "attacker", "missing", 1000)
+          .allowed,
+        false,
+      );
+    assert.equal(
+      (
+        database
+          .prepare(
+            "SELECT count FROM security_rate_limits WHERE key = 'auth:login:global'",
+          )
+          .get() as { count: number }
+      ).count,
+      10,
+    );
+    for (let attempt = 0; attempt < 20; attempt++)
+      assert.equal(
+        consumeAuthRateLimit(
+          database,
+          "login",
+          "attacker",
+          `rotated-${attempt}`,
+          1000,
+        ).allowed,
+        true,
+      );
+    for (let attempt = 20; attempt < 320; attempt++)
+      assert.equal(
+        consumeAuthRateLimit(
+          database,
+          "login",
+          "attacker",
+          `rotated-${attempt}`,
+          1000,
+        ).allowed,
+        false,
+      );
+    assert.equal(
+      (
+        database
+          .prepare(
+            "SELECT count FROM security_rate_limits WHERE key = 'auth:login:global'",
+          )
+          .get() as { count: number }
+      ).count,
+      30,
+    );
+    assert.equal(
+      (
+        database
+          .prepare("SELECT COUNT(*) AS count FROM security_rate_limits")
+          .get() as { count: number }
+      ).count,
+      23,
+    );
+    assert.equal(
+      consumeAuthRateLimit(
+        database,
+        "login",
+        "other-client",
+        "valid-user",
+        1000,
+      ).allowed,
+      true,
+    );
+    assert.equal(
+      consumeAuthRateLimit(database, "login", "attacker", "missing", 901001)
+        .allowed,
+      true,
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test("registration limits and shared rejection do not charge other auth buckets", async () => {
+  const { consumeAuthRateLimit } =
+    await import("../server/security/auth-rate-limit.ts");
+  const database = new DatabaseSync(":memory:");
+  runMigrations(database);
+  try {
+    for (let attempt = 0; attempt < 30; attempt++)
+      assert.equal(
+        consumeAuthRateLimit(
+          database,
+          "register",
+          `source-${attempt}`,
+          "new-user",
+          1000,
+        ).allowed,
+        true,
+      );
+    const denied = consumeAuthRateLimit(
+      database,
+      "register",
+      "other-source",
+      "other-user",
+      1000,
+    );
+    assert.deepEqual(denied, { allowed: false, retryAfterSeconds: 3600 });
+    assert.equal(
+      database
+        .prepare(
+          "SELECT count FROM security_rate_limits WHERE key = 'auth:register:source:other-source'",
+        )
+        .get(),
+      undefined,
+    );
+    assert.equal(
+      consumeAuthRateLimit(
+        database,
+        "login",
+        "other-source",
+        "existing-user",
+        1000,
+      ).allowed,
+      true,
+    );
+    assert.equal(
+      consumeAuthRateLimit(
+        database,
+        "register",
+        "other-source",
+        "other-user",
+        3601001,
+      ).allowed,
+      true,
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test("authentication work is bounded and releases capacity after success or failure", async () => {
+  const { withAuthWork } =
+    await import("../server/security/auth-rate-limit.ts");
+  const releases: (() => void)[] = [];
+  const running = Array.from({ length: 4 }, () =>
+    withAuthWork(() => new Promise<void>((resolve) => releases.push(resolve))),
+  );
+  await assert.rejects(() => withAuthWork(async () => "overflow"), {
+    status: 503,
+  });
+  releases.forEach((release) => release());
+  await Promise.all(running);
+  assert.equal(await withAuthWork(async () => "success"), "success");
+  await assert.rejects(
+    () =>
+      withAuthWork(async () => {
+        throw new Error("operation failed");
+      }),
+    /operation failed/,
+  );
+  assert.equal(await withAuthWork(async () => "recovered"), "recovered");
+});

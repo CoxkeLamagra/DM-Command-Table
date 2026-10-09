@@ -81,3 +81,11 @@ Remove an obsolete build using `git worktree remove` as `dmct` after inspecting 
 | Initial token rejected                       | Production bootstrap token matches the first-registration form; later registration is controlled in Administration |
 
 `GET /api/health` returns the application version and readiness, or an unavailable response when storage initialization fails. It is not a full feature or proxy test. New accounts start without campaign records; administrators can create additional accounts locally. Password changes require the current password; forgotten passwords are reset by another administrator. There is no external email recovery service.
+
+### Authentication throttling
+
+Login attempts are limited to 10 per source and normalized username, 30 per source and 300 globally in 15 minutes. Registration attempts are limited to 5 per source and username, 10 per source and 30 globally in one hour. Missing credentials are rejected before charging quotas. At most four authentication operations can run concurrently; overload returns HTTP 503 and clients can retry shortly. All budgets are checked together; rejected requests do not consume any budget. Limits persist in SQLite and return HTTP 429 with `Retry-After`.
+
+Client addresses are read only when `DM_COMMAND_TABLE_TRUST_PROXY=true`. Use this behind a trusted reverse proxy that overwrites forwarded client-address headers, as in the Debian installation guide, and keep the application port private. With proxy trust disabled, requests share the `direct-client` source budget; users behind the same proxy-visible address also share a source budget.
+
+Prepared encounters may expand to at most 10,000 combatants, including custom Players/NPCs and any Players/NPCs retained in the current combat. Oversized encounters are rejected before expansion. Loading a prepared encounter requires campaign editor or owner access.

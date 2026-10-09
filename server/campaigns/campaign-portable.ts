@@ -10,7 +10,8 @@ import {
   idSchema,
   monsterSchema,
   playerSchema,
-  preparedEncounterSchema,
+  preparedEncounterFields,
+  preparedEncounterFits,
   sessionSchema,
   storySchema,
 } from "../http/schemas.ts";
@@ -36,11 +37,16 @@ const monsterExportSchema = monsterSchema.extend({
   ...metadata,
 });
 const playerExportSchema = playerSchema.extend({ id: idSchema, ...metadata });
-const preparedExportSchema = preparedEncounterSchema.extend({
-  id: idSchema,
-  sessionId: idSchema.optional(),
-  ...metadata,
-});
+const preparedExportSchema = preparedEncounterFields
+  .extend({
+    id: idSchema,
+    sessionId: idSchema.optional(),
+    ...metadata,
+  })
+  .refine(
+    preparedEncounterFits,
+    "Prepared encounters support at most 10,000 combatants.",
+  );
 const sessionExportSchema = sessionSchema.extend({
   id: idSchema,
   encounters: z.array(preparedExportSchema).max(500).default([]),

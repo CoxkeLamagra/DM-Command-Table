@@ -1,3 +1,4 @@
+import { MAX_COMBATANTS } from "../../domain/limits.ts";
 import { z } from "zod";
 
 export const idSchema = z.string().uuid();
@@ -104,11 +105,19 @@ export const preparedCombatantSchema = combatantSchema.omit({
   revision: true,
 });
 
-export const preparedEncounterSchema = z.object({
+export const preparedEncounterFields = z.object({
   name: z.string().max(200),
   notes: z.string().max(1_000_000),
   sortOrder: z.number().int(),
-  monsters: z.array(preparedMonsterSchema).max(10_000),
+  monsters: z
+    .array(preparedMonsterSchema)
+    .max(MAX_COMBATANTS)
+    .refine(
+      (entries) =>
+        entries.reduce((sum, entry) => sum + entry.quantity, 0) <=
+        MAX_COMBATANTS,
+      "Prepared encounters support at most 10,000 combatants.",
+    ),
   combatants: z
     .array(preparedCombatantSchema)
     .max(1_000)
@@ -118,6 +127,22 @@ export const preparedEncounterSchema = z.object({
     )
     .default([]),
 });
+
+export function preparedEncounterFits(input: {
+  monsters: { quantity: number }[];
+  combatants?: unknown[];
+}): boolean {
+  return (
+    input.monsters.reduce((sum, entry) => sum + entry.quantity, 0) +
+      (input.combatants?.length ?? 0) <=
+    MAX_COMBATANTS
+  );
+}
+
+export const preparedEncounterSchema = preparedEncounterFields.refine(
+  preparedEncounterFits,
+  "Prepared encounters support at most 10,000 combatants.",
+);
 
 export const combatSchema = z.object({
   revision: revisionSchema,

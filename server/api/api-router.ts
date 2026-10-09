@@ -1,3 +1,4 @@
+import { requireCampaignEdit } from "../campaigns/access.ts";
 import {
   exportCampaignPackage,
   importCampaignPackage,
@@ -22,6 +23,8 @@ import {
   monsterSchema,
   playerSchema,
   preparedEncounterSchema,
+  preparedEncounterFields,
+  preparedEncounterFits,
   revisionSchema,
   sessionSchema,
   storySchema,
@@ -39,9 +42,14 @@ const revisionedPlayer = playerSchema.extend({ revision: revisionSchema });
 const revisionedSession = sessionSchema.extend({ revision: revisionSchema });
 const revisionedStory = storySchema.extend({ revision: revisionSchema });
 const revisionedMonster = monsterSchema.extend({ revision: revisionSchema });
-const revisionedPrepared = preparedEncounterSchema.extend({
-  revision: revisionSchema,
-});
+const revisionedPrepared = preparedEncounterFields
+  .extend({
+    revision: revisionSchema,
+  })
+  .refine(
+    preparedEncounterFits,
+    "Prepared encounters support at most 10,000 combatants.",
+  );
 
 function clean<T extends Record<string, unknown>>(
   input: T,
@@ -271,7 +279,14 @@ export async function handleApi(
           .object({
             session: revisionedSession,
             encounters: z
-              .array(revisionedPrepared.extend({ id: idSchema }))
+              .array(
+                preparedEncounterFields
+                  .extend({ revision: revisionSchema, id: idSchema })
+                  .refine(
+                    preparedEncounterFits,
+                    "Prepared encounters support at most 10,000 combatants.",
+                  ),
+              )
               .max(500),
           })
           .parse(await jsonBody(request));
@@ -493,16 +508,22 @@ export async function handleApi(
         });
       }
       if (method === "POST" && resourceId === "load-prepared") {
+        requireCampaignEdit(database, campaignId, context.userId);
         const { revision, prepared } = z
           .object({
             revision: revisionSchema,
-            prepared: preparedEncounterSchema.extend({
-              id: idSchema,
-              sessionId: idSchema,
-              revision: revisionSchema,
-              createdAt: z.string(),
-              updatedAt: z.string(),
-            }),
+            prepared: preparedEncounterFields
+              .extend({
+                id: idSchema,
+                sessionId: idSchema,
+                revision: revisionSchema,
+                createdAt: z.string(),
+                updatedAt: z.string(),
+              })
+              .refine(
+                preparedEncounterFits,
+                "Prepared encounters support at most 10,000 combatants.",
+              ),
           })
           .parse(await jsonBody(request));
         const sessions = content.listSessions(campaignId, context.userId);
