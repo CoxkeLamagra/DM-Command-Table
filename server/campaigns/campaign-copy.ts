@@ -1,3 +1,9 @@
+import {
+  emptyAdventure,
+  emptyContinuity,
+  remapAdventure,
+  remapContinuity,
+} from "../../domain/adventure.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { PublicApiError } from "../http/errors.ts";
 import { requireCampaignRead } from "./access.ts";
@@ -54,11 +60,28 @@ export function copyCampaign(
         const created = content.createPlayer(target.id, actorId, player);
         playerIds.set(player.id, created.id);
       }
+    campaigns.update(
+      target.id,
+      actorId,
+      campaigns.get(target.id, actorId)!.revision,
+      {
+        adventure: remapAdventure(
+          source.adventure ?? emptyAdventure(),
+          playerIds,
+          mode === "template",
+        ),
+      },
+    );
     const sessionIds = new Map<string, string>();
     for (const session of content.listSessions(sourceId, actorId)) {
       const created = content.createSession(target.id, actorId, {
         ...session,
         status: mode === "template" ? "planned" : session.status,
+        continuity: remapContinuity(
+          session.continuity ?? emptyContinuity(),
+          playerIds,
+          mode === "template",
+        ),
       });
       sessionIds.set(session.id, created.id);
       for (const encounter of encounters.listPrepared(

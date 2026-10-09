@@ -33,6 +33,16 @@ Campaign data, accounts, screenshots, search, and backups remain on your server.
 
 Campaigns are private by default. Only the owner can share or delete a campaign. Owners and editors can save changes; viewers cannot modify campaign data.
 
+### Adventure continuity and one-shots
+
+- Campaign **Adventure continuity** tracks open/resolved promises, clues, consequences and objectives. Save these changes with Campaign Save.
+- Save named party presets containing Players and companion NPCs. In Sessions, record tonight’s attendance; the combatant picker can select presets or a session’s attending party while retaining single-use records.
+- Session preparation keeps existing notes and adds essential/optional planned scenes with time estimates and completion checkboxes. **Recap** records actual events and decisions; **Rewards** records treasure, XP and milestones separately.
+- After saving, **Prepare next session** copies selected unfinished scenes and open threads into a new planned session. It keeps attendance, clears recap/rewards and leaves the source untouched. Stale source or campaign revisions require refreshing and retrying.
+- **One-shot quick start** creates a campaign with one initial session, a duration and editable scene checklist. Optionally copy a saved party preset from the current campaign. It creates fresh roster records without modifying the original campaign. Further sessions can still be added normally.
+- Save a one-shot campaign as a reusable Campaign template, or export it as a portable package. Templates retain the adventure and scene definitions but reset completion, recap, rewards and attendance and omit roster records.
+- **Printable packet** downloads a saved, DM-only HTML packet; open it locally and use your browser’s Print command. It includes linked stories and prepared encounter stat blocks, with rich text converted to text and screenshots retained in the application. Save current edits before downloading.
+
 ### Local user administration
 
 - The first locally registered account automatically becomes an administrator.

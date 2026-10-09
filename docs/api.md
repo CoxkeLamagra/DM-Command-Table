@@ -59,3 +59,15 @@ Typical errors are 400 for invalid input, 401 for missing/invalid authentication
 Combatants accept optional `runtime` and `snapshot` fields. Runtime contains nonnegative `temporaryHitPoints`, nullable `concentration`, `deathSaves` (integer successes/failures from 0 through 3), and up to 100 resources (`id`, `name`, `maximum`, `remaining`, `reset`). Resource counts are integers from 0 through 10,000 with remaining no greater than maximum; reset is `manual` or `start-turn`. A Bestiary-linked combatant captures its stat block and slot resources when first saved without a supplied snapshot/runtime. Prepared loads create fresh snapshots and resources per instance.
 
 Conditions support `timing` (`start-turn`, `end-turn`, `manual`), `requiresSave` and `saveDue`. Defaults preserve earlier timed-start-turn and indefinite-manual behavior. Turn commands decrement the outgoing end-turn and incoming start-turn conditions; save-gated expiry sets `saveDue` instead of removing the condition. Clients manually resolve saves and death saves. Own-turn resources reset only for the incoming eligible combatant, including round wrap. Reset-rounds changes round/turn without consuming conditions or restoring resources.
+
+## Adventure continuity
+
+Campaign PATCH accepts `adventure`: `threads`, `partyPresets` and nullable `oneShot` duration metadata. Session create/PATCH/transactional save accepts `continuity`: `recap`, `rewards`, `scenes`, `threadIds` and `attendanceIds`. Omitted metadata retains existing values on updates. Bounds and enums are defined in `server/http/adventure-schemas.ts`. Roster and thread references must belong to the same campaign; deleted roster references are dropped.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | `/api/campaigns/quick-start` | Atomically create a one-shot campaign and exactly one initial session |
+| POST | `C/sessions/:sessionId/prepare-next` | Create a planned session from selected unfinished scenes/open threads |
+| GET | `C/sessions/:sessionId/packet` | Authorized saved DM packet as `{html}` for local download/printing |
+
+Quick start accepts `name`, `durationMinutes` and a nonempty `scenes` list; an optional `sourceCampaignId`, `sourceRevision` and `presetId` copy a readable campaign’s party into fresh roster records. Prepare-next requires edit access and accepts `revision`, `campaignRevision`, `title`, `date`, `sceneIds` and `threadIds`; conflicts return 409 with no partial session. Packet reads permit Viewers and escape all user content; packets contain no scripts, images or external resources.

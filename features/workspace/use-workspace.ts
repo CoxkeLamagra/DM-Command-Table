@@ -84,7 +84,11 @@ export function useWorkspace() {
   }, []);
 
   const saveCampaign = useCallback(
-    async (patch: Partial<Pick<Campaign, "name" | "notes" | "archived">>) => {
+    async (
+      patch: Partial<
+        Pick<Campaign, "name" | "notes" | "archived" | "adventure">
+      >,
+    ) => {
       const selected = current;
       if (!selected || selected.role === "viewer") return false;
       setSaving(true);

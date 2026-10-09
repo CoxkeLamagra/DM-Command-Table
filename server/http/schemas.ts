@@ -1,3 +1,4 @@
+import { adventureSchema, continuitySchema } from "./adventure-schemas.ts";
 import { MAX_COMBATANTS } from "../../domain/limits.ts";
 import { z } from "zod";
 
@@ -15,6 +16,7 @@ export const campaignUpdateSchema = z.object({
   name: z.string().max(120).optional(),
   notes: z.string().max(1_000_000).optional(),
   archived: z.boolean().optional(),
+  adventure: adventureSchema.optional(),
 });
 
 export const membershipSchema = z.object({
@@ -34,6 +36,7 @@ export const playerSchema = z.object({
 });
 
 export const sessionSchema = z.object({
+  continuity: continuitySchema.optional(),
   title: z.string().max(200),
   date: z.string().max(40),
   notes: z.string().max(1_000_000),

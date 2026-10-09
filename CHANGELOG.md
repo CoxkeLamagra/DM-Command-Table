@@ -4,6 +4,13 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+- Separate Session preparation from actual events, rewards, planned scene progress and attendance; retain existing notes as preparation.
+- Track campaign promises, clues, consequences and objectives, and save reusable Player/NPC party presets for encounter imports.
+- Prepare the next session from selected unfinished scenes and open threads, with revision checks and unchanged source records.
+- Add one-shot quick start with exactly one initial session, an optional copied party preset, duration estimates and essential/optional scenes.
+- Download a printable DM packet with saved preparation, linked stories, recap, rewards, party and prepared encounter stat blocks. Packets are text-only and contain no external resources.
+- Preserve continuity in campaign copies and portable packages; reusable templates reset progress and remove attendance. Migrate existing v9 storage locally without replacing session notes.
+
 - Track temporary HP, concentration, death saves, spell slots, legendary actions and configurable ability-use counters independently for each live combatant.
 - Capture Bestiary stat blocks when creatures enter Combat, preserve snapshots after source edits/deletion, and include runtime state and embedded images in saves, undo and campaign exports.
 - Add start/end-of-own-turn condition timing, persistent/manual effects, saving-throw prompts and manual overrides.

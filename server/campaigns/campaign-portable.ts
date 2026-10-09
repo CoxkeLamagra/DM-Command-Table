@@ -1,3 +1,10 @@
+import { adventureSchema } from "../http/adventure-schemas.ts";
+import {
+  emptyAdventure,
+  emptyContinuity,
+  remapAdventure,
+  remapContinuity,
+} from "../../domain/adventure.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { runTransaction } from "../../db/transaction.ts";
@@ -71,6 +78,7 @@ const portableCampaignSchema = z
     exportedAt: z.string().max(80),
     campaign: z.object({
       name: z.string().trim().min(1).max(120),
+      adventure: adventureSchema.optional(),
       notes: z.string().max(1_000_000),
     }),
     tags: z.array(tagExportSchema).max(500),
@@ -171,7 +179,11 @@ export function exportCampaign(
     format: "dm-command-table" as const,
     version: 1 as const,
     exportedAt: new Date().toISOString(),
-    campaign: { name: campaign.name, notes: campaign.notes },
+    campaign: {
+      name: campaign.name,
+      notes: campaign.notes,
+      adventure: campaign.adventure,
+    },
     tags: bestiary.listTags(campaignId, actorId),
     monsters: bestiary.list(campaignId, actorId),
     players: content.listPlayers(campaignId, actorId),
@@ -235,11 +247,26 @@ export function importCampaign(
       playerIds.set(player.id, created.id);
     }
 
+    campaigns.update(
+      target.id,
+      actorId,
+      campaigns.get(target.id, actorId)!.revision,
+      {
+        adventure: remapAdventure(
+          data.campaign.adventure ?? emptyAdventure(),
+          playerIds,
+        ),
+      },
+    );
     const sessionIds = new Map<string, string>();
     for (const session of data.sessions) {
       const created = content.createSession(target.id, actorId, {
         ...session,
         notes: sanitizeRichText(session.notes),
+        continuity: remapContinuity(
+          session.continuity ?? emptyContinuity(),
+          playerIds,
+        ),
       });
       sessionIds.set(session.id, created.id);
       for (const encounter of session.encounters) {

@@ -188,6 +188,19 @@ repository.saveCombat(
     [runtimeMage],
   ),
 );
+const continuityUser = crypto.randomUUID();
+database
+  .prepare(
+    "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Continuity tester','browser-continuity',?,0,?,?)",
+  )
+  .run(continuityUser, await hashPassword("browser-test-pass"), now, now);
+database
+  .prepare("INSERT INTO campaign_members VALUES(?,?,'editor',?,?)")
+  .run(campaign.id, continuityUser, now, now);
+copyCampaign(database, campaign.id, continuityUser, "campaign");
+database
+  .prepare("DELETE FROM campaign_members WHERE campaign_id=? AND user_id=?")
+  .run(campaign.id, continuityUser);
 database.close();
 const child = spawn(process.execPath, [".next/standalone/server.js"], {
   stdio: "inherit",
