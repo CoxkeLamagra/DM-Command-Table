@@ -24,6 +24,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
 import { APPLICATION_VERSION } from "@/lib/version";
+import { DraftAccount } from "../shared/draft-recovery";
+import { clearUserDrafts } from "../shared/draft-storage";
 import { CampaignScreen } from "../campaigns/campaign-screen";
 import { AuthScreen } from "../identity/auth-screen";
 const SessionsScreen = dynamic(
@@ -472,7 +474,16 @@ export function Shell() {
             aria-label="Sign out"
             title="Sign out"
             onClick={() => {
-              if (confirmDiscardChanges()) void workspace.signOut();
+              if (confirmDiscardChanges())
+                void (async () => {
+                  const userId = workspace.user?.userId;
+                  await workspace.signOut();
+                  if (userId) {
+                    try {
+                      clearUserDrafts(localStorage, userId);
+                    } catch {}
+                  }
+                })();
             }}
           >
             <LogOut />
@@ -540,101 +551,103 @@ export function Shell() {
           )}
         </div>
       )}
-      <main
-        data-density={compact ? "compact" : "comfortable"}
-        className={`min-h-screen p-4 sm:p-7 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"} lg:p-10`}
-      >
-        {workspace.current && section === "campaign" && (
-          <CampaignScreen
-            key={`${workspace.current.id}:${workspace.current.revision}:${sync.generation}`}
-            campaign={workspace.current}
-            saving={workspace.saving}
-            saveLabel={workspace.saveLabel}
-            onSave={workspace.saveCampaign}
-            onCopy={workspace.copyCampaign}
-            onDelete={workspace.deleteCampaign}
-            onExport={workspace.exportCampaign}
-            onExportPackage={workspace.exportCampaignPackage}
-            onImport={workspace.importCampaign}
-            onOpenSession={(id) => {
-              if (!confirmDiscardChanges()) return;
-              setOpenSessionId(id);
-              setSection("sessions");
-            }}
-          />
-        )}
-        {workspace.current && section === "story" && (
-          <StoryScreen
-            key={`${workspace.current.id}:${openStoryId ?? "default"}:${sync.generation}`}
-            campaignId={workspace.current.id}
-            editable={workspace.current.role !== "viewer"}
-            initialOpenId={openStoryId}
-            onOpenSession={(id) => {
-              if (!confirmDiscardChanges()) return;
-              setOpenSessionId(id);
-              setSection("sessions");
-            }}
-          />
-        )}
-        {workspace.current && section === "sessions" && (
-          <SessionsScreen
-            key={`${workspace.current.id}:${openSessionId ?? "default"}:${sync.generation}`}
-            campaignId={workspace.current.id}
-            editable={workspace.current.role !== "viewer"}
-            initialOpenId={openSessionId}
-            onOpenStory={(id) => {
-              if (!confirmDiscardChanges()) return;
-              setOpenStoryId(id);
-              setSection("story");
-            }}
-            onOpenCombat={() => {
-              if (confirmDiscardChanges()) setSection("combat");
-            }}
-          />
-        )}
-        {workspace.current && section === "players" && (
-          <PlayersScreen
-            key={`${workspace.current.id}:${openPlayerId ?? "default"}:${sync.generation}`}
-            campaignId={workspace.current.id}
-            editable={workspace.current.role !== "viewer"}
-            initialOpenId={openPlayerId}
-          />
-        )}
-        {workspace.current && section === "bestiary" && (
-          <BestiaryScreen
-            key={`${workspace.current.id}:${openMonsterId ?? "default"}:${sync.generation}`}
-            campaignId={workspace.current.id}
-            editable={workspace.current.role !== "viewer"}
-            initialOpenId={openMonsterId}
-          />
-        )}
-        {workspace.current && section === "combat" && (
-          <CombatScreen
-            key={`${workspace.current.id}:${sync.generation}`}
-            campaignId={workspace.current.id}
-            editable={workspace.current.role !== "viewer"}
-          />
-        )}
-        {workspace.current && section === "search" && (
-          <SearchScreen
-            campaignId={workspace.current.id}
-            navigate={(target, id) => {
-              if (!confirmDiscardChanges()) return;
-              if (target === "sessions") setOpenSessionId(id);
-              if (target === "story") setOpenStoryId(id);
-              if (target === "players") setOpenPlayerId(id);
-              if (target === "bestiary") setOpenMonsterId(id);
-              setSection(target);
-            }}
-          />
-        )}
-        {workspace.user && section === "account" && (
-          <AccountScreen user={workspace.user} refresh={workspace.refresh} />
-        )}
-        {workspace.user?.isAdmin && section === "administration" && (
-          <AdminScreen current={workspace.user} />
-        )}
-      </main>
+      <DraftAccount.Provider value={workspace.user?.userId ?? null}>
+        <main
+          data-density={compact ? "compact" : "comfortable"}
+          className={`min-h-screen p-4 sm:p-7 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"} lg:p-10`}
+        >
+          {workspace.current && section === "campaign" && (
+            <CampaignScreen
+              key={`${workspace.current.id}:${workspace.current.revision}:${sync.generation}`}
+              campaign={workspace.current}
+              saving={workspace.saving}
+              saveLabel={workspace.saveLabel}
+              onSave={workspace.saveCampaign}
+              onCopy={workspace.copyCampaign}
+              onDelete={workspace.deleteCampaign}
+              onExport={workspace.exportCampaign}
+              onExportPackage={workspace.exportCampaignPackage}
+              onImport={workspace.importCampaign}
+              onOpenSession={(id) => {
+                if (!confirmDiscardChanges()) return;
+                setOpenSessionId(id);
+                setSection("sessions");
+              }}
+            />
+          )}
+          {workspace.current && section === "story" && (
+            <StoryScreen
+              key={`${workspace.current.id}:${openStoryId ?? "default"}:${sync.generation}`}
+              campaignId={workspace.current.id}
+              editable={workspace.current.role !== "viewer"}
+              initialOpenId={openStoryId}
+              onOpenSession={(id) => {
+                if (!confirmDiscardChanges()) return;
+                setOpenSessionId(id);
+                setSection("sessions");
+              }}
+            />
+          )}
+          {workspace.current && section === "sessions" && (
+            <SessionsScreen
+              key={`${workspace.current.id}:${openSessionId ?? "default"}:${sync.generation}`}
+              campaignId={workspace.current.id}
+              editable={workspace.current.role !== "viewer"}
+              initialOpenId={openSessionId}
+              onOpenStory={(id) => {
+                if (!confirmDiscardChanges()) return;
+                setOpenStoryId(id);
+                setSection("story");
+              }}
+              onOpenCombat={() => {
+                if (confirmDiscardChanges()) setSection("combat");
+              }}
+            />
+          )}
+          {workspace.current && section === "players" && (
+            <PlayersScreen
+              key={`${workspace.current.id}:${openPlayerId ?? "default"}:${sync.generation}`}
+              campaignId={workspace.current.id}
+              editable={workspace.current.role !== "viewer"}
+              initialOpenId={openPlayerId}
+            />
+          )}
+          {workspace.current && section === "bestiary" && (
+            <BestiaryScreen
+              key={`${workspace.current.id}:${openMonsterId ?? "default"}:${sync.generation}`}
+              campaignId={workspace.current.id}
+              editable={workspace.current.role !== "viewer"}
+              initialOpenId={openMonsterId}
+            />
+          )}
+          {workspace.current && section === "combat" && (
+            <CombatScreen
+              key={`${workspace.current.id}:${sync.generation}`}
+              campaignId={workspace.current.id}
+              editable={workspace.current.role !== "viewer"}
+            />
+          )}
+          {workspace.current && section === "search" && (
+            <SearchScreen
+              campaignId={workspace.current.id}
+              navigate={(target, id) => {
+                if (!confirmDiscardChanges()) return;
+                if (target === "sessions") setOpenSessionId(id);
+                if (target === "story") setOpenStoryId(id);
+                if (target === "players") setOpenPlayerId(id);
+                if (target === "bestiary") setOpenMonsterId(id);
+                setSection(target);
+              }}
+            />
+          )}
+          {workspace.user && section === "account" && (
+            <AccountScreen user={workspace.user} refresh={workspace.refresh} />
+          )}
+          {workspace.user?.isAdmin && section === "administration" && (
+            <AdminScreen current={workspace.user} />
+          )}
+        </main>
+      </DraftAccount.Provider>
     </div>
   );
 }

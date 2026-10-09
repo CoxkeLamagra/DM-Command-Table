@@ -6,7 +6,7 @@ export function confirmDiscardChanges(): boolean {
   return (
     dirtyEditors.size === 0 ||
     window.confirm(
-      "You have unsaved changes. Leave this screen and discard them?",
+      "You have unsaved changes. Leave without saving? Recoverable drafts, where available, stay in this browser.",
     )
   );
 }

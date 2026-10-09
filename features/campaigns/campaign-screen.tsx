@@ -25,6 +25,7 @@ import {
   RichTextContent,
   RichTextEditor,
 } from "@/features/rich-text/rich-text";
+import { useDraftRecovery } from "../shared/draft-recovery";
 import { MemberManager } from "./member-manager";
 import type { Campaign, Session } from "@/domain/types";
 import {
@@ -66,6 +67,23 @@ export function CampaignScreen({
   const dirty = name !== campaign.name || notes !== campaign.notes;
   useUnsavedChanges(dirty);
   const editable = campaign.role !== "viewer";
+  const recovery = useDraftRecovery({
+    campaignId: campaign.id,
+    scope: "campaign",
+    value: { name, notes, revision: campaign.revision },
+    dirty,
+    ready: editable,
+    restore: (value) => {
+      if (typeof value?.name !== "string" || typeof value?.notes !== "string")
+        throw new Error("Invalid draft");
+      if (value.revision !== campaign.revision)
+        throw new Error(
+          "The campaign changed. Download the draft and reconcile it with the current notes.",
+        );
+      setName(value.name);
+      setNotes(value.notes);
+    },
+  });
   const [sessions, setSessions] = useState<Session[]>([]);
   useEffect(() => {
     let live = true;
@@ -89,7 +107,8 @@ export function CampaignScreen({
   const upcoming = nextSession(sessions);
   const [creatingSession, setCreatingSession] = useState(false);
   async function save() {
-    await onSave({ name: name.trim() || "Untitled campaign", notes });
+    if (await onSave({ name: name.trim() || "Untitled campaign", notes }))
+      recovery.clear();
   }
   async function addSession() {
     if (creatingSession) return;
@@ -115,6 +134,7 @@ export function CampaignScreen({
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5">
+      {recovery.banner}
       <header className="sticky top-16 z-20 flex flex-col gap-4 bg-[#0b0d12]/95 py-3 backdrop-blur sm:flex-row sm:items-end sm:justify-between lg:top-0">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">

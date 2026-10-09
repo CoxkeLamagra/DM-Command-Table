@@ -106,6 +106,7 @@ Imported monster data belongs to the current campaign and remains editable after
 - Choose comfortable or compact list spacing from the sidebar; the preference is remembered in this browser.
 - Start with compact collapsed Sessions and Story beats, expand individual entries as needed, or expand and collapse every entry at once.
 - Prepare multiple named encounters inside each session.
+- Open Session play view to use notes, linked story details, prepared encounters and searchable Player/NPC references together. Roster HP is a campaign reference; use Combat for live HP.
 - Switch between Notes, Encounters, and Linked stories tabs without losing drafts. Save session & encounters saves the whole preparation workspace, including hidden tabs.
 - Review collapsed encounters with colour-coded type counts, monster quantities, a combatant preview, and a notes excerpt.
 - Add one or more instances of Bestiary monsters to every prepared encounter.
@@ -113,6 +114,7 @@ Imported monster data belongs to the current campaign and remains editable after
 - Prepared encounters start collapsed; expand/collapse each separately or all encounters in a session at once.
 - Add NPCs and custom combatants without the Bestiary, then edit names, types, initiative, HP, maximum HP, AC, and rich-text stat blocks and notes.
 - Use Edit details on a Bestiary entry to create encounter-specific copies without modifying the Bestiary. Custom details are saved and carried into Combat.
+- Review a load preview before confirming: retained Players/NPCs, replaced monsters, incoming records, possible duplicate names and the 10,000-combatant limit. Cancel leaves Combat unchanged; refresh retrieves its latest revision.
 - Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
@@ -120,6 +122,12 @@ Imported monster data belongs to the current campaign and remains editable after
 - Paste or upload screenshots into every rich-text notes field, including Campaign, Session, Story, Player, and Monster records.
 - Format rich text with lists, bold, italic, underline, and text colors.
 - Reuse uploaded screenshots from the local library; images scale automatically to the available browser width.
+
+### Draft recovery and turn preferences
+
+Unsaved edits in Campaign, Players/NPCs, Bestiary, Stories, Sessions, prepared encounters and Combat are recoverable after refresh in the same browser. Choose Restore draft, Download draft or Discard draft before continuing edits. Drafts retain their original record revisions, so newer server changes require reconciliation. Browser drafts expire after seven days and are removed for the account on explicit sign-out. They are a recovery aid; Save still writes authoritative data to the local server. Browser storage failures display a warning.
+
+Combat’s **At 0 HP** setting can skip everyone (the default), keep Player turns, or keep all turns. The preference is scoped to the account and campaign in this browser and is applied by the server to each turn/reset command. Death saves and other effects remain manually resolved.
 
 ## Storage architecture
 

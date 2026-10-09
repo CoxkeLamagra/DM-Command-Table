@@ -483,7 +483,7 @@ export async function handleApi(
 
     if (resource === "combat") {
       if (method === "POST" && resourceId === "command") {
-        const { command, combat } = z
+        const { command, combat, zeroHpPolicy } = z
           .object({
             command: z.enum([
               "next-turn",
@@ -492,6 +492,9 @@ export async function handleApi(
               "clear",
             ]),
             combat: combatSchema,
+            zeroHpPolicy: z
+              .enum(["skip-all", "include-players", "include-all"])
+              .default("skip-all"),
           })
           .parse(await jsonBody(request));
         return apiJson({
@@ -502,6 +505,7 @@ export async function handleApi(
             applyCombatAction(
               { ...combat, id: "", campaignId, createdAt: "", updatedAt: "" },
               command,
+              zeroHpPolicy,
             ),
             command,
           ),

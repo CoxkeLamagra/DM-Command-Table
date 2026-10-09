@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { SaveStatus } from "@/features/shared/save-status";
 import { reconcileSaved } from "@/features/encounters/drafts";
+import { useDraftRecovery } from "../shared/draft-recovery";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import type { EncounterDraftController } from "../shared/api-client";
 import { toast } from "sonner";
@@ -46,6 +47,8 @@ import type {
   PreparedEncounter,
 } from "@/domain/types";
 
+import { LoadPreview } from "./load-preview";
+import type { Combat } from "@/domain/types";
 import { PreparedCombatantEditor } from "@/features/encounters/prepared-combatant-editor";
 export function PreparedEncounters({
   campaignId,
@@ -69,6 +72,10 @@ export function PreparedEncounters({
     controller: EncounterDraftController,
   ) => () => void;
 }) {
+  const [preview, setPreview] = useState<{
+    prepared: PreparedEncounter;
+    combat: Combat;
+  } | null>(null);
   const [items, setItems] = useState<PreparedEncounter[]>([]);
   useEffect(() => {
     onCountChange?.(sessionId, items.length);
@@ -85,6 +92,36 @@ export function PreparedEncounters({
   useEffect(() => {
     onDirtyChange?.(sessionId, dirty.size > 0);
   }, [onDirtyChange, sessionId, dirty.size]);
+  const [loaded, setLoaded] = useState(false);
+  const recovery = useDraftRecovery({
+    campaignId,
+    scope: `prepared:${sessionId}`,
+    value: items.filter(({ id }) => dirty.has(id)),
+    dirty: dirty.size > 0,
+    ready: loaded && editable,
+    restore: (values) => {
+      if (
+        !Array.isArray(values) ||
+        values.some(
+          (value) =>
+            typeof value?.id !== "string" || !Array.isArray(value.monsters),
+        )
+      )
+        throw new Error("Invalid draft");
+      if (values.some((value) => !items.some(({ id }) => id === value.id)))
+        throw new Error(
+          "An encounter was removed. Download the draft to recover it.",
+        );
+      setItems((all) =>
+        all.map((item) => values.find(({ id }) => id === item.id) ?? item),
+      );
+      const ids = values.map(({ id }) => id);
+      setDirty(new Set(ids));
+      setExpanded(new Set(ids));
+      setVisited(new Set(ids));
+      setOpen(true);
+    },
+  });
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [monsters, setMonsters] = useState<Monster[]>([]);
@@ -102,6 +139,7 @@ export function PreparedEncounters({
         if (live) {
           setExpanded(new Set());
           setItems(value);
+          setLoaded(true);
           itemsRef.current = value;
           setMonsters(bestiary);
           setPlayers(characters);
@@ -334,23 +372,25 @@ export function PreparedEncounters({
     setAddingTo(undefined);
   }
   async function loadInCombat(item: PreparedEncounter) {
-    if (
-      !window.confirm(
-        `Load "${item.name}" in Combat? Current monsters will be replaced; players and NPCs remain.`,
-      )
-    )
-      return;
     setBusy(true);
     try {
-      const total =
-        item.monsters.reduce((sum, entry) => sum + entry.quantity, 0) +
-        (item.combatants?.length ?? 0);
-      if (total > 10_000)
-        throw new Error(
-          "Combat supports at most 10,000 combatants. Reduce the encounter quantities before loading.",
-        );
-      const combat = await getCombat(campaignId);
-      await loadPreparedCombat(campaignId, item, combat.revision);
+      setPreview({ prepared: item, combat: await getCombat(campaignId) });
+    } catch (error) {
+      report(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function confirmLoad() {
+    if (!preview || busy) return;
+    setBusy(true);
+    try {
+      await loadPreparedCombat(
+        campaignId,
+        preview.prepared,
+        preview.combat.revision,
+      );
+      setPreview(null);
       toast.success("Prepared encounter loaded");
       onOpenCombat();
     } catch (error) {
@@ -362,6 +402,7 @@ export function PreparedEncounters({
 
   return (
     <div className="mt-5 border-t border-white/10 pt-4">
+      {recovery.banner}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -604,6 +645,17 @@ export function PreparedEncounters({
             ))
           )}
         </div>
+      )}
+      {preview && (
+        <LoadPreview
+          prepared={preview.prepared}
+          combat={preview.combat}
+          busy={busy}
+          unsaved={dirty.has(preview.prepared.id)}
+          onClose={() => setPreview(null)}
+          onConfirm={() => void confirmLoad()}
+          onRefresh={() => void loadInCombat(preview.prepared)}
+        />
       )}
       <CombatantPicker
         open={!!addingTo}
