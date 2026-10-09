@@ -2,6 +2,15 @@
 
 All notable DM Command Table releases are documented here.
 
+## 9.2.0 — 2026-10-09
+
+- Remove unused starter images and retain the active favicon under its canonical name.
+- Remove obsolete hosted-workspace package-manager configuration and unused build approvals.
+- Exclude generated artifacts and all default local data from source control and Docker build contexts.
+- Package only operational scripts, excluding build tools and the disposable browser-test server from deployed runtimes.
+- Consolidate architecture documentation and add current API, Docker, operations and release-assessment guides.
+- Correct release checkout, runtime environment and validation guidance.
+
 ## 9.1.0 — 2026-10-09
 
 - Add complete system-wide Node 24 and pinned pnpm installation steps for Debian LXC.

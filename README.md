@@ -6,9 +6,9 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-This branch implements the **v9 architecture**. It uses a fresh database baseline and new API routes; it does not upgrade earlier database formats. Keep a verified backup of any existing installation and deploy this version with a separate data directory. Do not point it at an older database.
+The current release is **v9.2.0**, using the **v9 architecture**. Existing v9 installations retain their data. The v9 baseline does not upgrade pre-v9 database formats; deploy those installations with a separate fresh data directory and keep their verified backups.
 
-Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same packaged standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md) and [refactor architecture and validation](docs/refactor.md).
+Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same packaged standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md) and [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
 
 Campaign data, accounts, screenshots, search, and backups remain on your server. Bestiary JSON files import offline. Connecting to the external monster catalogue is an explicit optional action. Next.js telemetry is disabled in the deployment templates.
 
@@ -76,7 +76,7 @@ New Players and NPCs start as drafts. Save creates the roster record with all en
 - Delete individual players.
 - Add saved players to an encounter without entering their information again.
 
-Player and NPC management is available from the dedicated **Players / NPC’s** navigation entry.
+Player and NPC management is available from the dedicated **Players / NPCs** navigation entry.
 
 If HP or AC is not set, the combat tracker uses `10` when that player is added to an encounter.
 
@@ -131,7 +131,7 @@ DM Command Table uses a local-server model with no external database service:
 5. Uploaded screenshots are stored in an `uploads` directory beside the SQLite database.
 6. JSON export provides portable campaign data, while server backups preserve uploaded screenshots.
 
-The SQLite database contains local accounts, password hashes, login sessions, campaign ownership, campaign payloads, and Viewer or Editor memberships. The default location is:
+The SQLite database contains local accounts, password hashes, login sessions, campaign ownership, normalized campaign records, and Viewer or Editor memberships. The default location is:
 
 ```text
 ./data/dm-command-table.sqlite
@@ -151,9 +151,9 @@ DM Command Table provides its own server-local account system:
 - Keep later registration disabled by default, or explicitly enable it while onboarding additional users.
 - Passwords are salted and hashed with Node.js `scrypt`; plaintext passwords are never stored.
 - Login sessions use random server-side tokens. Only a SHA-256 hash of each token is stored in SQLite.
-- The browser receives an HttpOnly, `SameSite=Lax` session cookie that expires after 30 days.
+- The browser receives an HttpOnly, `SameSite=Lax` session cookie that expires after 30 days by default (configurable in Administration).
 - Signing out deletes the active server-side session.
-- A newly registered account receives an editable example campaign demonstrating combatants, campaign players, bestiary monsters, session notes, and story beats.
+- New accounts start without campaign records; create a campaign or import a campaign package to begin.
 - Authentication, account administration, campaign writes and imports, password changes, and screenshot operations use SQLite-backed rate limits that survive application restarts.
 - Campaign imports are schema-validated, size-limited, sanitized, and committed atomically.
 - Screenshot storage has per-account and server-wide quotas with atomic allocation.
@@ -167,13 +167,13 @@ For a plain-HTTP private network deployment, keep:
 DM_COMMAND_TABLE_SECURE_COOKIES=false
 ```
 
-The default value, `auto`, marks cookies secure whenever the trusted reverse proxy reports HTTPS through `X-Forwarded-Proto`. You can set `DM_COMMAND_TABLE_SECURE_COOKIES=true` to require secure cookies unconditionally. Use `false` only for a trusted plain-HTTP private network.
+The default value, `auto`, marks cookies secure when `DM_COMMAND_TABLE_TRUST_PROXY=true` and the reverse proxy reports HTTPS through `X-Forwarded-Proto`. You can set `DM_COMMAND_TABLE_SECURE_COOKIES=true` to require secure cookies unconditionally. Use `false` only for a trusted plain-HTTP private network.
 
 Production startup requires `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` before the first account can be created. Generate a random value, enter it in the first-account registration form, and remove or rotate it after setup. `DM_COMMAND_TABLE_REGISTRATION_MODE` defines the initial registration state and defaults to `first-user`, which prevents later public registration. After the administrator exists, use **Administration** to enable or disable self-registration or create additional accounts directly.
 
 Uploaded images are decoded and re-encoded as WebP before storage. Each account has a 100 MiB quota by default; change it with `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`. Users can access their own screenshots and screenshots referenced by campaigns they can access. Administrators retain access to the complete screenshot-management library.
 
-The application sends a Content Security Policy, frame protection, MIME-sniffing protection, a restrictive permissions policy, and a referrer policy. Public deployments must use HTTPS; secure session cookies are enabled automatically when the reverse proxy reports HTTPS. Add HSTS at the HTTPS reverse proxy after confirming that the hostname is served exclusively over HTTPS.
+The application sends a Content Security Policy, frame protection, MIME-sniffing protection, a restrictive permissions policy, and a referrer policy. Public deployments must use HTTPS; secure session cookies are enabled in auto mode when proxy trust is enabled and the reverse proxy reports HTTPS. Add HSTS at the HTTPS reverse proxy after confirming that the hostname is served exclusively over HTTPS.
 
 ## Technology
 
@@ -186,7 +186,7 @@ The application sends a Content Security Policy, frame protection, MIME-sniffing
 ## Requirements
 
 - Node.js 22.13 or newer
-- pnpm 11.25 or newer
+- pnpm 11.25.0, pinned in `package.json`
 - A writable directory for the SQLite database
 
 ## Local development
@@ -219,6 +219,8 @@ Create the production build:
 pnpm build
 ```
 
+Export the production environment in your shell before starting the server. `pnpm start` runs the standalone artifact; it does not load `.env.local` for operational scripts. Use absolute storage paths to keep application and backup commands pointed at the same data.
+
 Start the Node.js server:
 
 ```bash
@@ -235,24 +237,9 @@ For a complete bare-metal-style LXC installation with Node.js 24 LTS, systemd, N
 
 Reusable configuration templates are available under `deploy/debian-13/`.
 
-## Docker
+## Docker deployment
 
-The included Docker configuration stores SQLite data in a persistent named volume:
-
-```bash
-export DM_COMMAND_TABLE_BOOTSTRAP_TOKEN="$(openssl rand -base64 32)"
-docker compose up --build -d
-```
-
-The application is then available at [http://localhost:3000](http://localhost:3000). Enter the generated token in the initial setup-token field when registering the first local account. The current SQLite database and uploaded screenshots persist in `/data`.
-
-The container runs as the unprivileged `node` user, drops Linux capabilities, uses a read-only root filesystem, and exposes a readiness health check through `/api/health`. By default Compose binds port 3000 only to `127.0.0.1`; set `DMCT_BIND_ADDRESS` deliberately when another host must connect directly:
-
-```bash
-DMCT_BIND_ADDRESS=0.0.0.0 docker compose up --build -d
-docker compose ps
-docker compose exec dm-command-table node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.text()).then(console.log)"
-```
+Docker is the secondary deployment target. See [Docker installation, updates and recovery](docs/docker.md) for the pinned release checkout, private bootstrap token, persistent volume, proxy configuration and backup commands. Compose binds port 3000 to loopback by default; the database and screenshots live in its named `/data` volume.
 
 ## Server data backup
 
@@ -261,6 +248,8 @@ Create a consistent, timestamped SQLite snapshot together with its referenced sc
 ```bash
 pnpm backup
 ```
+
+Operational scripts read exported environment variables, not Next.js `.env.local`. See [operations](docs/operations.md) for the configuration reference and environment-loading commands.
 
 The destination defaults to `./data/backups` and can be changed with `DM_COMMAND_TABLE_BACKUP_PATH`. The command holds a SQLite write reservation while capturing the committed database and copying only its recorded screenshots. Saves can briefly wait during large backups. SHA-256 checksums, database integrity and foreign-key checks verify the backup before completion. Backup directories and files receive restrictive permissions. For Docker Compose:
 
@@ -295,42 +284,9 @@ Browser tests use a temporary local database and disposable test account, withou
 
 Session Save writes the session and its prepared encounter edits in one transaction. Encounter drafts remain available when their Session is collapsed or filtered out. Leaving Sessions with unsaved changes asks for confirmation. Ability scores, actions and spell details remain in the existing rich-text stat block field.
 
-## Campaign API
+## Architecture and API
 
-The authenticated API is exposed below `/api`:
-
-| Method                           | Endpoint                                                             | Purpose                                                 |
-| -------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| `GET`, `POST`                    | `/api/campaigns`                                                  | List or create campaigns.                               |
-| `GET`, `PATCH`, `DELETE`         | `/api/campaigns/:id`                                              | Read, update, or delete a campaign.                     |
-| `POST`                           | `/api/campaigns/:id/copy`                                         | Copy a complete campaign or create a reusable template. |
-| `GET`                            | `/api/campaigns/:id/export`                                       | Download a portable campaign JSON document.             |
-| `POST`                           | `/api/campaigns/import`                                           | Import a portable campaign JSON document.               |
-| `GET`, `POST`, `PATCH`, `DELETE` | `/api/campaigns/:id/{players,sessions,story,monsters,encounters}` | Manage normalized campaign records.                     |
-
-Local registration, login, and logout use `/api/auth`. Account and Administration operations use `/api/account` and `/api/admin`.
-
-## Project structure
-
-```text
-app/                  Next.js entry points and local API route adapters
-components/ui/        Reusable interface primitives
-db/                   SQLite connection, schema, and ordered migrations
-features/              Campaign, Combat, Bestiary, Session, Story, and Auth modules
-lib/                   Shared HTTP client, version data, and typed local API clients
-server/                Local HTTP guards, authentication services, and SQLite repositories
-tests/                 Domain, schema, registration, administration, and storage tests
-public/                Favicons and static assets
-data/                  Runtime SQLite files; excluded from version control
-deploy/                Reusable systemd, Nginx, environment, and update templates
-docs/                  Deployment and operations guides
-Dockerfile             Multi-stage production container build
-compose.yaml           Local container deployment with persistent storage
-```
-
-Feature modules keep orchestration, focused interface components, and testable domain operations separate. Bestiary catalogue importing and views, prepared encounter editing, Combat initiative and combatant details, and administrator account controls live in focused components rather than monolithic screens. Campaign file handling, Combat advancement and numbering, story/session relationships, screenshot-token parsing, and strict campaign validation live outside their screen components.
-
-Browser and server rich-text handling share one formatting and color policy. API routes remain thin adapters over local server services and repositories, and authenticated JSON responses explicitly prevent private data from being cached. A single authenticated screenshot provider shares the server-local media library across all rich-text fields and Administration. These internal boundaries do not introduce cloud services or change the local-only storage model.
+See [architecture](docs/architecture.md) for the source layers, local storage model, revision handling and runtime packaging, and [API reference](docs/api.md) for the authenticated endpoints. [Release assessment](docs/release-assessment.md) records the cleanup decisions and validation limits for v9.1.0.
 
 ## Data and privacy
 
