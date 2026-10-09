@@ -1,23 +1,22 @@
 [Unit]
 Description=DM Command Table
-Documentation=https://github.com/CoxkeLamagra/DM-Command-Table
-After=network-online.target
-Wants=network-online.target
+After=network.target
 
 [Service]
 Type=simple
 User=dmct
 Group=dmct
-WorkingDirectory=/opt/dm-command-table/app
+WorkingDirectory=/opt/dm-command-table/current
 EnvironmentFile=/etc/dm-command-table.env
-Environment=HOME=/opt/dm-command-table
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStartPre=/usr/bin/test -f /opt/dm-command-table/app/.next/BUILD_ID
-ExecStart=/usr/bin/env pnpm exec next start -H 127.0.0.1 -p 3000
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+Environment=NEXT_TELEMETRY_DISABLED=1
+ExecStartPre=/usr/bin/test -f /opt/dm-command-table/current/server.js
+ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
-TimeoutStartSec=60
 KillSignal=SIGTERM
 NoNewPrivileges=true
 PrivateTmp=true
@@ -29,8 +28,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
-MemoryDenyWriteExecute=false
-UMask=0027
+UMask=0077
 ReadWritePaths=/var/lib/dm-command-table
 
 [Install]

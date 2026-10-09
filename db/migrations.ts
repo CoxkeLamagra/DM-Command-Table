@@ -9,8 +9,29 @@ export type Migration = {
 export const migrations: readonly Migration[] = [
   {
     version: 1,
-    name: "canonical-v6-schema",
+    name: "local-first-baseline",
     sql: `
+      CREATE TABLE security_rate_limits (
+        key TEXT PRIMARY KEY NOT NULL,
+        count INTEGER NOT NULL CHECK (count > 0),
+        resets_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX idx_security_rate_limits_resets_at ON security_rate_limits(resets_at);
+      CREATE TABLE prepared_combatants (
+        id TEXT PRIMARY KEY NOT NULL,
+        encounter_id TEXT NOT NULL REFERENCES prepared_encounters(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('player','npc','monster')),
+        notes TEXT NOT NULL DEFAULT '',
+        display_number INTEGER,
+        initiative REAL NOT NULL,
+        hit_points REAL NOT NULL,
+        maximum_hit_points REAL NOT NULL CHECK (maximum_hit_points >= 0),
+        armor_class REAL NOT NULL CHECK (armor_class >= 0),
+        sort_order INTEGER NOT NULL
+      );
+      CREATE INDEX idx_prepared_combatants_encounter ON prepared_combatants(encounter_id);
       CREATE TABLE users (
         id TEXT PRIMARY KEY NOT NULL,
         display_name TEXT NOT NULL,
@@ -64,6 +85,7 @@ export const migrations: readonly Migration[] = [
         id TEXT PRIMARY KEY NOT NULL,
         campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('player', 'npc')),
         race TEXT NOT NULL DEFAULT '',
         class_name TEXT NOT NULL DEFAULT '',
         level INTEGER,
@@ -176,6 +198,7 @@ export const migrations: readonly Migration[] = [
         name TEXT NOT NULL DEFAULT 'Encounter',
         round INTEGER NOT NULL DEFAULT 1 CHECK (round > 0),
         turn INTEGER NOT NULL DEFAULT 0 CHECK (turn >= 0),
+        active_combatant_id TEXT,
         revision INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
@@ -190,6 +213,7 @@ export const migrations: readonly Migration[] = [
         name TEXT NOT NULL,
         display_number INTEGER,
         kind TEXT NOT NULL CHECK (kind IN ('player', 'monster', 'npc')),
+        notes TEXT NOT NULL DEFAULT '',
         initiative REAL NOT NULL DEFAULT 0,
         hit_points REAL NOT NULL DEFAULT 1,
         maximum_hit_points REAL NOT NULL DEFAULT 1,
@@ -227,10 +251,11 @@ export const migrations: readonly Migration[] = [
         filename TEXT NOT NULL UNIQUE,
         original_name TEXT NOT NULL,
         mime_type TEXT NOT NULL,
+        staging INTEGER NOT NULL DEFAULT 0 CHECK (staging IN (0,1)),
         size INTEGER NOT NULL CHECK (size >= 0),
         width INTEGER,
         height INTEGER,
-        uploaded_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        uploaded_by TEXT REFERENCES users(id) ON DELETE SET NULL,
         created_at INTEGER NOT NULL
       );
       CREATE INDEX idx_screenshots_created_at ON screenshots (created_at DESC);
@@ -276,37 +301,6 @@ export const migrations: readonly Migration[] = [
         tokenize = 'unicode61 remove_diacritics 2'
       );
     `,
-  },
-  {
-    version: 2,
-    name: "encounter-local-combatant-notes",
-    sql: `
-      ALTER TABLE combatants ADD COLUMN notes TEXT NOT NULL DEFAULT '';
-    `,
-  },
-  {
-    version: 3,
-    name: "persistent-security-rate-limits",
-    sql: `
-      CREATE TABLE security_rate_limits (
-        key TEXT PRIMARY KEY NOT NULL,
-        count INTEGER NOT NULL CHECK (count > 0),
-        resets_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-      CREATE INDEX idx_security_rate_limits_resets_at
-        ON security_rate_limits (resets_at);
-    `,
-  },
-  {
-    version: 4,
-    name: "prepared-custom-combatants",
-    sql: `ALTER TABLE prepared_encounters ADD COLUMN combatants TEXT NOT NULL DEFAULT '[]';`,
-  },
-  {
-    version: 5,
-    name: "campaign-character-kind",
-    sql: "ALTER TABLE players ADD COLUMN kind TEXT NOT NULL DEFAULT 'player' CHECK (kind IN ('player', 'npc'));",
   },
 ];
 

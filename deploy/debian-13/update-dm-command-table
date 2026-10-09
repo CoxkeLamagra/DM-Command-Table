@@ -1,33 +1,64 @@
-#!/bin/sh
-set -eu
-
-APP_DIR=/opt/dm-command-table/app
+#!/bin/bash
+set -euo pipefail
+[[ $(id -u) == 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+exec 9>/run/lock/dm-command-table-update.lock
+flock -n 9 || { echo 'An update is already running.' >&2; exit 1; }
+BASE=/opt/dm-command-table
+SOURCE=$BASE/source
+CURRENT=$BASE/current
 SERVICE=dm-command-table.service
-
-if [ "$(id -u)" -ne 0 ]; then
-  echo "Run this updater as root." >&2
-  exit 1
-fi
-
-if ! runuser -u dmct -- git -C "$APP_DIR" diff --quiet --; then
-  echo "The application checkout contains local changes; update aborted." >&2
-  exit 1
-fi
-
-if ! runuser -u dmct -- git -C "$APP_DIR" diff --cached --quiet --; then
-  echo "The application checkout contains staged changes; update aborted." >&2
-  exit 1
-fi
-
-cd "$APP_DIR"
+[[ -z $(runuser -u dmct -- git -C "$SOURCE" status --porcelain) ]] || { echo 'Source checkout is dirty.' >&2; exit 1; }
+runuser -u dmct -- git -C "$SOURCE" fetch --tags origin
+TARGET=$(runuser -u dmct -- git -C "$SOURCE" rev-parse "${1:-origin/main}^{commit}")
+BUILD=$BASE/builds/$(date +%s)-${TARGET:0:12}
+RELEASE=$BASE/releases/$(date +%s)-${TARGET:0:12}
+mkdir -p "$BASE/builds" "$BASE/releases"
+chown dmct:dmct "$BASE/builds" "$BASE/releases"
+runuser -u dmct -- git -C "$SOURCE" worktree add --detach "$BUILD" "$TARGET"
+runuser -u dmct -- /usr/bin/env NEXT_TELEMETRY_DISABLED=1 bash -c 'cd "$1" && pnpm install --frozen-lockfile && pnpm build && pnpm test && node scripts/package-runtime.mjs "$2"' _ "$BUILD" "$RELEASE"
+printf '%s\n' "$TARGET" > "$RELEASE/REVISION"
+OLD=$(readlink -f "$CURRENT" || true)
+set -a
+source /etc/dm-command-table.env
+set +a
+health() {
+  for attempt in {1..30}; do
+    if curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+switch_release() {
+  ln -s "$1" "$BASE/current.next"
+  mv -Tf "$BASE/current.next" "$CURRENT"
+}
 systemctl stop "$SERVICE"
-
-if runuser -u dmct -- git -C "$APP_DIR" pull --ff-only \
-  && runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm install --frozen-lockfile \
-  && runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm build; then
-  systemctl start "$SERVICE"
-  systemctl --no-pager --full status "$SERVICE"
-else
-  echo "Update failed. The service remains stopped; inspect the output above." >&2
-  exit 1
+# Capture the exact last committed state after stopping; a live backup before stop could lose intervening saves on rollback.
+trap 'systemctl start "$SERVICE" || true' ERR
+BACKUP=''
+if [[ -f ${DM_COMMAND_TABLE_DB_PATH:-/var/lib/dm-command-table/dm-command-table.sqlite} ]]; then
+  BACKUP=$(runuser -u dmct --preserve-environment -- node "$RELEASE/scripts/backup-local.mjs")
 fi
+switch_release "$RELEASE"
+trap - ERR
+if systemctl start "$SERVICE" && health; then
+  echo "Running $TARGET. Pre-update backup: ${BACKUP:-fresh installation}"
+  runuser -u dmct -- git -C "$SOURCE" worktree remove "$BUILD"
+  exit 0
+fi
+echo 'Candidate failed health checks; recovering the prior release.' >&2
+systemctl stop "$SERVICE" || true
+if [[ -n $OLD && -d $OLD ]]; then
+  if [[ -n $BACKUP ]]; then
+    RESTORED=/var/lib/dm-command-table/restored-$(date +%s)
+    runuser -u dmct --preserve-environment -- node "$RELEASE/scripts/restore-local.mjs" "$BACKUP" "$RESTORED"
+    cp -p /etc/dm-command-table.env "/etc/dm-command-table.env.failed-$(date +%s)"
+    sed -i '/^DM_COMMAND_TABLE_DB_PATH=/d; /^DM_COMMAND_TABLE_UPLOAD_PATH=/d' /etc/dm-command-table.env
+    printf '\nDM_COMMAND_TABLE_DB_PATH=%s/dm-command-table.sqlite\nDM_COMMAND_TABLE_UPLOAD_PATH=%s/uploads\n' "$RESTORED" "$RESTORED" >> /etc/dm-command-table.env
+  fi
+  switch_release "$OLD"
+  systemctl start "$SERVICE"
+  health || { echo 'Recovery also failed. Inspect logs and preserved data.' >&2; exit 1; }
+  echo 'Previous release restored.' >&2
+fi
+exit 1

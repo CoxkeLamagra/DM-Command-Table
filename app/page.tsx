@@ -1,5 +1,5 @@
-import { V6Shell } from "@/features/v6/shell";
+import { Shell } from "@/features/workspace/shell";
 
 export default function Home() {
-  return <V6Shell />;
+  return <Shell />;
 }

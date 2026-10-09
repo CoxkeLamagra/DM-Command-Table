@@ -1,12 +1,12 @@
 import { richTextToPlainText } from "@/features/rich-text/rich-text";
-import type { V6Monster, V6PreparedEncounter } from "@/features/v6/types";
+import type { Monster, PreparedEncounter } from "@/domain/types";
 
 export function EncounterSummary({
   encounter,
   monsters,
 }: {
-  encounter: V6PreparedEncounter;
-  monsters: V6Monster[];
+  encounter: PreparedEncounter;
+  monsters: Monster[];
 }) {
   const custom = encounter.combatants ?? [];
   const counts = {

@@ -4,3 +4,9 @@ data
 .git
 .env*
 *.tar.gz
+
+.sites-runtime
+.agents
+.codex
+outputs
+work

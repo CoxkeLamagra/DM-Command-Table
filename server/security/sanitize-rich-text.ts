@@ -21,9 +21,7 @@ export function sanitizeRichText(value: string): string {
     exclusiveFilter(frame) {
       return (
         frame.tag === "img" &&
-        !/^\/api\/(?:v6-)?screenshots\/[0-9a-f-]+$/i.test(
-          frame.attribs.src ?? "",
-        )
+        !/^\/api\/screenshots\/[0-9a-f-]+$/i.test(frame.attribs.src ?? "")
       );
     },
   });

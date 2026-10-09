@@ -1,25 +1,26 @@
+import { assertStorageReady } from "@/server/config";
+import { APPLICATION_VERSION } from "@/lib/version";
 import {
-  currentV6SchemaVersion,
-  expectedV6SchemaVersion,
-  getV6Database,
-} from "@/db/v6-sqlite";
+  currentSchemaVersion,
+  expectedSchemaVersion as getExpectedSchemaVersion,
+  getDatabase,
+} from "@/db/sqlite";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function GET() {
   try {
-    const database = getV6Database();
+    assertStorageReady();
+    const database = getDatabase();
     database.prepare("SELECT 1").get();
-    const schemaVersion = currentV6SchemaVersion(database);
-    const expectedSchemaVersion = expectedV6SchemaVersion();
+    const schemaVersion = currentSchemaVersion(database);
+    const expectedSchemaVersion = getExpectedSchemaVersion();
     const ready = schemaVersion === expectedSchemaVersion;
     return Response.json(
       {
         status: ready ? "ready" : "degraded",
-        database: "sqlite",
-        schemaVersion,
-        expectedSchemaVersion,
+        version: APPLICATION_VERSION,
       },
       {
         status: ready ? 200 : 503,

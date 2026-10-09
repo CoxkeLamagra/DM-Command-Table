@@ -5,12 +5,13 @@ services:
     ports:
       - "${DMCT_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     environment:
-      DM_COMMAND_TABLE_V6_DB_PATH: /data/dm-command-table-v6.sqlite
-      DM_COMMAND_TABLE_V6_UPLOAD_PATH: /data/uploads-v6
+      NEXT_TELEMETRY_DISABLED: "1"
+      DM_COMMAND_TABLE_DB_PATH: /data/dm-command-table.sqlite
+      DM_COMMAND_TABLE_UPLOAD_PATH: /data/uploads
       DM_COMMAND_TABLE_BACKUP_PATH: /data/backups
       DM_COMMAND_TABLE_SECURE_COOKIES: "${DM_COMMAND_TABLE_SECURE_COOKIES:-auto}"
       DM_COMMAND_TABLE_TRUST_PROXY: "${DM_COMMAND_TABLE_TRUST_PROXY:-false}"
-      DM_COMMAND_TABLE_BOOTSTRAP_TOKEN: "${DM_COMMAND_TABLE_BOOTSTRAP_TOKEN:?Set DM_COMMAND_TABLE_BOOTSTRAP_TOKEN}"
+      DM_COMMAND_TABLE_BOOTSTRAP_TOKEN: "${DM_COMMAND_TABLE_BOOTSTRAP_TOKEN:-}"
       DM_COMMAND_TABLE_REGISTRATION_MODE: "${DM_COMMAND_TABLE_REGISTRATION_MODE:-first-user}"
       DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB: "${DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB:-100}"
       DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB: "${DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB:-1024}"
@@ -32,6 +33,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
     stop_grace_period: 30s
     restart: unless-stopped
 

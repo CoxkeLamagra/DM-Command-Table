@@ -4,12 +4,12 @@ import { DatabaseSync } from "node:sqlite";
 
 const root = process.cwd();
 const databasePath = path.resolve(
-  process.env.DM_COMMAND_TABLE_V6_DB_PATH ??
-    path.join(root, "data", "dm-command-table-v6.sqlite"),
+  process.env.DM_COMMAND_TABLE_DB_PATH ??
+    path.join(root, "data", "dm-command-table.sqlite"),
 );
 const uploadPath = path.resolve(
-  process.env.DM_COMMAND_TABLE_V6_UPLOAD_PATH ??
-    path.join(path.dirname(databasePath), "uploads-v6"),
+  process.env.DM_COMMAND_TABLE_UPLOAD_PATH ??
+    path.join(path.dirname(databasePath), "uploads"),
 );
 
 await access(databasePath);

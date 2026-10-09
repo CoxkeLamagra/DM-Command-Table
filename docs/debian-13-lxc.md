@@ -1,372 +1,78 @@
-# Deploy DM Command Table in a Debian 13 LXC
+# Debian 13 LXC deployment
 
-This guide installs DM Command Table directly in a Debian 13 (Trixie) LXC container. It uses:
+This is the primary deployment target. Use a Debian 13 container with at least 2 CPU cores, 2 GB RAM for builds, and sufficient local disk for data, releases, and backups. The application runs without external services. Install a supported Node 24 LTS runtime and enable Corepack before continuing. Pin and review your runtime version in your own provisioning process.
 
-- Node.js 22 and pnpm 11
-- A systemd service for automatic startup and recovery
-- Nginx as a reverse proxy
-- A server-local SQLite database
-- A reusable update command based on `git pull --ff-only`
+## Fresh installation
 
-The application checkout and persistent data are deliberately separated:
+Run these commands as root. Install Git, Nginx, curl, and the build tools required by native dependencies:
 
-| Purpose | Location |
-| --- | --- |
-| Git checkout | `/opt/dm-command-table/app` |
-| SQLite data | `/var/lib/dm-command-table` |
-| Runtime environment | `/etc/dm-command-table.env` |
-| systemd service | `/etc/systemd/system/dm-command-table.service` |
-| Nginx site | `/etc/nginx/sites-available/dm-command-table` |
-| Update command | `/usr/local/sbin/update-dm-command-table` |
-
-Pulling or rebuilding the Git repository does not overwrite the SQLite database.
-
-This guide covers the v7 application, using its stable normalized v6 storage format, served at `/`.
-
-## 1. Create the LXC
-
-Create a Debian 13 LXC in Proxmox or another LXC host. Recommended minimum resources for a small private deployment:
-
-- 1 CPU core
-- 1 GB RAM
-- 8 GB disk
-- A static IP address or DHCP reservation
-- Unprivileged container where possible
-
-Start the container and open its console or connect over SSH. All commands below are run as `root` inside the LXC.
-
-Confirm the operating system:
-
-```bash
-cat /etc/os-release
-```
-
-The output should identify Debian 13 / Trixie.
-
-## 2. Update Debian and install system packages
-
-```bash
+```sh
 apt update
-apt full-upgrade -y
-apt install -y ca-certificates curl git nginx sqlite3
-```
-
-Reboot the LXC if the upgrade installed a new kernel-facing userspace or systemd update:
-
-```bash
-reboot
-```
-
-Reconnect after the container starts.
-
-## 3. Install Node.js 22 and pnpm
-
-The project requires Node.js 22.13 or newer. Install the NodeSource Node.js 22 repository and package:
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh
-bash /tmp/nodesource_setup.sh
-apt install -y nodejs
-rm /tmp/nodesource_setup.sh
-```
-
-Enable Corepack and activate the pnpm version used by the repository:
-
-```bash
+apt install -y git nginx curl ca-certificates build-essential python3
 corepack enable
-corepack prepare pnpm@11.25.0 --activate
+useradd --system --home-dir /opt/dm-command-table --shell /usr/sbin/nologin dmct
+install -d -o dmct -g dmct -m 0755 /opt/dm-command-table
+install -d -o dmct -g dmct -m 0700 /var/lib/dm-command-table
+runuser -u dmct -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git /opt/dm-command-table/source
 ```
 
-Verify the installed tools:
+Check out the approved release or commit in `source`. The refactor branch is not a published release. Build the initial runtime as the service user:
 
-```bash
-node --version
-pnpm --version
-command -v pnpm
-git --version
+```sh
+cd /opt/dm-command-table/source
+runuser -u dmct -- pnpm install --frozen-lockfile
+runuser -u dmct -- pnpm test
+runuser -u dmct -- env NEXT_TELEMETRY_DISABLED=1 pnpm build
+install -d -o dmct -g dmct /opt/dm-command-table/releases
+runuser -u dmct -- node scripts/package-runtime.mjs /opt/dm-command-table/releases/initial
+ln -s /opt/dm-command-table/releases/initial /opt/dm-command-table/current
+install -m 0600 deploy/debian-13/dm-command-table.env.example /etc/dm-command-table.env
 ```
 
-Node must report `v22.13.0` or newer, and pnpm should report `11.25.0`. The pnpm path can be `/usr/bin/pnpm` or `/usr/local/bin/pnpm`; the supplied service resolves it through the configured system PATH.
+Edit `/etc/dm-command-table.env`. Set a long random bootstrap token, absolute local storage paths, and your cookie policy. This file must use shell-compatible `KEY=value` assignments because both systemd and the updater read it. Quote values containing spaces. Keep it root-owned and private. The first account requires the bootstrap token. Disable registration after setup unless you intend to allow other local accounts.
 
-## 4. Create the service account and persistent directories
+Install the service, backup schedule, updater, and reverse proxy:
 
-```bash
-useradd --system --user-group --home-dir /opt/dm-command-table --shell /usr/sbin/nologin dmct
-mkdir -p /opt/dm-command-table /var/lib/dm-command-table
-chown -R dmct:dmct /opt/dm-command-table /var/lib/dm-command-table
-chmod 750 /var/lib/dm-command-table
-```
-
-The `dmct` account cannot log in interactively and owns only the application and database directories.
-
-## 5. Clone and build the application
-
-Clone the `main` branch as the service account:
-
-```bash
-runuser -u dmct -- git clone --branch main --single-branch \
-  https://github.com/CoxkeLamagra/DM-Command-Table.git \
-  /opt/dm-command-table/app
-```
-
-Install exactly the dependencies recorded in the lockfile and create the production build:
-
-```bash
-cd /opt/dm-command-table/app
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm install --frozen-lockfile
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm build
-test -f /opt/dm-command-table/app/.next/BUILD_ID
-```
-
-The final command must succeed. It verifies that Next.js produced the build required by the systemd service.
-
-## 6. Configure SQLite and local authentication
-
-Install the supplied environment template:
-
-```bash
-cp /opt/dm-command-table/app/deploy/debian-13/dm-command-table.env.example \
-  /etc/dm-command-table.env
-chmod 640 /etc/dm-command-table.env
-chown root:dmct /etc/dm-command-table.env
-```
-
-Review the configuration:
-
-```bash
-nano /etc/dm-command-table.env
-```
-
-Generate a unique initial-account token and replace `REPLACE_WITH_A_LONG_RANDOM_VALUE` in the environment file:
-
-```bash
-openssl rand -base64 32
-```
-
-The first registration must supply this value in the **Initial setup token** field. After the administrator exists, remove or rotate the token. Later registrations are disabled by default. Administrators can enable or disable self-registration and create additional accounts from the **Administration** screen.
-
-For the default deployment, keep automatic HTTPS detection:
-
-```text
-DM_COMMAND_TABLE_SECURE_COOKIES=auto
-```
-
-Use `false` only for a trusted plain-HTTP network where HTTPS will not be configured.
-
-The SQLite file and account schema are created automatically on the first API request. After the service starts, open the site and use **Register** to create the initial administrator with a username, password, and the configured setup token.
-
-Each new account receives an editable example campaign. It can be renamed, changed, exported, or deleted after the user has explored the available features.
-
-Passwords are salted and hashed with `scrypt`. Accounts, sessions, campaign records, and audit history are stored in `/var/lib/dm-command-table/dm-command-table-v6.sqlite`; screenshots are stored in `/var/lib/dm-command-table/uploads-v6`. No external authentication, media, or database service is used.
-
-Screenshot files are validated and converted to WebP. The default quota is 100 MiB per account and 1,024 MiB across the server. Change `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB` and `DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB` if the server has a different storage budget.
-
-Combat undo history defaults to 100 snapshots per encounter, while audit history defaults to 10,000 events per campaign. These local database retention limits can be changed with `DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT` and `DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT`.
-
-When Nginx serves HTTPS, its `X-Forwarded-Proto` header causes `auto` mode to mark session cookies secure. You may use `true` to enforce secure cookies unconditionally.
-
-## 7. Install and start the systemd service
-
-```bash
-cp /opt/dm-command-table/app/deploy/debian-13/dm-command-table.service \
-  /etc/systemd/system/dm-command-table.service
-systemctl daemon-reload
-systemctl enable --now dm-command-table.service
-```
-
-Check the service:
-
-```bash
-systemctl status dm-command-table.service --no-pager
-journalctl -u dm-command-table.service -n 100 --no-pager
-```
-
-Test the application directly from inside the LXC:
-
-```bash
-curl --fail --silent --show-error http://127.0.0.1:3000/api/health
-```
-
-The response must report `"status":"ready"` and matching schema versions before Nginx is enabled.
-
-## 8. Configure Nginx
-
-Install the supplied Nginx configuration:
-
-```bash
-cp /opt/dm-command-table/app/deploy/debian-13/nginx-dm-command-table.conf \
-  /etc/nginx/sites-available/dm-command-table
-ln -s /etc/nginx/sites-available/dm-command-table \
-  /etc/nginx/sites-enabled/dm-command-table
-rm -f /etc/nginx/sites-enabled/default
+```sh
+install -m 0644 deploy/debian-13/dm-command-table.service /etc/systemd/system/
+install -m 0644 deploy/debian-13/dm-command-table-backup.service /etc/systemd/system/
+install -m 0644 deploy/debian-13/dm-command-table-backup.timer /etc/systemd/system/
+install -m 0755 deploy/debian-13/update-dm-command-table /usr/local/sbin/
+install -m 0644 deploy/debian-13/nginx-dm-command-table.conf /etc/nginx/sites-available/dm-command-table
+ln -s /etc/nginx/sites-available/dm-command-table /etc/nginx/sites-enabled/dm-command-table
 nginx -t
+systemctl daemon-reload
+systemctl enable --now dm-command-table.service dm-command-table-backup.timer
 systemctl reload nginx
+curl --fail http://127.0.0.1:3000/api/health
 ```
 
-Open the LXC IP address in a browser:
+Configure the Nginx server name and TLS for your local network. The Node service listens only on loopback. Nginx overwrites forwarded host/protocol headers; do not blindly trust client-supplied headers. If another trusted TLS proxy sits in front of Nginx, configure its exact addresses and the forwarded scheme explicitly. Verify login and cookie behavior through your actual HTTPS endpoint.
 
-```text
-http://LXC-IP-ADDRESS/
+## Updates and rollback
+
+Run `update-dm-command-table <approved-tag-or-commit>` as root. The default target is `origin/main`. A clean source checkout is required. The updater locks concurrent updates, builds and tests a detached worktree while the old service runs, packages an immutable candidate, stops the service, creates a consistent database-and-image backup, then atomically switches the `current` symlink. It checks `/api/health` after starting.
+
+If the candidate fails, the updater restores the matching backup into a new directory, updates storage paths in the environment file, switches back to the previous code, and checks health again. Original data and failed-release files are retained for inspection. Never manually copy only the SQLite main file while its WAL is active.
+
+The v9 baseline is intentionally incompatible with earlier versions. Deploy it into a fresh data directory; this updater is for subsequent releases using the new baseline. Earlier JSON exports are not a supported migration contract.
+
+## Backups and recovery
+
+The daily timer runs `scripts/backup-local.mjs` and then maintenance. Backups include a SQLite snapshot, image files, and checksums. Monitor timer status and available disk space. Backups are retained; choose a retention policy appropriate to your disk and keep an additional offline copy.
+
+To verify a backup:
+
+```sh
+cd /opt/dm-command-table/current
+node scripts/restore-local.mjs /var/lib/dm-command-table/backups/BACKUP
 ```
 
-If a firewall is enabled, allow TCP port 80. Do not expose port 3000; the Node.js server listens only on `127.0.0.1`.
+To recover, stop the service and restore into an empty, service-owned destination:
 
-### Optional hostname and HTTPS
-
-Replace `server_name _;` in `/etc/nginx/sites-available/dm-command-table` with the DNS hostname before configuring TLS. Use your preferred certificate solution after the DNS record points to the LXC. Keep the Node.js application bound to `127.0.0.1:3000`.
-
-For any Internet-accessible deployment, HTTPS is required. After installing the certificate, redirect port 80 to HTTPS and add this header to the TLS-enabled Nginx server block only after confirming HTTPS works:
-
-```nginx
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+```sh
+systemctl stop dm-command-table
+runuser -u dmct -- node scripts/restore-local.mjs /var/lib/dm-command-table/backups/BACKUP /var/lib/dm-command-table/recovered
 ```
 
-## 9. Install the update command
-
-```bash
-cp /opt/dm-command-table/app/deploy/debian-13/update-dm-command-table \
-  /usr/local/sbin/update-dm-command-table
-chmod 750 /usr/local/sbin/update-dm-command-table
-chown root:root /usr/local/sbin/update-dm-command-table
-```
-
-Update the site at any time with:
-
-```bash
-update-dm-command-table
-```
-
-The updater performs these actions:
-
-1. Refuses to continue if the Git checkout contains local or staged changes.
-2. Stops the application service.
-3. Runs `git pull --ff-only` from GitHub.
-4. Installs the exact locked dependencies.
-5. Builds the new production version.
-6. Starts the service and displays its status.
-
-If pulling, installing, or building fails, the updater leaves the service stopped so the failure is visible and an incomplete build is not started. After resolving the error, rerun `update-dm-command-table` or start the existing build manually with:
-
-```bash
-systemctl start dm-command-table.service
-```
-
-## 10. Manual update commands
-
-The same update can be performed manually:
-
-```bash
-systemctl stop dm-command-table.service
-runuser -u dmct -- git -C /opt/dm-command-table/app pull --ff-only
-cd /opt/dm-command-table/app
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm install --frozen-lockfile
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm build
-systemctl start dm-command-table.service
-systemctl status dm-command-table.service --no-pager
-```
-
-Ensure `/etc/dm-command-table.env` contains:
-
-```text
-DM_COMMAND_TABLE_V6_DB_PATH=/var/lib/dm-command-table/dm-command-table-v6.sqlite
-DM_COMMAND_TABLE_V6_UPLOAD_PATH=/var/lib/dm-command-table/uploads-v6
-DM_COMMAND_TABLE_BACKUP_PATH=/var/lib/dm-command-table/backups
-DM_COMMAND_TABLE_SECURE_COOKIES=auto
-DM_COMMAND_TABLE_TRUST_PROXY=true
-DM_COMMAND_TABLE_REGISTRATION_MODE=first-user
-DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB=100
-NODE_ENV=production
-PORT=3000
-```
-
-Retain a securely generated `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` until the first administrator has registered. Automatic cookie mode uses Nginx's forwarded protocol; `true` can enforce HTTPS-only cookies after TLS is active.
-
-## 11. Back up and restore server data
-
-Create a consistent live backup as the service account:
-
-```bash
-cd /opt/dm-command-table/app
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table \
-  pnpm backup
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table \
-  pnpm check:storage
-```
-
-List available backups:
-
-```bash
-find /var/lib/dm-command-table/backups -maxdepth 2 -type f -printf '%TY-%Tm-%Td %TH:%TM %p\n'
-```
-
-To restore a backup, stop the service first:
-
-```bash
-systemctl stop dm-command-table.service
-cp /var/lib/dm-command-table/backups/TIMESTAMP/dm-command-table-v6.sqlite \
-  /var/lib/dm-command-table/dm-command-table-v6.sqlite
-rm -rf /var/lib/dm-command-table/uploads-v6
-cp -a /var/lib/dm-command-table/backups/TIMESTAMP/uploads-v6 \
-  /var/lib/dm-command-table/uploads-v6
-chown -R dmct:dmct /var/lib/dm-command-table
-systemctl start dm-command-table.service
-```
-
-## Troubleshooting
-
-### Service does not start
-
-```bash
-systemctl status dm-command-table.service --no-pager
-journalctl -u dm-command-table.service -n 200 --no-pager
-```
-
-Verify that pnpm can be resolved and that a production build exists:
-
-```bash
-command -v pnpm
-cd /opt/dm-command-table/app
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm --version
-test -f /opt/dm-command-table/app/.next/BUILD_ID
-```
-
-If the build check fails, recreate it before restarting the service:
-
-```bash
-cd /opt/dm-command-table/app
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm install --frozen-lockfile
-runuser -u dmct -- /usr/bin/env HOME=/opt/dm-command-table pnpm build
-systemctl restart dm-command-table.service
-```
-
-If the journal mentions `Failed to set up mount namespacing` for `.next`, update the repository and reinstall the service template so `.next` is not required before the process starts.
-
-If an update reports `EACCES: permission denied, open '/root/.corepack.env'`, reinstall the updater. It runs from `/opt/dm-command-table/app` and sets `HOME=/opt/dm-command-table` before pnpm and Corepack start.
-
-### Nginx reports `502 Bad Gateway`
-
-Confirm that the application is running and listening locally:
-
-```bash
-systemctl status dm-command-table.service --no-pager
-ss -lntp | grep ':3000'
-curl -I http://127.0.0.1:3000
-```
-
-### SQLite permission error
-
-```bash
-chown -R dmct:dmct /var/lib/dm-command-table
-chmod 750 /var/lib/dm-command-table
-systemctl restart dm-command-table.service
-```
-
-### Update is rejected because the checkout is dirty
-
-Inspect the changes instead of discarding them automatically:
-
-```bash
-runuser -u dmct -- git -C /opt/dm-command-table/app status --short
-```
-
-Commit, move, or deliberately remove those changes before running the updater again.
+Set `DM_COMMAND_TABLE_DB_PATH` to the recovered `dm-command-table.sqlite` and `DM_COMMAND_TABLE_UPLOAD_PATH` to its `uploads` directory. Start the matching application release and verify health, login, campaign records, and embedded images. Check `journalctl -u dm-command-table` and `systemctl list-timers dm-command-table-backup.timer` when diagnosing failures.

@@ -5,10 +5,10 @@ import { spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "../db/migrations.ts";
 import { hashPassword } from "../server/security/passwords.ts";
-import { createV6CampaignRepository } from "../server/v6/campaign-repository.ts";
-import { createContentRepository } from "../server/v6/content-repository.ts";
-import { createBestiaryRepository } from "../server/v6/bestiary-repository.ts";
-import { createEncounterRepository } from "../server/v6/encounter-repository.ts";
+import { createCampaignRepository } from "../server/campaigns/campaign-repository.ts";
+import { createContentRepository } from "../server/content/content-repository.ts";
+import { createBestiaryRepository } from "../server/bestiary/bestiary-repository.ts";
+import { createEncounterRepository } from "../server/encounters/encounter-repository.ts";
 const directory = mkdtempSync(path.join(tmpdir(), "dmct-browser-"));
 const databasePath = path.join(directory, "test.sqlite");
 const database = new DatabaseSync(databasePath);
@@ -20,7 +20,7 @@ database
     "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Browser tester','browser-test',?,1,?,?)",
   )
   .run(owner, await hashPassword("browser-test-pass"), now, now);
-const campaign = createV6CampaignRepository(database).create(owner, {
+const campaign = createCampaignRepository(database).create(owner, {
   name: "Regression campaign",
 });
 const session = createContentRepository(database).createSession(
@@ -108,20 +108,18 @@ repository.createPrepared(campaign.id, owner, session.id, {
   combatants: [],
 });
 database.close();
-const child = spawn(
-  process.execPath,
-  ["node_modules/next/dist/bin/next", "start", "-p", "3100", "-H", "127.0.0.1"],
-  {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      NODE_ENV: "production",
-      DM_COMMAND_TABLE_V6_DB_PATH: databasePath,
-      DM_COMMAND_TABLE_V6_UPLOAD_PATH: path.join(directory, "uploads"),
-      DM_COMMAND_TABLE_TRUST_PROXY: "false",
-    },
+const child = spawn(process.execPath, [".next/standalone/server.js"], {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    NODE_ENV: "production",
+    HOSTNAME: "127.0.0.1",
+    PORT: "3100",
+    DM_COMMAND_TABLE_DB_PATH: databasePath,
+    DM_COMMAND_TABLE_UPLOAD_PATH: path.join(directory, "uploads"),
+    DM_COMMAND_TABLE_TRUST_PROXY: "false",
   },
-);
+});
 let stopping = false;
 function stop() {
   if (stopping) return;

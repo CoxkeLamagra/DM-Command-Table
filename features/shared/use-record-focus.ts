@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect } from "react";
 
 export function useRecordFocus(elementId: string | undefined, ready: boolean) {

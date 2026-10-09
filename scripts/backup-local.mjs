@@ -2,11 +2,11 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { createLocalBackup } from "./local-backup.mjs";
 const databasePath = path.resolve(
-  process.env.DM_COMMAND_TABLE_V6_DB_PATH ?? "data/dm-command-table-v6.sqlite",
+  process.env.DM_COMMAND_TABLE_DB_PATH ?? "data/dm-command-table.sqlite",
 );
 const uploadPath = path.resolve(
-  process.env.DM_COMMAND_TABLE_V6_UPLOAD_PATH ??
-    path.join(path.dirname(databasePath), "uploads-v6"),
+  process.env.DM_COMMAND_TABLE_UPLOAD_PATH ??
+    path.join(path.dirname(databasePath), "uploads"),
 );
 const backupRoot = path.resolve(
   process.env.DM_COMMAND_TABLE_BACKUP_PATH ??

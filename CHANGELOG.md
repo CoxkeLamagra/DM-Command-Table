@@ -2,6 +2,17 @@
 
 All notable DM Command Table releases are documented here.
 
+## 9.0.0 — 2026-10-09
+
+- Introduce a fresh local database baseline and unversioned feature/API modules.
+- Normalize prepared custom combatants, batch combat condition reads, and persist combat changes incrementally.
+- Move turn/reset/clear/load actions to revision-checked server commands; make bulk deletions transactional.
+- Preserve protected image references across account deletion and combat undo; add self-contained campaign packages with images.
+- Sanitize persisted rich text and clipboard HTML; add offline Bestiary JSON import and opt-in remote catalogue access.
+- Add addressable workspace URLs, browser navigation, mobile focus management, and shared draft reconciliation.
+- Use one standalone runtime for Debian LXC and Docker, with candidate-release updates, verified backups and rollback.
+- Remove earlier API/storage compatibility. Existing installations require separate fresh deployment.
+
 ## 8.1.0 — 2026-10-08
 
 - Show the prepared-encounter count on the Session Encounters tab, matching the Linked stories count.
@@ -89,7 +100,7 @@ All notable DM Command Table releases are documented here.
 
 ### Architecture and security
 
-- Removed the superseded pre-v6 application, API, schema, and test paths so the project has one canonical implementation.
+- Removed the superseded pre-current application, API, schema, and test paths so the project has one canonical implementation.
 - Reduced the production dependency graph and upgraded Next.js to a security-patched release.
 - Moved password derivation off the main event loop and transparently upgrades legacy password hashes after a successful login.
 - Made administrator-created accounts independent of public registration state and validated linked Combat records against their campaign.
@@ -127,13 +138,13 @@ All notable DM Command Table releases are documented here.
 
 ### Security hardening
 
-- Added strict, bounded runtime validation and rich-text sanitization for portable v6 campaign imports.
+- Added strict, bounded runtime validation and rich-text sanitization for portable current campaign imports.
 - Made campaign imports fully transactional so failed imports leave no partial records.
 - Persisted authentication and write-operation rate limits in local SQLite.
 - Made screenshot quota allocation atomic and added a configurable server-wide storage ceiling.
 - Bounded Combat undo history and campaign audit history with configurable retention limits.
 - Replaced inline-script CSP allowances with per-request nonces and `strict-dynamic`.
-- Retired the unused pre-v6 API endpoints with explicit `410 Gone` responses.
+- Retired the unused pre-current API endpoints with explicit `410 Gone` responses.
 - Added bounded JSON request parsing and generic responses for unexpected server failures.
 
 ## 6.1.0 — 2026-09-29
@@ -160,14 +171,14 @@ All notable DM Command Table releases are documented here.
 - Replaced the monolithic campaign snapshot with a normalized SQLite model for campaigns, memberships, players, monsters, tags, Sessions, Story beats, prepared encounters, Combat, screenshots, templates, search, and audit history.
 - Made the rebuilt interface the application root and retained the complete campaign-management, planning, rich-text, screenshot, import, collaboration, administration, and Combat workflows.
 - Added record revisions and explicit conflict responses so stale writes cannot silently overwrite newer changes.
-- Added portable v6 campaign export/import with relationship remapping and campaign/template copying.
+- Added portable current campaign export/import with relationship remapping and campaign/template copying.
 - Added SQLite FTS search, reusable Session templates, Bestiary tags, Combat history, and structured campaign audit events.
 
 ### Deployment and operations
 
 - Added ordered, transactional schema migrations and a readiness endpoint that reports schema health.
 - Hardened the standalone Docker image, Compose service, Debian systemd unit, and Nginx configuration while retaining one persistent local data volume.
-- Updated the documentation for a single local-only v6 data model and removed the retired dual-database deployment instructions.
+- Updated the documentation for a single local-only current data model and removed the retired dual-database deployment instructions.
 
 ## 5.0.2 — 2026-09-28
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatSelection, insertEditorNode } from "./editor-commands";
+
 import {
   useEffect,
   useRef,
@@ -39,7 +41,7 @@ export function RichTextEditor({
   useEffect(() => {
     const element = editor.current;
     if (!element || document.activeElement === element) return;
-    const html = editableHtml(value);
+    const html = sanitizeRichText(editableHtml(value));
     if (element.innerHTML !== html) element.innerHTML = html;
   }, [value]);
 
@@ -50,7 +52,7 @@ export function RichTextEditor({
       selection.removeAllRanges();
       selection.addRange(savedSelection.current);
     }
-    document.execCommand(command, false, argument);
+    if (editor.current) formatSelection(editor.current, command, argument);
     if (editor.current) onChange(editor.current.innerHTML);
   }
 
@@ -128,7 +130,17 @@ export function RichTextEditor({
             (item) => item.kind === "file" && item.type.startsWith("image/"),
           );
           const file = image?.getAsFile();
-          if (!file || !onPasteImage) return;
+          if (!file || !onPasteImage) {
+            const html = event.clipboardData.getData("text/html");
+            if (html && editor.current) {
+              event.preventDefault();
+              const template = document.createElement("template");
+              template.innerHTML = sanitizeRichText(html);
+              insertEditorNode(editor.current, template.content);
+              onChange(editor.current.innerHTML);
+            }
+            return;
+          }
           event.preventDefault();
           rememberSelection();
           void (async () => {
@@ -140,11 +152,16 @@ export function RichTextEditor({
               selection.removeAllRanges();
               selection.addRange(savedSelection.current);
             }
-            document.execCommand(
-              insertion.startsWith("/api/") ? "insertImage" : "insertText",
-              false,
-              insertion,
-            );
+            if (insertion.startsWith("/api/screenshots/")) {
+              const image = document.createElement("img");
+              image.src = insertion;
+              image.alt = "Screenshot";
+              insertEditorNode(editor.current, image);
+            } else
+              insertEditorNode(
+                editor.current,
+                document.createTextNode(insertion),
+              );
             onChange(editor.current.innerHTML);
             rememberSelection();
           })();
@@ -182,6 +199,15 @@ export function RichTextContent({
         const target = event.target;
         if (target instanceof HTMLImageElement)
           target.classList.toggle("expanded");
+      }}
+      onKeyDown={(event) => {
+        if (
+          (event.key === "Enter" || event.key === " ") &&
+          event.target instanceof HTMLImageElement
+        ) {
+          event.preventDefault();
+          event.target.classList.toggle("expanded");
+        }
       }}
     />
   );
@@ -221,10 +247,8 @@ function FormatButton({
       title={label}
       aria-label={label}
       className="grid size-8 place-items-center rounded text-stone-400 hover:bg-white/5 hover:text-stone-100 [&_svg]:size-4"
-      onMouseDown={(event) => {
-        event.preventDefault();
-        onRun();
-      }}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onRun}
     >
       {children}
     </button>
@@ -260,10 +284,15 @@ function sanitizeRichText(value: string): string {
       element.removeAttribute(attribute.name);
     if (
       element.tagName === "IMG" &&
-      /^\/api\/(?:v6-)?screenshots\/[0-9a-f-]+$/i.test(imageSource)
+      /^\/api\/screenshots\/[0-9a-f-]+$/i.test(imageSource)
     ) {
       element.setAttribute("src", imageSource);
-      element.setAttribute("alt", imageAlt);
+      element.setAttribute(
+        "alt",
+        imageAlt || "Screenshot; press Enter to enlarge",
+      );
+      element.setAttribute("tabindex", "0");
+      element.setAttribute("role", "button");
     }
     if (color && isSafeColor(color))
       (element as HTMLElement).style.color = color;

@@ -3,7 +3,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { migrations, runMigrations } from "../db/migrations.ts";
 
-test("v6 migrations create the normalized local-only schema", () => {
+test("current migrations create the normalized local-only schema", () => {
   const database = new DatabaseSync(":memory:");
   database.exec("PRAGMA foreign_keys = ON");
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=DM Command Table verified local backup
+
+[Service]
+Type=oneshot
+User=dmct
+Group=dmct
+WorkingDirectory=/opt/dm-command-table/current
+EnvironmentFile=/etc/dm-command-table.env
+ExecStart=/usr/bin/node scripts/backup-local.mjs
+ExecStart=/usr/bin/node scripts/maintenance.mjs
+UMask=0077
