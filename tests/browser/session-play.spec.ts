@@ -59,7 +59,7 @@ test("draft recovery, session play and load preview preserve preparation and con
   await page.getByRole("tab", { name: /^Encounters/ }).click();
   await page
     .locator("button[aria-expanded]")
-    .filter({ hasText: "Road ambush" })
+    .filter({ hasText: "Guard patrol" })
     .click();
   await page
     .getByRole("button", { name: "Load in Combat", exact: true })
