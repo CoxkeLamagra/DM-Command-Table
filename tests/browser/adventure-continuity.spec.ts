@@ -18,6 +18,7 @@ test("session continuity survives saves and selected carry-forward, and one-shot
     page.getByRole("status", { name: "Campaign: Saved", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await page.getByRole("button", { name: /Test session/ }).click();
   await page.getByLabel("New scene title").fill("Unfinished lead");
   await page.getByRole("button", { name: "Add scene", exact: true }).click();
   await page
@@ -44,6 +45,7 @@ test("session continuity survives saves and selected carry-forward, and one-shot
     page.getByText("Session and prepared encounters saved", { exact: true }),
   ).toBeVisible();
   await page.reload();
+  await page.getByRole("button", { name: /Test session/ }).click();
   await expect(
     page.getByRole("textbox", {
       name: "Actual events and decisions…",
