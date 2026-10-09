@@ -56,3 +56,31 @@ export function consumePersistentRateLimit(
     return { allowed: true };
   });
 }
+
+// Admission is atomic: a rejected request cannot spend any of its budgets.
+export function consumePersistentRateLimits(
+  database: DatabaseSync,
+  limits: { key: string; limit: number; windowMs: number }[],
+  now = Date.now(),
+): RateLimitResult {
+  return runTransaction(database, () => {
+    for (const { key, limit } of limits) {
+      const current = database
+        .prepare(
+          "SELECT count, resets_at AS resetsAt FROM security_rate_limits WHERE key = ?",
+        )
+        .get(key) as { count: number; resetsAt: number } | undefined;
+      if (current && current.resetsAt > now && current.count >= limit)
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.max(
+            1,
+            Math.ceil((current.resetsAt - now) / 1000),
+          ),
+        };
+    }
+    for (const { key, limit, windowMs } of limits)
+      consumePersistentRateLimit(database, key, limit, windowMs, now);
+    return { allowed: true };
+  });
+}

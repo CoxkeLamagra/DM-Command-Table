@@ -2,6 +2,12 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+- Prevent rejected authentication attempts from draining shared login capacity, and limit username rotation per source.
+- Check campaign edit access and aggregate combatant counts before expanding prepared encounters; reject oversized encounters with a client error.
+- Add regression coverage for authentication admission, encounter limits and Viewer authorization.
+
 ## 9.2.0 — 2026-10-09
 
 - Remove unused starter images and retain the active favicon under its canonical name.

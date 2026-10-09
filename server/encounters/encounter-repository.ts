@@ -1,8 +1,11 @@
-import { orderedCombatants } from "../../domain/combat.ts";
+import {
+  assertPreparedCapacity,
+  orderedCombatants,
+} from "../../domain/combat.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import {
   preparedCombatantSchema,
-  preparedEncounterSchema,
+  preparedEncounterFields,
 } from "../http/schemas.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
@@ -112,6 +115,7 @@ export function createEncounterRepository(database: DatabaseSync) {
       >,
     ): PreparedEncounter {
       requireCampaignEdit(database, campaignId, actorUserId);
+      assertPreparedCapacity(input);
       ensureSession(database, campaignId, sessionId);
       const id = crypto.randomUUID();
       const now = Date.now();
@@ -131,7 +135,7 @@ export function createEncounterRepository(database: DatabaseSync) {
             now,
             now,
           );
-        const combatants = preparedEncounterSchema.shape.combatants
+        const combatants = preparedEncounterFields.shape.combatants
           .parse(input.combatants ?? [])
           .map((entry) => {
             const value = preparedCombatantSchema.parse(entry);
@@ -170,6 +174,7 @@ export function createEncounterRepository(database: DatabaseSync) {
       >,
     ): PreparedEncounter {
       requireCampaignEdit(database, campaignId, actorUserId);
+      assertPreparedCapacity(input);
       runTransaction(database, () => {
         const result = database
           .prepare(
@@ -195,7 +200,7 @@ export function createEncounterRepository(database: DatabaseSync) {
             id,
             expectedRevision,
           );
-        const combatants = preparedEncounterSchema.shape.combatants
+        const combatants = preparedEncounterFields.shape.combatants
           .parse(input.combatants ?? [])
           .map((entry) => {
             const value = preparedCombatantSchema.parse(entry);

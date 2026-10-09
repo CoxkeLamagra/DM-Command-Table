@@ -1,3 +1,4 @@
+import { CombatCapacityError } from "../../domain/combat.ts";
 import { JSON_BODY_LIMIT } from "../../domain/limits.ts";
 import { ZodError } from "zod";
 import { AuthorizationError } from "../campaigns/access.ts";
@@ -21,6 +22,8 @@ export function apiJson(value: unknown, status = 200): Response {
 }
 
 export function apiError(error: unknown): Response {
+  if (error instanceof CombatCapacityError)
+    return apiJson({ error: error.message }, 400);
   if (error instanceof RequestTooLargeError)
     return apiJson({ error: error.message }, 413);
   if (error instanceof ZodError)

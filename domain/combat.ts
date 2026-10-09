@@ -1,3 +1,4 @@
+import { MAX_COMBATANTS } from "./limits.ts";
 import type {
   CombatEncounter,
   Combatant,
@@ -83,6 +84,31 @@ export function applyCombatAction(
     ),
   };
 }
+export class CombatCapacityError extends Error {
+  constructor() {
+    super("Combat supports at most 10,000 combatants.");
+    this.name = "CombatCapacityError";
+  }
+}
+
+export function assertPreparedCapacity(
+  prepared: Pick<PreparedEncounter, "monsters" | "combatants">,
+  retainedCount = 0,
+): void {
+  if (
+    prepared.monsters.some(
+      ({ quantity }) => !Number.isSafeInteger(quantity) || quantity < 1,
+    )
+  )
+    throw new CombatCapacityError();
+  const total =
+    retainedCount +
+    (prepared.combatants?.length ?? 0) +
+    prepared.monsters.reduce((sum, entry) => sum + entry.quantity, 0);
+  if (!Number.isSafeInteger(total) || total > MAX_COMBATANTS)
+    throw new CombatCapacityError();
+}
+
 type MonsterSource = {
   id: string;
   name: string;
@@ -98,6 +124,7 @@ export function loadPreparation(
   const survivors = combat.combatants.filter(
     (entry) => entry.kind !== "monster",
   );
+  assertPreparedCapacity(prepared, survivors.length);
   const additions: Combatant[] = prepared.monsters.flatMap((entry) => {
     const source = sources.find((value) => value.id === entry.monsterId);
     if (!source) throw new Error("A prepared monster no longer exists.");
@@ -126,8 +153,6 @@ export function loadPreparation(
     conditions: [],
     revision: 1,
   }));
-  if (survivors.length + additions.length + copies.length > 10_000)
-    throw new Error("Combat supports at most 10,000 combatants.");
   return normalizeCombat({
     ...combat,
     name: prepared.name || "Prepared encounter",
