@@ -1,10 +1,12 @@
 "use client";
 
+import { OneShotQuickStart } from "../adventure/one-shot-quick-start";
 import dynamic from "next/dynamic";
 import { confirmDiscardChanges } from "@/features/shared/unsaved-changes";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   ArchiveRestore,
+  FilePlus as FilePlusIcon,
   BookOpen,
   BookText,
   Library,
@@ -95,6 +97,7 @@ const navigation: {
 import { parseWorkspacePath, workspacePath } from "./routes";
 export function Shell() {
   const workspace = useWorkspace();
+  const [quickStartOpen, setQuickStartOpen] = useState(false);
   const [section, setSection] = useState<Section>("campaign");
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -290,6 +293,20 @@ export function Shell() {
   return (
     <div className="min-h-screen bg-[#0b0d12] text-[#f5f0e5]">
       <Toaster theme="dark" position="bottom-right" />
+      {quickStartOpen && (
+        <OneShotQuickStart
+          sourceId={workspace.current?.id}
+          close={() => setQuickStartOpen(false)}
+          created={(value) => {
+            void workspace.refresh().then(() => {
+              workspace.setCurrentId(value.campaign.id);
+              setOpenSessionId(value.session.id);
+              setSection("sessions");
+              setMenuOpen(false);
+            });
+          }}
+        />
+      )}
       <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-white/10 bg-[#0b0d12]/95 px-4 backdrop-blur lg:hidden">
         <Button
           size="icon"
@@ -394,6 +411,18 @@ export function Shell() {
           >
             <Plus />
             <span className={labelClass}>New campaign</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className="mt-1 w-full justify-start"
+            aria-label="One-shot quick start"
+            title="One-shot quick start"
+            onClick={() => {
+              if (confirmDiscardChanges()) setQuickStartOpen(true);
+            }}
+          >
+            <FilePlusIcon />
+            <span className={labelClass}>One-shot quick start</span>
           </Button>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">

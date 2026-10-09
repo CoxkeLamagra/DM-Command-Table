@@ -1,5 +1,9 @@
 "use client";
 
+import { SessionContinuityEditor } from "../adventure/session-continuity";
+import { PrintPacketButton } from "../adventure/print-packet";
+import { CarryDialog } from "../adventure/carry-dialog";
+import { emptyContinuity } from "@/domain/adventure";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -33,6 +37,8 @@ import {
   richTextToPlainText,
 } from "@/features/rich-text/rich-text";
 import {
+  getCampaign,
+  listPlayers,
   createSession,
   deleteSession,
   deleteSessionTemplate,
@@ -48,7 +54,13 @@ import { nextSession } from "../shared/next-session";
 import { SessionRoster } from "./session-roster";
 import { PreparedEncounters } from "../encounters/prepared-encounters";
 import { StatusBadge, StatusSelect } from "../shared/progress-status";
-import type { Session, SessionTemplate, StoryBeat } from "@/domain/types";
+import type {
+  Campaign,
+  Player,
+  Session,
+  SessionTemplate,
+  StoryBeat,
+} from "@/domain/types";
 
 import {
   Section,
@@ -68,6 +80,23 @@ export function SessionsScreen({
   onOpenStory: (id: string) => void;
   onOpenCombat: () => void;
 }) {
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [carry, setCarry] = useState<Session | null>(null);
+  useEffect(() => {
+    let live = true;
+    void Promise.all([getCampaign(campaignId), listPlayers(campaignId)])
+      .then(([value, roster]) => {
+        if (live) {
+          setCampaign(value);
+          setPlayers(roster);
+        }
+      })
+      .catch((error) => toast.error(error.message));
+    return () => {
+      live = false;
+    };
+  }, [campaignId]);
   const [playId, setPlayId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [story, setStory] = useState<StoryBeat[]>([]);
@@ -184,7 +213,7 @@ export function SessionsScreen({
     const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
     return sessions.filter((item) =>
       terms.every((term) =>
-        `${item.title} ${item.date} ${richTextToPlainText(item.notes)}`
+        `${item.title} ${item.date} ${richTextToPlainText(item.notes)} ${richTextToPlainText(item.continuity?.recap ?? "")} ${richTextToPlainText(item.continuity?.rewards ?? "")} ${(item.continuity?.scenes ?? []).map((scene) => scene.title + " " + richTextToPlainText(scene.notes)).join(" ")}`
           .toLowerCase()
           .includes(term),
       ),
@@ -308,6 +337,14 @@ export function SessionsScreen({
         notes: value.notes ?? "",
         status: "planned",
         sortOrder: sessions.length,
+        continuity: {
+          ...emptyContinuity(),
+          scenes: (value.continuity?.scenes ?? []).map((scene) => ({
+            ...scene,
+            id: crypto.randomUUID(),
+            done: false,
+          })),
+        },
       });
       setSessions((all) => [item, ...all]);
       setExpanded(new Set([item.id]));
@@ -323,7 +360,17 @@ export function SessionsScreen({
     try {
       const template = await saveSessionTemplate(
         name,
-        JSON.stringify({ title: item.title, notes: item.notes }),
+        JSON.stringify({
+          title: item.title,
+          notes: item.notes,
+          continuity: {
+            ...emptyContinuity(),
+            scenes: (item.continuity?.scenes ?? []).map((scene) => ({
+              ...scene,
+              done: false,
+            })),
+          },
+        }),
       );
       setTemplates((all) => [template, ...all]);
       toast.success("Session template saved");
@@ -543,6 +590,9 @@ export function SessionsScreen({
                       }
                     >
                       <div>
+                        <h3 className="mb-2 text-sm font-medium">
+                          Preparation notes
+                        </h3>
                         {playId === item.id && (
                           <h3 className="mb-3 font-medium">Session notes</h3>
                         )}
@@ -558,6 +608,13 @@ export function SessionsScreen({
                           <RichTextContent value={item.notes} />
                         )}
                       </div>
+                      <SessionContinuityEditor
+                        campaign={campaign}
+                        players={players}
+                        value={item.continuity ?? emptyContinuity()}
+                        editable={editable && !busy}
+                        update={(continuity) => patch(item.id, { continuity })}
+                      />
                     </Tabs.Content>
                     <Tabs.Content
                       value="stories"
@@ -614,6 +671,7 @@ export function SessionsScreen({
                     >
                       <PreparedEncounters
                         campaignId={campaignId}
+                        attendanceIds={item.continuity?.attendanceIds ?? []}
                         sessionId={item.id}
                         editable={editable}
                         onOpenCombat={onOpenCombat}
@@ -627,6 +685,15 @@ export function SessionsScreen({
                       <SessionRoster campaignId={campaignId} />
                     )}
                   </Tabs.Root>
+                  {!editable && (
+                    <div className="mt-4 flex justify-end">
+                      <PrintPacketButton
+                        campaignId={campaignId}
+                        sessionId={item.id}
+                        disabled={busy}
+                      />
+                    </div>
+                  )}
                   {editable && (
                     <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-[#13161d]/95 py-3 backdrop-blur">
                       <Button
@@ -634,6 +701,27 @@ export function SessionsScreen({
                         onClick={() => saveTemplate(item)}
                       >
                         <FilePlus /> Save template
+                      </Button>
+                      <PrintPacketButton
+                        campaignId={campaignId}
+                        sessionId={item.id}
+                        disabled={
+                          busy ||
+                          dirty.has(item.id) ||
+                          encounterDirty.has(item.id)
+                        }
+                      />
+                      <Button
+                        variant="outline"
+                        disabled={
+                          busy ||
+                          dirty.has(item.id) ||
+                          encounterDirty.has(item.id)
+                        }
+                        title="Save session and encounters before carrying items forward"
+                        onClick={() => setCarry(item)}
+                      >
+                        Prepare next session
                       </Button>
                       <Button
                         variant="ghost"
@@ -654,6 +742,18 @@ export function SessionsScreen({
         })}
         {!visible.length && <Empty>No sessions match this search.</Empty>}
       </Section>
+      {carry && (
+        <CarryDialog
+          session={carry}
+          close={() => setCarry(null)}
+          created={(item) => {
+            setSessions((all) => [item, ...all]);
+            setExpanded(new Set([item.id]));
+            setVisited((all) => new Set(all).add(item.id));
+            setPlayId(null);
+          }}
+        />
+      )}
       <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
         <DialogContent className="border-white/10 bg-[#151820] text-stone-100">
           <DialogHeader>

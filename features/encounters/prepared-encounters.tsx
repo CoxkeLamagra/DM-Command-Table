@@ -52,6 +52,7 @@ import type { Combat } from "@/domain/types";
 import { PreparedCombatantEditor } from "@/features/encounters/prepared-combatant-editor";
 export function PreparedEncounters({
   campaignId,
+  attendanceIds,
   sessionId,
   editable,
   onOpenCombat,
@@ -61,6 +62,7 @@ export function PreparedEncounters({
   savingSession = false,
 }: {
   campaignId: string;
+  attendanceIds?: string[];
   sessionId: string;
   editable: boolean;
   onOpenCombat: () => void;
@@ -658,6 +660,8 @@ export function PreparedEncounters({
         />
       )}
       <CombatantPicker
+        campaignId={campaignId}
+        attendanceIds={attendanceIds}
         open={!!addingTo}
         onOpenChange={(value) => {
           if (!value) setAddingTo(undefined);

@@ -1,4 +1,6 @@
 "use client";
+import { CampaignAdventureEditor } from "../adventure/campaign-adventure";
+import { emptyAdventure } from "@/domain/adventure";
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -50,7 +52,7 @@ export function CampaignScreen({
   saving: boolean;
   saveLabel: string;
   onSave: (
-    patch: Partial<Pick<Campaign, "name" | "notes" | "archived">>,
+    patch: Partial<Pick<Campaign, "name" | "notes" | "archived" | "adventure">>,
   ) => Promise<boolean>;
   onCopy: (mode: "campaign" | "template") => Promise<void>;
   onDelete: () => Promise<void>;
@@ -64,13 +66,20 @@ export function CampaignScreen({
   const [accessOpen, setAccessOpen] = useState(false);
   const [name, setName] = useState(campaign.name);
   const [notes, setNotes] = useState(campaign.notes);
-  const dirty = name !== campaign.name || notes !== campaign.notes;
+  const [adventure, setAdventure] = useState(
+    campaign.adventure ?? emptyAdventure(),
+  );
+  const dirty =
+    name !== campaign.name ||
+    notes !== campaign.notes ||
+    JSON.stringify(adventure) !==
+      JSON.stringify(campaign.adventure ?? emptyAdventure());
   useUnsavedChanges(dirty);
   const editable = campaign.role !== "viewer";
   const recovery = useDraftRecovery({
     campaignId: campaign.id,
     scope: "campaign",
-    value: { name, notes, revision: campaign.revision },
+    value: { name, notes, adventure, revision: campaign.revision },
     dirty,
     ready: editable,
     restore: (value) => {
@@ -82,6 +91,7 @@ export function CampaignScreen({
         );
       setName(value.name);
       setNotes(value.notes);
+      setAdventure(value.adventure ?? emptyAdventure());
     },
   });
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -107,7 +117,13 @@ export function CampaignScreen({
   const upcoming = nextSession(sessions);
   const [creatingSession, setCreatingSession] = useState(false);
   async function save() {
-    if (await onSave({ name: name.trim() || "Untitled campaign", notes }))
+    if (
+      await onSave({
+        name: name.trim() || "Untitled campaign",
+        notes,
+        adventure,
+      })
+    )
       recovery.clear();
   }
   async function addSession() {
@@ -371,8 +387,9 @@ export function CampaignScreen({
                     <StatusBadge status={session.status} />
                   </p>
                   <p className="mt-3 line-clamp-6 whitespace-pre-line text-sm text-stone-400">
-                    {session.notes.replace(/<[^>]*>/g, "").slice(0, 2000) ||
-                      "No session notes yet."}
+                    {(session.continuity?.recap || session.notes)
+                      .replace(/<[^>]*>/g, "")
+                      .slice(0, 2000) || "No session notes yet."}
                   </p>
                 </button>
               ))}
@@ -384,6 +401,12 @@ export function CampaignScreen({
           </div>
         </section>
       </div>
+      <CampaignAdventureEditor
+        campaignId={campaign.id}
+        value={adventure}
+        editable={editable && !saving}
+        update={setAdventure}
+      />
     </div>
   );
 }

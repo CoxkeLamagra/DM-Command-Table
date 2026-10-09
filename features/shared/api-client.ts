@@ -138,7 +138,7 @@ export async function createCampaign(name = "New campaign"): Promise<Campaign> {
 
 export async function updateCampaign(
   campaign: Campaign,
-  patch: Partial<Pick<Campaign, "name" | "notes" | "archived">>,
+  patch: Partial<Pick<Campaign, "name" | "notes" | "archived" | "adventure">>,
 ): Promise<Campaign> {
   const result = await requestJson<{ campaign: Campaign }>(
     `/api/campaigns/${campaign.id}`,
@@ -227,7 +227,10 @@ export async function listSessions(campaignId: string): Promise<Session[]> {
 
 export async function createSession(
   campaignId: string,
-  input: Pick<Session, "title" | "date" | "notes" | "status" | "sortOrder">,
+  input: Pick<
+    Session,
+    "title" | "date" | "notes" | "status" | "sortOrder" | "continuity"
+  >,
 ): Promise<Session> {
   return (
     await requestJson<{ session: Session }>(
@@ -248,6 +251,7 @@ export async function updateSession(
         title: session.title,
         date: session.date,
         notes: session.notes,
+        continuity: session.continuity,
         status: session.status,
         sortOrder: session.sortOrder,
         revision: session.revision,
@@ -716,4 +720,34 @@ export async function loadPreparedCombat(
 
 export function exportPackage(campaignId: string): Promise<unknown> {
   return requestJson(`/api/campaigns/${campaignId}/package`);
+}
+
+export async function prepareNextSession(
+  campaignId: string,
+  sessionId: string,
+  input: {
+    revision: number;
+    campaignRevision: number;
+    title: string;
+    date: string;
+    sceneIds: string[];
+    threadIds: string[];
+  },
+): Promise<Session> {
+  return (
+    await requestJson<{ session: Session }>(
+      `/api/campaigns/${campaignId}/sessions/${sessionId}/prepare-next`,
+      json("POST", input),
+    )
+  ).session;
+}
+export async function quickStartOneShot(input: {
+  name: string;
+  durationMinutes: number;
+  sourceCampaignId?: string;
+  sourceRevision?: number;
+  presetId?: string;
+  scenes: import("@/domain/adventure").PlannedScene[];
+}): Promise<{ campaign: Campaign; session: Session }> {
+  return requestJson("/api/campaigns/quick-start", json("POST", input));
 }

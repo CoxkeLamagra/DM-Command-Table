@@ -18,6 +18,12 @@ Rich text is sanitized at persistence boundaries and when rendered or pasted. Lo
 
 The workspace supports addressable campaign/section/record URLs and browser navigation, dirty-draft reconciliation, separate authorization and server availability messages, and a mobile navigation focus trap. Editor components and shared record/draft helpers are extracted from large screens. Offline Bestiary JSON imports do not contact external services; connecting to the catalogue is opt-in.
 
+## Adventure continuity
+
+Schema migration 3 adds bounded JSON metadata to campaigns (`adventure`) and sessions (`continuity`). Existing Session notes remain preparation. Recap, rewards, scenes, linked thread IDs and roster attendance are separate fields; campaign threads and party presets remain campaign-scoped. Validation checks roster and thread ownership, sanitizes rich text and records image references. Recap, rewards and scenes also enter local session search.
+
+Carry-forward and one-shot creation run inside SQLite transactions. Carry-forward checks both source-session and campaign revisions before allocating a new session; one-shot party copying checks the source campaign revision. Copies and portable imports remap roster references. Reusable templates reset progress and attendance rather than retaining historical recap/rewards. Printable packets are escaped, text-only HTML generated from authorized saved data without remote resources or executable content.
+
 ## Deployment contract
 
 Debian 13 LXC is primary and Docker secondary. Both consume the same standalone Next.js server, static assets and operational scripts. Production storage uses absolute local paths. No hosted database, object store, cloud identity, or remote search is required. Keep the optional remote catalogue disconnected for fully offline operation.

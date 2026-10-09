@@ -1,3 +1,10 @@
+import { ResourceNotFoundError } from "../http/conflicts.ts";
+import { printPacket } from "../../domain/print-packet.ts";
+import {
+  prepareNextSession,
+  quickStart,
+} from "../content/adventure-service.ts";
+import { carrySchema, quickStartSchema } from "../http/adventure-schemas.ts";
 import { requireCampaignEdit } from "../campaigns/access.ts";
 import {
   exportCampaignPackage,
@@ -137,6 +144,15 @@ export async function handleApi(
         201,
       );
     }
+    if (segments[1] === "quick-start" && method === "POST")
+      return apiJson(
+        quickStart(
+          database,
+          context.userId,
+          quickStartSchema.parse(await jsonBody(request)),
+        ),
+        201,
+      );
     const campaignId = idSchema.parse(segments[1]);
     if (segments.length === 2) {
       if (method === "GET")
@@ -274,6 +290,37 @@ export async function handleApi(
     }
 
     if (resource === "sessions") {
+      if (resourceId && segments[4] === "packet" && method === "GET") {
+        const campaign = campaigns.get(campaignId, context.userId);
+        if (!campaign) throw new ResourceNotFoundError("campaign", campaignId);
+        const session = content
+          .listSessions(campaignId, context.userId)
+          .find((item) => item.id === resourceId);
+        if (!session) throw new ResourceNotFoundError("session", resourceId);
+        return apiJson({
+          html: printPacket(
+            campaign,
+            session,
+            content.listPlayers(campaignId, context.userId),
+            encounters.listPrepared(campaignId, context.userId, resourceId),
+            bestiary.list(campaignId, context.userId),
+            content.listStory(campaignId, context.userId),
+          ),
+        });
+      }
+      if (resourceId && segments[4] === "prepare-next" && method === "POST")
+        return apiJson(
+          {
+            session: prepareNextSession(
+              database,
+              campaignId,
+              resourceId,
+              context.userId,
+              carrySchema.parse(await jsonBody(request)),
+            ),
+          },
+          201,
+        );
       if (resourceId && segments[4] === "save" && method === "POST") {
         const input = z
           .object({

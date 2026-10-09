@@ -317,6 +317,14 @@ export const migrations: readonly Migration[] = [
     INSERT OR IGNORE INTO screenshot_references (screenshot_id,campaign_id,resource_type,resource_id,created_at) SELECT s.id,e.campaign_id,'combat',e.id,s.created_at FROM combatants c JOIN combat_encounters e ON e.id=c.encounter_id JOIN screenshots s ON instr(c.snapshot,'/api/screenshots/'||s.id)>0;
   `,
   },
+  {
+    version: 3,
+    name: "adventure-continuity",
+    sql: `
+    ALTER TABLE campaigns ADD COLUMN adventure TEXT NOT NULL DEFAULT '{"threads":[],"partyPresets":[],"oneShot":null}';
+    ALTER TABLE sessions ADD COLUMN continuity TEXT NOT NULL DEFAULT '{"recap":"","rewards":"","scenes":[],"threadIds":[],"attendanceIds":[]}';
+  `,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {
