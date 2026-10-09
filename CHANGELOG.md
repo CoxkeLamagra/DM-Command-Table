@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 9.2.0 — 2026-10-09
 
 - Remove unused starter images and retain the active favicon under its canonical name.
 - Remove obsolete hosted-workspace package-manager configuration and unused build approvals.
