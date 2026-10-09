@@ -49,7 +49,7 @@ test("draft recovery, session play and load preview preserve preparation and con
     .click();
   await expect(
     page.getByRole("textbox", { name: "Session notes…", exact: true }),
-  ).toHaveValue("Live session draft");
+  ).toHaveText("Live session draft");
   await page
     .getByRole("button", { name: "Save session & encounters", exact: true })
     .click();
