@@ -30,6 +30,8 @@ Run `pnpm verify`, then `pnpm test:browser` with Playwright Chromium installed. 
 
 Health checks are readiness checks, not substitutes for restoring backups or testing proxy/cookie behavior. The daily backup timer has no automatic retention policy. Review disk usage and retain verified backups outside the running container. The built-in rich-text editor remains a contenteditable implementation; replacing it with a structured editor needs separate cross-browser acceptance testing.
 
-Implementation validation: 58 unit/API tests pass, TypeScript checks and ESLint pass, formatting checks pass, the production build succeeds, and the production dependency audit reports no known vulnerabilities. The packaged runtime was checked for readiness, initial account setup, authenticated campaign creation, Combat loading and campaign-package export. Frozen-lockfile installation also succeeds.
+Implementation validation: 60 unit/API tests pass, TypeScript checks and ESLint pass, formatting checks pass, the production build succeeds, and the production dependency audit reports no known vulnerabilities. The packaged runtime was checked for readiness, initial account setup, authenticated campaign creation, Combat loading and campaign-package export. Frozen-lockfile installation also succeeds.
 
 Browser regression tests are configured (10 tests), including URL reload/back-navigation coverage, but were not executed here because Chromium downloads failed. Docker and Debian systemd/Nginx lifecycle tests require their respective hosts and have not been executed in this workspace. The CI workflow includes Docker startup, authentication-boundary, storage and backup checks.
+
+Release validation additionally runs the browser regression suite on Node 22 and 24 in GitHub Actions. Runtime packaging preserves relative dependency links and rejects links that escape the packaged release.

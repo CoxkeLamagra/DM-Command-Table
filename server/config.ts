@@ -2,15 +2,18 @@ import path from "node:path";
 import { accessSync, constants, mkdirSync, statfsSync } from "node:fs";
 export function storagePaths() {
   const database = path.resolve(
+    /* turbopackIgnore: true */
     process.env.DM_COMMAND_TABLE_DB_PATH || "data/dm-command-table.sqlite",
   );
   return {
     database,
     uploads: path.resolve(
+      /* turbopackIgnore: true */
       process.env.DM_COMMAND_TABLE_UPLOAD_PATH ||
         path.join(path.dirname(database), "uploads"),
     ),
     backups: path.resolve(
+      /* turbopackIgnore: true */
       process.env.DM_COMMAND_TABLE_BACKUP_PATH ||
         path.join(path.dirname(database), "backups"),
     ),
