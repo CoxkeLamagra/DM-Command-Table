@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   description:
     "A private command center for encounters, monsters, session notes, and campaign story progress.",
   icons: {
-    icon: "/favicon-new.svg",
-    shortcut: "/favicon-new.svg",
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
   },
 };
 

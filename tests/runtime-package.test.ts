@@ -8,6 +8,7 @@ import {
   readlinkSync,
   realpathSync,
   existsSync,
+  readdirSync,
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -31,6 +32,16 @@ function fixture() {
     path.join(directory, ".next/standalone/node_modules/.pnpm/next/index.js"),
     "module.exports = 'next'",
   );
+  for (const filename of [
+    "backup-local.mjs",
+    "check-local-storage.mjs",
+    "local-backup.mjs",
+    "maintenance.mjs",
+    "restore-local.mjs",
+    "browser-test-server.mjs",
+    "package-runtime.mjs",
+  ])
+    writeFileSync(path.join(directory, "scripts", filename), "// fixture");
   return directory;
 }
 test("runtime packages preserve relative dependencies and remain self-contained", () => {
@@ -46,6 +57,13 @@ test("runtime packages preserve relative dependencies and remain self-contained"
       encoding: "utf8",
     });
     assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(readdirSync(path.join(destination, "scripts")).sort(), [
+      "backup-local.mjs",
+      "check-local-storage.mjs",
+      "local-backup.mjs",
+      "maintenance.mjs",
+      "restore-local.mjs",
+    ]);
     const dependency = path.join(destination, "node_modules/next");
     assert.equal(readlinkSync(dependency), ".pnpm/next");
     assert.ok(realpathSync(dependency).startsWith(destination + path.sep));

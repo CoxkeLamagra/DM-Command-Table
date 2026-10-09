@@ -22,7 +22,16 @@ try {
     recursive: true,
   });
   cpSync("public", path.join(destination, "public"), { recursive: true });
-  cpSync("scripts", path.join(destination, "scripts"), { recursive: true });
+  const runtimeScripts = path.join(destination, "scripts");
+  mkdirSync(runtimeScripts);
+  for (const filename of [
+    "backup-local.mjs",
+    "check-local-storage.mjs",
+    "local-backup.mjs",
+    "maintenance.mjs",
+    "restore-local.mjs",
+  ])
+    cpSync(path.join("scripts", filename), path.join(runtimeScripts, filename));
   function checkLinks(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const filename = path.join(directory, entry.name);
