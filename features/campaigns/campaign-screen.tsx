@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Archive,
+  ChevronDown,
   ChevronRight,
   Copy,
   Download,
@@ -12,6 +13,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { DropdownMenu } from "radix-ui";
 import { nextSession } from "@/features/shared/next-session";
 import { toast } from "sonner";
 import { StatusBadge } from "../shared/progress-status";
@@ -56,6 +58,9 @@ export function CampaignScreen({
   onImport: (file: File) => Promise<void>;
   onOpenSession: (id: string) => void;
 }) {
+  const actionsTrigger = useRef<HTMLButtonElement>(null);
+  const importInput = useRef<HTMLInputElement>(null);
+  const [accessOpen, setAccessOpen] = useState(false);
   const [name, setName] = useState(campaign.name);
   const [notes, setNotes] = useState(campaign.notes);
   const dirty = name !== campaign.name || notes !== campaign.notes;
@@ -128,45 +133,93 @@ export function CampaignScreen({
           {saveLabel.includes("Conflict") && (
             <span role="alert">{saveLabel}</span>
           )}
-          {campaign.role === "owner" && <MemberManager campaign={campaign} />}
-          <Button variant="outline" onClick={() => onCopy("campaign")}>
-            <Copy /> Copy
-          </Button>
-          <Button variant="outline" onClick={() => onCopy("template")}>
-            <Copy /> Use as template
-          </Button>
-          <Button variant="outline" onClick={onExport}>
-            <Download /> Export
-          </Button>
-          <Button variant="outline" onClick={onExportPackage}>
-            Export with images
-          </Button>
-          <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm">
-            <Upload className="size-4" /> Import
-            <input
-              hidden
-              type="file"
-              accept="application/json,.json"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void onImport(file);
-              }}
-            />
-          </label>
-          {editable && (
-            <Button
-              variant="outline"
-              onClick={() => onSave({ archived: true })}
-              disabled={saving}
-            >
-              <Archive /> Archive
-            </Button>
-          )}
-          {campaign.role === "owner" && (
-            <Button variant="outline" onClick={onDelete}>
-              <Trash2 /> Delete
-            </Button>
-          )}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <Button ref={actionsTrigger} variant="outline" disabled={saving}>
+                Campaign actions <ChevronDown />
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={4}
+                onCloseAutoFocus={(event) => {
+                  if (accessOpen) event.preventDefault();
+                }}
+                className="z-50 min-w-56 rounded-lg border border-white/10 bg-[#151820] p-1 text-stone-100 shadow-lg"
+              >
+                {campaign.role === "owner" && (
+                  <DropdownMenu.Item
+                    className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                    onSelect={() => setAccessOpen(true)}
+                  >
+                    <ShieldCheck className="size-4" /> Manage access
+                  </DropdownMenu.Item>
+                )}
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                  onSelect={() => void onCopy("campaign")}
+                >
+                  <Copy className="size-4" /> Copy
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                  onSelect={() => void onCopy("template")}
+                >
+                  <Copy className="size-4" /> Use as template
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="my-1 h-px bg-white/10" />
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                  onSelect={() => void onExport()}
+                >
+                  <Download className="size-4" /> Export
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                  onSelect={() => void onExportPackage()}
+                >
+                  <Download className="size-4" /> Export with images
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                  onSelect={() => importInput.current?.click()}
+                >
+                  <Upload className="size-4" /> Import
+                </DropdownMenu.Item>
+                {editable && (
+                  <>
+                    <DropdownMenu.Separator className="my-1 h-px bg-white/10" />
+                    <DropdownMenu.Item
+                      className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-white/10"
+                      onSelect={() => void onSave({ archived: true })}
+                    >
+                      <Archive className="size-4" /> Archive
+                    </DropdownMenu.Item>
+                  </>
+                )}
+                {campaign.role === "owner" && (
+                  <DropdownMenu.Item
+                    className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-red-300 outline-none data-[highlighted]:bg-white/10"
+                    onSelect={() => void onDelete()}
+                  >
+                    <Trash2 className="size-4" /> Delete
+                  </DropdownMenu.Item>
+                )}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+          <input
+            ref={importInput}
+            hidden
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void onImport(file);
+            }}
+          />
           {editable && (
             <Button
               className="bg-amber-300 text-black hover:bg-amber-200"
@@ -178,6 +231,17 @@ export function CampaignScreen({
           )}
         </div>
       </header>
+      {campaign.role === "owner" && (
+        <MemberManager
+          campaign={campaign}
+          open={accessOpen}
+          onOpenChange={setAccessOpen}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            actionsTrigger.current?.focus();
+          }}
+        />
+      )}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(280px,3fr)]">
         <section className="rounded-2xl border border-white/10 bg-[#13161d] p-5 shadow-xl sm:p-7">
           <label

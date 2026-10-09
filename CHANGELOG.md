@@ -2,9 +2,10 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 9.3.0 — 2026-10-09
 
-- Prevent rejected authentication attempts from draining shared login capacity, and limit username rotation per source.
+- Group general Campaign screen activities in a Campaign actions dropdown, retaining a separate Save button.
+- Prevent rejected authentication attempts from draining shared login capacity, limit username rotation per source, validate required credentials and bound concurrent authentication work.
 - Check campaign edit access and aggregate combatant counts before expanding prepared encounters; reject oversized encounters with a client error.
 - Add regression coverage for authentication admission, encounter limits and Viewer authorization.
 

@@ -6,7 +6,7 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current release is **v9.2.0**, using the **v9 architecture**. Existing v9 installations retain their data. The v9 baseline does not upgrade pre-v9 database formats; deploy those installations with a separate fresh data directory and keep their verified backups.
+The current release is **v9.3.0**, using the **v9 architecture**. Existing v9 installations retain their data. The v9 baseline does not upgrade pre-v9 database formats; deploy those installations with a separate fresh data directory and keep their verified backups.
 
 Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same packaged standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md) and [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
 
@@ -25,6 +25,7 @@ Campaign data, accounts, screenshots, search, and backups remain on your server.
 - Assign **Editor** access for collaboration or **Viewer** access for read-only use.
 - Detect same-browser changes immediately and poll revisions for changes from other devices.
 - Manage the campaign name and general campaign notes from a dedicated **Campaign** screen.
+- Use **Campaign actions** for access management, copying/templates, imports, exports, archiving and deletion. **Save** remains directly available.
 - Continue an active session or prepare the earliest planned session directly from Campaign. Undated sessions follow dated sessions.
 - Review a chronological campaign timeline generated automatically from session entries.
 - Keep the Campaign screen focused with a 70% Campaign-details and 30% Timeline layout, with Session-note previews limited to 2,000 characters.
