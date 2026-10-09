@@ -2,12 +2,12 @@
 
 Docker is the secondary deployment target. It builds the same standalone runtime used by Debian LXC, runs one unprivileged application instance, and stores the database, screenshots and backups in a persistent named volume. Use Docker Engine with the Compose plugin.
 
-## Install v9.2.0
+## Install v9.3.0
 
 ```sh
 git clone https://github.com/CoxkeLamagra/DM-Command-Table.git
 cd DM-Command-Table
-git checkout --detach v9.2.0
+git checkout --detach v9.3.0
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -21,7 +21,7 @@ docker compose ps
 curl --fail http://127.0.0.1:3000/api/health
 ```
 
-The readiness response includes version `9.2.0`. Open `http://localhost:3000` on the Docker host. For another computer, configure a local reverse proxy or explicitly set `DMCT_BIND_ADDRESS` in `.env` to the host's LAN address. The default bind is loopback. When using a reverse proxy, preserve the original Host and overwrite forwarded headers; enable `DM_COMMAND_TABLE_TRUST_PROXY=true` only if direct access cannot bypass that proxy. Use secure cookies with HTTPS.
+The readiness response includes version `9.3.0`. Open `http://localhost:3000` on the Docker host. For another computer, configure a local reverse proxy or explicitly set `DMCT_BIND_ADDRESS` in `.env` to the host's LAN address. The default bind is loopback. When using a reverse proxy, preserve the original Host and overwrite forwarded headers; enable `DM_COMMAND_TABLE_TRUST_PROXY=true` only if direct access cannot bypass that proxy. Use secure cookies with HTTPS.
 
 The root filesystem is read-only; `/data` persists and temporary/cache directories use tmpfs. Do not run multiple instances against the volume. `docker compose down` retains the named volume; `down -v` destroys it and is not an update or recovery command.
 

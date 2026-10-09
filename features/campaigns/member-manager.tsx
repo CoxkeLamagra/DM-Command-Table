@@ -10,7 +10,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,8 +27,17 @@ import {
 } from "../shared/api-client";
 import type { CampaignMember, Campaign } from "@/domain/types";
 
-export function MemberManager({ campaign }: { campaign: Campaign }) {
-  const [open, setOpen] = useState(false);
+export function MemberManager({
+  campaign,
+  open,
+  onOpenChange,
+  onCloseAutoFocus,
+}: {
+  campaign: Campaign;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCloseAutoFocus: (event: Event) => void;
+}) {
   const [members, setMembers] = useState<CampaignMember[]>([]);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<"viewer" | "editor">("viewer");
@@ -86,11 +94,11 @@ export function MemberManager({ campaign }: { campaign: Campaign }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">Manage access</Button>
-      </DialogTrigger>
-      <DialogContent className="border-white/10 bg-[#151820] text-stone-100 sm:max-w-2xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        onCloseAutoFocus={onCloseAutoFocus}
+        className="border-white/10 bg-[#151820] text-stone-100 sm:max-w-2xl"
+      >
         <DialogHeader>
           <DialogTitle>Campaign access</DialogTitle>
           <DialogDescription>
