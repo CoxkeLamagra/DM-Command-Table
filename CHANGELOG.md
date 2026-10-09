@@ -4,6 +4,11 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+- Track temporary HP, concentration, death saves, spell slots, legendary actions and configurable ability-use counters independently for each live combatant.
+- Capture Bestiary stat blocks when creatures enter Combat, preserve snapshots after source edits/deletion, and include runtime state and embedded images in saves, undo and campaign exports.
+- Add start/end-of-own-turn condition timing, persistent/manual effects, saving-throw prompts and manual overrides.
+- Migrate existing v9 storage locally, capturing current linked stat blocks and preserving existing duration semantics.
+
 - Recover unsaved campaign, roster, Bestiary, Story, Session, prepared encounter and Combat drafts after refresh, with account-scoped browser storage, restore/download/discard controls and original revision protection.
 - Add a Session play view combining notes, linked story details, prepared encounters and searchable Player/NPC references.
 - Preview prepared encounter loads, including retained and replaced records, additions, possible duplicates, capacity and revision checks.

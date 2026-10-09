@@ -302,6 +302,21 @@ export const migrations: readonly Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: "combat-runtime-and-condition-timing",
+    sql: `
+    ALTER TABLE combatants ADD COLUMN runtime TEXT NOT NULL DEFAULT '{"temporaryHitPoints":0,"concentration":null,"deathSaves":{"successes":0,"failures":0},"resources":[]}';
+    ALTER TABLE combatants ADD COLUMN snapshot TEXT;
+    ALTER TABLE combat_conditions ADD COLUMN timing TEXT NOT NULL DEFAULT 'start-turn' CHECK (timing IN ('start-turn','end-turn','manual'));
+    ALTER TABLE combat_conditions ADD COLUMN requires_save INTEGER NOT NULL DEFAULT 0 CHECK (requires_save IN (0,1));
+    ALTER TABLE combat_conditions ADD COLUMN save_due INTEGER NOT NULL DEFAULT 0 CHECK (save_due IN (0,1));
+    UPDATE combat_conditions SET timing='manual' WHERE remaining_turns IS NULL;
+    UPDATE combatants SET snapshot=(SELECT json_object('name',m.name,'type',m.type,'challengeRating',m.challenge_rating,'speed',m.speed,'stats',m.stats,'abilities',m.abilities,'spells',m.spells,'notes',m.notes,'source',COALESCE(m.source,''),'hitPoints',m.hit_points,'armorClass',m.armor_class,'spellSlots',json(m.spell_slots),'tags',json((SELECT json_group_array(json_object('id',t.id,'name',t.name,'color',t.color)) FROM tags t JOIN monster_tags mt ON mt.tag_id=t.id WHERE mt.monster_id=m.id))) FROM monsters m WHERE m.id=combatants.monster_id) WHERE monster_id IS NOT NULL;
+    UPDATE combatants SET runtime=json_set(runtime,'$.resources',json((SELECT json_group_array(json_object('id',lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-4'||substr(lower(hex(randomblob(2))),2)||'-8'||substr(lower(hex(randomblob(2))),2)||'-'||lower(hex(randomblob(6))),'name','Level '||(CAST(j.key AS INTEGER)+1)||' spell slots','maximum',j.value,'remaining',j.value,'reset','manual')) FROM json_each(json_extract(snapshot,'$.spellSlots')) j WHERE j.value>0))) WHERE snapshot IS NOT NULL;
+    INSERT OR IGNORE INTO screenshot_references (screenshot_id,campaign_id,resource_type,resource_id,created_at) SELECT s.id,e.campaign_id,'combat',e.id,s.created_at FROM combatants c JOIN combat_encounters e ON e.id=c.encounter_id JOIN screenshots s ON instr(c.snapshot,'/api/screenshots/'||s.id)>0;
+  `,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {

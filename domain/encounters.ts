@@ -23,6 +23,38 @@ export type CombatCondition = {
   id: string;
   name: string;
   remainingTurns: number | null;
+  timing?: "start-turn" | "end-turn" | "manual";
+  requiresSave?: boolean;
+  saveDue?: boolean;
+};
+
+export type CombatResource = {
+  id: string;
+  name: string;
+  maximum: number;
+  remaining: number;
+  reset: "manual" | "start-turn";
+};
+export type CombatRuntime = {
+  temporaryHitPoints: number;
+  concentration: string | null;
+  deathSaves: { successes: number; failures: number };
+  resources: CombatResource[];
+};
+export type CombatSnapshot = {
+  name: string;
+  type: string;
+  challengeRating: string;
+  speed: string;
+  stats: string;
+  abilities: string;
+  spells: string;
+  notes: string;
+  source: string;
+  hitPoints: number;
+  armorClass: number;
+  spellSlots: number[];
+  tags?: Array<{ id: string; name: string; color: string | null }>;
 };
 
 export type Combatant = {
@@ -40,6 +72,8 @@ export type Combatant = {
   sortOrder: number;
   conditions: CombatCondition[];
   revision: number;
+  runtime?: CombatRuntime;
+  snapshot?: CombatSnapshot | null;
 };
 
 export type CombatEncounter = {
@@ -56,5 +90,5 @@ export type CombatEncounter = {
 
 export type PreparedCombatant = Omit<
   Combatant,
-  "playerId" | "monsterId" | "conditions" | "revision"
+  "playerId" | "monsterId" | "conditions" | "revision" | "runtime" | "snapshot"
 >;

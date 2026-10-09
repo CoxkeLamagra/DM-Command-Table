@@ -205,7 +205,7 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await conditions.getByPlaceholder("Turns", { exact: true }).fill("2");
   await conditions.getByRole("button", { name: "Add", exact: true }).click();
   await expect(
-    conditions.getByRole("button", { name: "Blinded · 2 turns", exact: true }),
+    conditions.getByRole("button", { name: "Clear Blinded", exact: true }),
   ).toBeVisible();
   await conditions.getByLabel("Condition name").fill("Marked by a curse");
   await conditions
@@ -220,6 +220,9 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   );
   await conditions.getByRole("button", { name: "Add", exact: true }).click();
   await expect(
-    conditions.getByRole("button", { name: "Marked by a curse", exact: true }),
+    conditions.getByRole("button", {
+      name: "Clear Marked by a curse",
+      exact: true,
+    }),
   ).toBeVisible();
 });

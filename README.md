@@ -123,6 +123,16 @@ Imported monster data belongs to the current campaign and remains editable after
 - Format rich text with lists, bold, italic, underline, and text colors.
 - Reuse uploaded screenshots from the local library; images scale automatically to the available browser width.
 
+### Live combat tracking
+
+Each combatant has independent temporary HP, concentration, death-save successes/failures and resource counters. **Damage** consumes temporary HP first; **Heal** respects maximum HP and clears death-save counters when HP becomes positive. **Undo HP change** restores both HP and the affected runtime state. Direct HP inputs are manual overrides. Temporary HP is set explicitly and does not stack automatically. Concentration damage prompts display a check DC; roll and clear concentration manually. Death-save counters do not automatically roll, stabilize or kill a creature.
+
+Bestiary creatures capture a stat-block snapshot when added or loaded into Combat. Later Bestiary edits or deletion do not alter that snapshot. Spell-slot counters start from the captured slot totals. **Add legendary actions** creates three uses, configurable afterward, recovering at the start of that creature’s next turn. Add other counters for legendary resistance, abilities or limited-use items; choose manual recovery or own-turn recovery and use/restore individual counters. Duplicate creatures spend resources independently. Round reset does not restore resources. Rest recovery remains manual.
+
+Conditions can tick at the start or end of the affected creature’s own turn, or remain until dismissed. A timed condition expires at its selected boundary unless **Requires save** is enabled; then it flags a saving throw and remains until you resolve it. Choose **Save succeeded: clear** or **Save failed: keep**. A failed persistent save can be prompted again at the next selected boundary. Blank durations remain active. Use **Mark save due** to request an earlier or manual save, and expand **Override timing or duration** for manual adjustments. Skipped creatures do not receive a start-of-turn tick; leaving the active creature’s turn resolves its end-of-turn effects.
+
+Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; incoming copies start fresh while retained Players/NPCs keep their live state. Existing v9 databases migrate on startup and capture currently linked Bestiary details; details changed before the migration cannot be reconstructed.
+
 ### Draft recovery and turn preferences
 
 Unsaved edits in Campaign, Players/NPCs, Bestiary, Stories, Sessions, prepared encounters and Combat are recoverable after refresh in the same browser. Choose Restore draft, Download draft or Discard draft before continuing edits. Drafts retain their original record revisions, so newer server changes require reconciliation. Browser drafts expire after seven days and are removed for the account on explicit sign-out. They are a recovery aid; Save still writes authoritative data to the local server. Browser storage failures display a warning.

@@ -79,8 +79,64 @@ export const combatConditionSchema = z.object({
   id: idSchema,
   name: z.string().min(1).max(120),
   remainingTurns: z.number().int().positive().nullable(),
+  timing: z.enum(["start-turn", "end-turn", "manual"]).optional(),
+  requiresSave: z.boolean().default(false),
+  saveDue: z.boolean().default(false),
 });
 
+export const combatRuntimeSchema = z.object({
+  temporaryHitPoints: z.number().finite().nonnegative(),
+  concentration: z.string().trim().min(1).max(200).nullable(),
+  deathSaves: z.object({
+    successes: z.number().int().min(0).max(3),
+    failures: z.number().int().min(0).max(3),
+  }),
+  resources: z
+    .array(
+      z
+        .object({
+          id: idSchema,
+          name: z.string().trim().min(1).max(120),
+          maximum: z.number().int().min(0).max(10000),
+          remaining: z.number().int().min(0).max(10000),
+          reset: z.enum(["manual", "start-turn"]),
+        })
+        .refine(
+          (value) => value.remaining <= value.maximum,
+          "Remaining uses cannot exceed the maximum",
+        ),
+    )
+    .max(100)
+    .refine(
+      (values) =>
+        new Set(values.map((value) => value.id)).size === values.length,
+      "Resource IDs must be unique",
+    ),
+});
+export const combatSnapshotSchema = z.object({
+  tags: z
+    .array(
+      z.object({
+        id: z.string().max(120),
+        name: z.string().max(120),
+        color: z.string().max(40).nullable(),
+      }),
+    )
+    .max(100)
+    .default([]),
+  name: z.string().max(200),
+  type: z.string().max(200),
+  challengeRating: z.string().max(40),
+  speed: z.string().max(200),
+  source: z.string().max(120),
+  stats: z.string().max(1000000),
+  abilities: z.string().max(1000000),
+  spells: z.string().max(1000000),
+  notes: z.string().max(1000000),
+  hitPoints: z.number().finite().nonnegative(),
+  armorClass: z.number().finite().nonnegative(),
+  spellSlots: z.array(z.number().int().nonnegative().max(10000)).max(9),
+});
 export const combatantSchema = z.object({
   id: idSchema,
   playerId: idSchema.nullable(),
@@ -95,6 +151,8 @@ export const combatantSchema = z.object({
   armorClass: z.number().finite().nonnegative(),
   sortOrder: z.number().int(),
   conditions: z.array(combatConditionSchema).max(100),
+  runtime: combatRuntimeSchema.optional(),
+  snapshot: combatSnapshotSchema.nullable().optional(),
   revision: revisionSchema,
 });
 
@@ -102,6 +160,8 @@ export const preparedCombatantSchema = combatantSchema.omit({
   playerId: true,
   monsterId: true,
   conditions: true,
+  runtime: true,
+  snapshot: true,
   revision: true,
 });
 
