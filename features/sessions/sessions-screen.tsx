@@ -13,6 +13,9 @@ import {
 import { useRecordFocus } from "@/features/shared/use-record-focus";
 import { SaveStatus } from "@/features/shared/save-status";
 import { reconcileSaved } from "@/features/encounters/drafts";
+import { useDraftRecovery, DraftAccount } from "../shared/draft-recovery";
+import { draftKey, readDraft } from "../shared/draft-storage";
+import { useContext } from "react";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { toast } from "sonner";
 import { Tabs } from "radix-ui";
@@ -41,6 +44,8 @@ import {
   type EncounterDraftController,
   uploadScreenshot,
 } from "../shared/api-client";
+import { nextSession } from "../shared/next-session";
+import { SessionRoster } from "./session-roster";
 import { PreparedEncounters } from "../encounters/prepared-encounters";
 import { StatusBadge, StatusSelect } from "../shared/progress-status";
 import type { Session, SessionTemplate, StoryBeat } from "@/domain/types";
@@ -63,6 +68,7 @@ export function SessionsScreen({
   onOpenStory: (id: string) => void;
   onOpenCombat: () => void;
 }) {
+  const [playId, setPlayId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [story, setStory] = useState<StoryBeat[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(
@@ -98,6 +104,36 @@ export function SessionsScreen({
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+  const [loaded, setLoaded] = useState(false);
+  const userId = useContext(DraftAccount);
+  const recovery = useDraftRecovery({
+    campaignId,
+    scope: "sessions",
+    value: sessions.filter(({ id }) => dirty.has(id)),
+    dirty: dirty.size > 0,
+    ready: loaded && editable,
+    restore: (values) => {
+      if (
+        !Array.isArray(values) ||
+        values.some(
+          (value) =>
+            typeof value?.id !== "string" || typeof value.notes !== "string",
+        )
+      )
+        throw new Error("Invalid draft");
+      if (values.some((value) => !sessions.some(({ id }) => id === value.id)))
+        throw new Error(
+          "A session was removed. Download this draft to recover its text.",
+        );
+      setSessions((all) =>
+        all.map((item) => values.find(({ id }) => id === item.id) ?? item),
+      );
+      const ids = values.map(({ id }) => id);
+      setDirty(new Set(ids));
+      setExpanded(new Set(ids));
+      setVisited((all) => new Set([...all, ...ids]));
+    },
+  });
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -110,6 +146,23 @@ export function SessionsScreen({
       .then(([nextSessions, nextStory]) => {
         if (live) {
           setSessions(nextSessions);
+          setLoaded(true);
+          try {
+            const recoverable = userId
+              ? nextSessions
+                  .filter(({ id }) =>
+                    readDraft(
+                      localStorage,
+                      draftKey(userId, campaignId, `prepared:${id}`),
+                    ),
+                  )
+                  .map(({ id }) => id)
+              : [];
+            if (recoverable.length) {
+              setExpanded(new Set(recoverable));
+              setVisited((all) => new Set([...all, ...recoverable]));
+            }
+          } catch {}
           setStory(nextStory);
         }
       })
@@ -117,7 +170,7 @@ export function SessionsScreen({
     return () => {
       live = false;
     };
-  }, [campaignId]);
+  }, [campaignId, userId]);
   useRecordFocus(
     initialOpenId ? `session-${initialOpenId}` : undefined,
     sessions.some(({ id }) => id === initialOpenId),
@@ -209,6 +262,7 @@ export function SessionsScreen({
       await deleteSession(campaignId, item.id);
       markEncounterDirty(item.id, false);
       setSessions((all) => all.filter(({ id }) => id !== item.id));
+      if (playId === item.id) setPlayId(null);
       setDirty((ids) => {
         const next = new Set(ids);
         next.delete(item.id);
@@ -280,13 +334,62 @@ export function SessionsScreen({
 
   return (
     <>
+      {recovery.banner}
       <Section
-        title="Sessions"
-        description="Plan sessions, record outcomes, and prepare encounters."
+        title={playId ? "Session play view" : "Sessions"}
+        description={
+          playId
+            ? "Notes, encounters, story context and NPC references for the session you are running."
+            : "Plan sessions, record outcomes, and prepare encounters."
+        }
         query={query}
         setQuery={setQuery}
         actions={
           <>
+            {playId ? (
+              <>
+                <select
+                  aria-label="Playing session"
+                  className="h-9 max-w-64 rounded-md border border-white/10 bg-[#151820] px-3 text-sm"
+                  value={playId}
+                  onChange={(event) => {
+                    const id = event.target.value;
+                    setPlayId(id);
+                    setExpanded((all) => new Set(all).add(id));
+                    setVisited((all) => new Set(all).add(id));
+                  }}
+                >
+                  {sessions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title}
+                    </option>
+                  ))}
+                </select>
+                <Button variant="outline" onClick={() => setPlayId(null)}>
+                  Back to preparation
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                disabled={!sessions.length}
+                onClick={() => {
+                  const id = (
+                    sessions.find(({ id }) => id === initialOpenId) ??
+                    nextSession(sessions) ??
+                    sessions[0]
+                  )?.id;
+                  if (id) {
+                    setPlayId(id);
+                    setExpanded((all) => new Set(all).add(id));
+                    setVisited((all) => new Set(all).add(id));
+                    setQuery("");
+                  }
+                }}
+              >
+                Session play view
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => {
@@ -319,7 +422,7 @@ export function SessionsScreen({
         }
       >
         {sessions.map((item) => {
-          const open = expanded.has(item.id);
+          const open = playId === item.id || expanded.has(item.id);
           const linked = story.filter((beat) =>
             beat.sessionIds.includes(item.id),
           );
@@ -328,7 +431,11 @@ export function SessionsScreen({
               id={`session-${item.id}`}
               tabIndex={-1}
               key={item.id}
-              hidden={!visible.some(({ id }) => id === item.id)}
+              hidden={
+                playId
+                  ? playId !== item.id
+                  : !visible.some(({ id }) => id === item.id)
+              }
               className="rounded-xl border border-white/10 bg-[#13161d]"
             >
               <button
@@ -384,10 +491,33 @@ export function SessionsScreen({
                       onChange={(status) => patch(item.id, { status })}
                     />
                   </div>
-                  <Tabs.Root defaultValue="notes" className="mt-4">
+                  <Tabs.Root
+                    defaultValue={(() => {
+                      try {
+                        return userId &&
+                          readDraft(
+                            localStorage,
+                            draftKey(userId, campaignId, `prepared:${item.id}`),
+                          )
+                          ? "encounters"
+                          : "notes";
+                      } catch {
+                        return "notes";
+                      }
+                    })()}
+                    className={
+                      playId === item.id
+                        ? "mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                        : "mt-4"
+                    }
+                  >
                     <Tabs.List
                       aria-label={`Workspace for ${item.title}`}
-                      className="flex flex-wrap gap-1 rounded-lg bg-black/20 p-1"
+                      className={
+                        playId === item.id
+                          ? "hidden"
+                          : "flex flex-wrap gap-1 rounded-lg bg-black/20 p-1"
+                      }
                     >
                       <Tabs.Trigger value="notes" className={sessionTabClass}>
                         Notes
@@ -406,9 +536,16 @@ export function SessionsScreen({
                     <Tabs.Content
                       value="notes"
                       forceMount
-                      className="mt-4 data-[state=inactive]:hidden"
+                      className={
+                        playId === item.id
+                          ? "rounded-lg border border-white/10 p-4 lg:col-start-1 lg:row-start-1"
+                          : "mt-4 data-[state=inactive]:hidden"
+                      }
                     >
                       <div>
+                        {playId === item.id && (
+                          <h3 className="mb-3 font-medium">Session notes</h3>
+                        )}
                         {editable ? (
                           <RichTextEditor
                             value={item.notes}
@@ -425,18 +562,38 @@ export function SessionsScreen({
                     <Tabs.Content
                       value="stories"
                       forceMount
-                      className="mt-4 data-[state=inactive]:hidden"
+                      className={
+                        playId === item.id
+                          ? "rounded-lg border border-white/10 p-4 lg:col-start-1 lg:row-start-2"
+                          : "mt-4 data-[state=inactive]:hidden"
+                      }
                     >
+                      {playId === item.id && (
+                        <h3 className="mb-3 font-medium">Linked stories</h3>
+                      )}
                       {linked.length ? (
                         <div className="mt-4 flex flex-wrap items-center gap-2">
                           {linked.map((beat) => (
-                            <button
-                              className="rounded-full bg-violet-400/10 px-3 py-1 text-xs text-violet-300 hover:bg-violet-400/20"
+                            <div
                               key={beat.id}
-                              onClick={() => onOpenStory(beat.id)}
+                              className={
+                                playId === item.id
+                                  ? "w-full rounded border border-white/10 p-3"
+                                  : "contents"
+                              }
                             >
-                              {beat.title} <StatusBadge status={beat.status} />
-                            </button>
+                              <button
+                                className="rounded-full bg-violet-400/10 px-3 py-1 text-xs text-violet-300 hover:bg-violet-400/20"
+                                key={beat.id}
+                                onClick={() => onOpenStory(beat.id)}
+                              >
+                                {beat.title}{" "}
+                                <StatusBadge status={beat.status} />
+                              </button>
+                              {playId === item.id && (
+                                <RichTextContent value={beat.details} />
+                              )}
+                            </div>
                           ))}
                         </div>
                       ) : (
@@ -449,7 +606,11 @@ export function SessionsScreen({
                     <Tabs.Content
                       value="encounters"
                       forceMount
-                      className="data-[state=inactive]:hidden"
+                      className={
+                        playId === item.id
+                          ? "min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-3"
+                          : "data-[state=inactive]:hidden"
+                      }
                     >
                       <PreparedEncounters
                         campaignId={campaignId}
@@ -462,6 +623,9 @@ export function SessionsScreen({
                         savingSession={savingSession === item.id}
                       />
                     </Tabs.Content>
+                    {playId === item.id && (
+                      <SessionRoster campaignId={campaignId} />
+                    )}
                   </Tabs.Root>
                   {editable && (
                     <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-[#13161d]/95 py-3 backdrop-blur">

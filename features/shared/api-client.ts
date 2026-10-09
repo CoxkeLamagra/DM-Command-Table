@@ -692,11 +692,12 @@ export async function commandCombat(
   campaignId: string,
   combat: Combat,
   command: import("../../domain/combat").CombatAction,
+  zeroHpPolicy: import("../../domain/combat").ZeroHpPolicy = "skip-all",
 ): Promise<Combat> {
   return (
     await requestJson<{ combat: Combat }>(
       `/api/campaigns/${campaignId}/combat/command`,
-      json("POST", { combat, command }),
+      json("POST", { combat, command, zeroHpPolicy }),
     )
   ).combat;
 }

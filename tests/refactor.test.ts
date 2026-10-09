@@ -8,7 +8,7 @@ import { createEncounterRepository } from "../server/encounters/encounter-reposi
 import { handleApi } from "../server/api/api-router.ts";
 import { deleteManagedUser } from "../server/identity/accounts.ts";
 import { listScreenshots } from "../server/media/screenshots.ts";
-import { applyCombatAction } from "../domain/combat.ts";
+import { applyCombatAction, orderedCombatants } from "../domain/combat.ts";
 import type { Combatant, CombatEncounter } from "../domain/encounters.ts";
 function fixture() {
   const database = new DatabaseSync(":memory:");
@@ -508,6 +508,60 @@ test("editors can load prepared Players and NPCs while retaining existing combat
     );
     assert.equal(saved.combatants[0].id, retained.id);
     assert.equal(saved.round, 1);
+  } finally {
+    database.close();
+  }
+});
+
+test("combat commands enforce the submitted zero-HP policy and reject invalid policies", async () => {
+  const { database, campaign, encounters } = fixture();
+  try {
+    const initial = encounters.getCombat(campaign.id, "owner");
+    const monster = {
+      ...entry(crypto.randomUUID(), 20),
+      kind: "monster" as const,
+    };
+    const hero = {
+      ...entry(crypto.randomUUID(), 10, 0),
+      kind: "player" as const,
+    };
+    const saved = encounters.saveCombat(
+      campaign.id,
+      "owner",
+      initial.revision,
+      { ...initial, combatants: [monster, hero] },
+    );
+    const request = (zeroHpPolicy: string) =>
+      new Request(`http://local/api/campaigns/${campaign.id}/combat/command`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          combat: saved,
+          command: "next-turn",
+          zeroHpPolicy,
+        }),
+      });
+    const invalid = await handleApi(request("invalid"), database, {
+      userId: "owner",
+      isAdmin: true,
+    });
+    assert.equal(invalid.status, 400);
+    const result = await handleApi(request("include-players"), database, {
+      userId: "owner",
+      isAdmin: true,
+    });
+    assert.equal(result.status, 200);
+    const { combat: next } = await result.json();
+    assert.equal(orderedCombatants(next.combatants)[next.turn].id, hero.id);
+    const stale = await handleApi(request("include-all"), database, {
+      userId: "owner",
+      isAdmin: true,
+    });
+    assert.equal(stale.status, 409);
+    assert.equal(
+      encounters.getCombat(campaign.id, "owner").revision,
+      next.revision,
+    );
   } finally {
     database.close();
   }

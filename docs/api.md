@@ -40,7 +40,7 @@ Owners control sharing, ownership transfer and campaign deletion. Editors can ch
 | POST     | `C/combat/load-prepared` | Load prepared draft into active Combat using expected combat revision        |
 | POST     | `C/combat/undo`          | Undo against current `revision`                                              |
 
-Prepared encounters are nested under Sessions; there is no top-level `C/encounters` CRUD route. Combat commands include submitted drafts so actions retain current edits.
+Prepared encounters are nested under Sessions; there is no top-level `C/encounters` CRUD route. Combat commands include submitted drafts so actions retain current edits. The optional `zeroHpPolicy` accepts `skip-all` (default), `include-players`, or `include-all`; it controls eligibility for next-turn and reset-rounds. Invalid values return 400, and stale combat revisions return 409.
 
 ## Identity, administration and media
 

@@ -2,6 +2,13 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+- Recover unsaved campaign, roster, Bestiary, Story, Session, prepared encounter and Combat drafts after refresh, with account-scoped browser storage, restore/download/discard controls and original revision protection.
+- Add a Session play view combining notes, linked story details, prepared encounters and searchable Player/NPC references.
+- Preview prepared encounter loads, including retained and replaced records, additions, possible duplicates, capacity and revision checks.
+- Choose whether turn advancement skips everyone at 0 HP, retains Player turns, or retains all turns.
+
 ## 9.3.0 — 2026-10-09
 
 - Group general Campaign screen activities in a Campaign actions dropdown, retaining a separate Save button.

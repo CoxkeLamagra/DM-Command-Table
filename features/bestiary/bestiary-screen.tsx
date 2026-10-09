@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Heart, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { SaveStatus } from "@/features/shared/save-status";
+import { useDraftRecovery } from "../shared/draft-recovery";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { reconcileSaved } from "@/features/encounters/drafts";
 import { Button } from "@/components/ui/button";
@@ -55,12 +56,38 @@ export function BestiaryScreen({
       monsters.find(({ id }) => id === editing.id),
     );
   useUnsavedChanges(dirty);
+  const [loaded, setLoaded] = useState(false);
+  const recovery = useDraftRecovery({
+    campaignId,
+    scope: "bestiary",
+    value: editing,
+    dirty,
+    ready: loaded && editable,
+    restore: (value) => {
+      if (
+        !value ||
+        typeof value.id !== "string" ||
+        typeof value.name !== "string" ||
+        typeof value.notes !== "string"
+      )
+        throw new Error("Invalid draft");
+      if (
+        !value.id.startsWith("draft:") &&
+        !monsters.some(({ id }) => id === value.id)
+      )
+        throw new Error(
+          "The record was removed. Download this draft to recover its text.",
+        );
+      setEditing(value);
+    },
+  });
   useEffect(() => {
     let live = true;
     void listMonsters(campaignId)
       .then((items) => {
         if (live) {
           setMonsters(items);
+          setLoaded(true);
           if (initialOpenId)
             setEditing(items.find(({ id }) => id === initialOpenId) ?? null);
         }
@@ -161,6 +188,7 @@ export function BestiaryScreen({
 
   return (
     <>
+      {recovery.banner}
       <Section
         title="Bestiary"
         description="Search and maintain local monster stat blocks."

@@ -1,9 +1,14 @@
 "use client";
+import { DraftAccount, useDraftRecovery } from "../shared/draft-recovery";
 import { isDraftDirty } from "@/features/shared/draft-state";
 
-import { normalizeCombat } from "../../domain/combat";
+import {
+  normalizeCombat,
+  takesTurn,
+  type ZeroHpPolicy,
+} from "../../domain/combat";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { adjustHitPoints } from "@/features/combat/hit-points";
 import { SaveStatus } from "@/features/shared/save-status";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
@@ -44,6 +49,15 @@ export function CombatScreen({
   campaignId: string;
   editable: boolean;
 }) {
+  const userId = useContext(DraftAccount);
+  const policyKey = `dmct-turn-policy:${JSON.stringify([userId, campaignId])}`;
+  const [zeroHpPolicy, setZeroHpPolicy] = useState<ZeroHpPolicy>(() => {
+    try {
+      const value = localStorage.getItem(policyKey);
+      if (value === "include-players" || value === "include-all") return value;
+    } catch {}
+    return "skip-all";
+  });
   const [combat, setCombat] = useState<Combat | null>(null);
   const [persisted, setPersisted] = useState<Combat | null>(null);
   const pending = useRef(false);
@@ -57,6 +71,23 @@ export function CombatScreen({
   >(null);
   const dirty = !!combat && !!persisted && isDraftDirty(combat, persisted);
   useUnsavedChanges(dirty);
+  const recovery = useDraftRecovery({
+    campaignId,
+    scope: "combat",
+    value: combat,
+    dirty,
+    ready: !!persisted && editable,
+    restore: (value) => {
+      if (
+        !value ||
+        !Array.isArray(value.combatants) ||
+        typeof value.name !== "string" ||
+        value.campaignId !== campaignId
+      )
+        throw new Error("Invalid draft");
+      setCombat(normalize(value));
+    },
+  });
   const [players, setPlayers] = useState<Player[]>([]);
   const [monsters, setMonsters] = useState<Monster[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -129,7 +160,12 @@ export function CombatScreen({
     try {
       const saved = normalize(
         command
-          ? await commandCombat(campaignId, normalize(next), command)
+          ? await commandCombat(
+              campaignId,
+              normalize(next),
+              command,
+              zeroHpPolicy,
+            )
           : await saveCombat(campaignId, normalize(next), action),
       );
       setCombat(saved);
@@ -148,7 +184,8 @@ export function CombatScreen({
       toast.success("Combat saved");
   }
   async function nextTurn() {
-    if (!combat || !ordered.some(({ hitPoints }) => hitPoints > 0)) return;
+    if (!combat || !ordered.some((entry) => takesTurn(entry, zeroHpPolicy)))
+      return;
     const saved = await persist(combat, "next_turn", "next-turn");
     if (saved) {
       setSelectedId(saved.combatants[saved.turn]?.id ?? "");
@@ -332,12 +369,14 @@ export function CombatScreen({
     );
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5">
+      {recovery.banner}
       <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
             Live encounter
           </p>
           <Input
+            aria-label="Encounter name"
             className="mt-2 h-11 max-w-md font-serif text-2xl"
             value={combat.name}
             disabled={!editable || busy}
@@ -371,6 +410,30 @@ export function CombatScreen({
         </div>
         {editable && (
           <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 text-xs text-stone-300">
+              At 0 HP
+              <select
+                aria-label="Zero HP turn handling"
+                disabled={busy}
+                value={zeroHpPolicy}
+                className="h-9 max-w-48 rounded-md border border-white/10 bg-[#151820] px-2 text-sm"
+                onChange={(event) => {
+                  const value = event.target.value as ZeroHpPolicy;
+                  setZeroHpPolicy(value);
+                  try {
+                    localStorage.setItem(policyKey, value);
+                  } catch {
+                    toast.error(
+                      "Turn preference could not be remembered in this browser.",
+                    );
+                  }
+                }}
+              >
+                <option value="skip-all">Skip everyone</option>
+                <option value="include-players">Keep Player turns</option>
+                <option value="include-all">Keep all turns</option>
+              </select>
+            </label>
             <Button variant="outline" onClick={doUndo} disabled={busy}>
               <Undo2 /> Undo
             </Button>
@@ -413,7 +476,9 @@ export function CombatScreen({
             </Button>
             <Button
               onClick={nextTurn}
-              disabled={busy || !ordered.some(({ hitPoints }) => hitPoints > 0)}
+              disabled={
+                busy || !ordered.some((entry) => takesTurn(entry, zeroHpPolicy))
+              }
               className="bg-[#d75b42] hover:bg-[#ec6b50]"
             >
               Next turn <ChevronRight />
@@ -421,6 +486,15 @@ export function CombatScreen({
           </div>
         )}
       </div>
+      {active && active.hitPoints <= 0 && takesTurn(active, zeroHpPolicy) && (
+        <p
+          role="status"
+          className="rounded-lg border border-violet-400/30 bg-violet-400/10 p-3 text-sm"
+        >
+          {active.name} is at 0 HP and still has a turn. Check death saves or
+          other start-of-turn effects as appropriate; resolve these manually.
+        </p>
+      )}
       <Tabs.Root value={mobileView} onValueChange={setMobileView}>
         <Tabs.List
           aria-label="Combat view"

@@ -4,6 +4,17 @@ import type {
   Combatant,
   PreparedEncounter,
 } from "./encounters.ts";
+export type ZeroHpPolicy = "skip-all" | "include-players" | "include-all";
+export function takesTurn(
+  entry: Combatant,
+  policy: ZeroHpPolicy = "skip-all",
+): boolean {
+  return (
+    entry.hitPoints > 0 ||
+    policy === "include-all" ||
+    (policy === "include-players" && entry.kind === "player")
+  );
+}
 export type CombatAction =
   "next-turn" | "reset-rounds" | "remove-monsters" | "clear";
 export function orderedCombatants(entries: Combatant[]): Combatant[] {
@@ -25,6 +36,7 @@ export function normalizeCombat(combat: CombatEncounter): CombatEncounter {
 export function applyCombatAction(
   combat: CombatEncounter,
   action: CombatAction,
+  zeroHpPolicy: ZeroHpPolicy = "skip-all",
 ): CombatEncounter {
   const current = normalizeCombat(combat);
   if (action === "clear")
@@ -44,17 +56,17 @@ export function applyCombatAction(
       round: 1,
       turn: Math.max(
         0,
-        current.combatants.findIndex((entry) => entry.hitPoints > 0),
+        current.combatants.findIndex((entry) => takesTurn(entry, zeroHpPolicy)),
       ),
     };
   const entries = current.combatants;
-  if (!entries.some((entry) => entry.hitPoints > 0)) return current;
+  if (!entries.some((entry) => takesTurn(entry, zeroHpPolicy))) return current;
   let next = current.turn,
     wrapped = false;
   for (let step = 1; step <= entries.length; step++) {
     const candidate = (current.turn + step) % entries.length;
     if (candidate <= current.turn) wrapped = true;
-    if (entries[candidate].hitPoints > 0) {
+    if (takesTurn(entries[candidate], zeroHpPolicy)) {
       next = candidate;
       break;
     }

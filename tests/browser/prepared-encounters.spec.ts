@@ -153,19 +153,18 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
       exact: true,
     }),
   ).toHaveAttribute("aria-expanded", "false");
-  let dialogs = 0;
-  page.on("dialog", async (dialog) => {
-    dialogs++;
-    await dialog.accept();
-  });
   await section
     .getByRole("button", { name: "Load in Combat", exact: true })
     .first()
     .click();
+  await page
+    .getByRole("dialog", { name: "Load encounter preview" })
+    .getByRole("button", { name: "Confirm load", exact: true })
+    .click();
   await expect(
     page.getByText("Captain after save", { exact: true }).first(),
   ).toBeVisible();
-  expect(dialogs).toBe(1);
+
   const conditions = page.locator("section").filter({
     has: page.getByRole("heading", {
       name: "Status conditions",

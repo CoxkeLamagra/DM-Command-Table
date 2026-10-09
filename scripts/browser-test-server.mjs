@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "../db/migrations.ts";
 import { hashPassword } from "../server/security/passwords.ts";
+import { copyCampaign } from "../server/campaigns/campaign-copy.ts";
 import { createCampaignRepository } from "../server/campaigns/campaign-repository.ts";
 import { createContentRepository } from "../server/content/content-repository.ts";
 import { createBestiaryRepository } from "../server/bestiary/bestiary-repository.ts";
@@ -23,6 +24,15 @@ database
 const campaign = createCampaignRepository(database).create(owner, {
   name: "Regression campaign",
 });
+const batchUser = crypto.randomUUID();
+database
+  .prepare(
+    "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Batch tester','browser-batch1',?,0,?,?)",
+  )
+  .run(batchUser, await hashPassword("browser-test-pass"), now, now);
+database
+  .prepare("INSERT INTO campaign_members VALUES(?,?,'editor',?,?)")
+  .run(campaign.id, batchUser, now, now);
 const session = createContentRepository(database).createSession(
   campaign.id,
   owner,
@@ -107,6 +117,10 @@ repository.createPrepared(campaign.id, owner, session.id, {
   monsters: [],
   combatants: [],
 });
+copyCampaign(database, campaign.id, batchUser, "campaign");
+database
+  .prepare("DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?")
+  .run(campaign.id, batchUser);
 database.close();
 const child = spawn(process.execPath, [".next/standalone/server.js"], {
   stdio: "inherit",

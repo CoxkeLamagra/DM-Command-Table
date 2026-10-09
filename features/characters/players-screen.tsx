@@ -11,6 +11,7 @@ import {
   type RosterFilterValue,
 } from "@/features/shared/roster-filter";
 import { SaveStatus } from "@/features/shared/save-status";
+import { useDraftRecovery } from "../shared/draft-recovery";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { reconcileSaved } from "@/features/encounters/drafts";
 import { Button } from "@/components/ui/button";
@@ -71,12 +72,38 @@ export function PlayersScreen({
           players.find(({ id }) => id === editing.id),
         ));
   useUnsavedChanges(dirty);
+  const [loaded, setLoaded] = useState(false);
+  const recovery = useDraftRecovery({
+    campaignId,
+    scope: "players",
+    value: editing,
+    dirty,
+    ready: loaded && editable,
+    restore: (value) => {
+      if (
+        !value ||
+        typeof value.id !== "string" ||
+        typeof value.name !== "string" ||
+        typeof value.notes !== "string"
+      )
+        throw new Error("Invalid draft");
+      if (
+        !value.id.startsWith("draft:") &&
+        !players.some(({ id }) => id === value.id)
+      )
+        throw new Error(
+          "The record was removed. Download this draft to recover its text.",
+        );
+      setEditing(value);
+    },
+  });
   useEffect(() => {
     let live = true;
     void listPlayers(campaignId)
       .then((items) => {
         if (live) {
           setPlayers(items);
+          setLoaded(true);
           if (initialOpenId)
             setEditing(items.find(({ id }) => id === initialOpenId) ?? null);
         }
@@ -199,6 +226,7 @@ export function PlayersScreen({
 
   return (
     <>
+      {recovery.banner}
       <Section
         title="Players / NPC’s"
         description="Manage the players and NPCs in this campaign."
