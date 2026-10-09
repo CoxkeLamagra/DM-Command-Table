@@ -2,6 +2,16 @@
 
 All notable DM Command Table releases are documented here.
 
+## 9.1.0 — 2026-10-09
+
+- Add complete system-wide Node 24 and pinned pnpm installation steps for Debian LXC.
+- Verify runtime availability under the dmct service account and fail early in the updater when prerequisites are missing.
+- Use absolute Node and pnpm paths in deployment commands.
+- Disable the default Nginx welcome site on dedicated application containers.
+- Retry readiness checks during startup and document service diagnostics and access through the LXC IP or hostname.
+
+The fresh-storage requirement introduced in v9.0.0 remains unchanged. Existing v9 installations retain their data.
+
 ## 9.0.0 — 2026-10-09
 
 - Introduce a fresh local database baseline and unversioned feature/API modules.
