@@ -46,13 +46,34 @@ install -m 0644 deploy/debian-13/dm-command-table-backup.service /etc/systemd/sy
 install -m 0644 deploy/debian-13/dm-command-table-backup.timer /etc/systemd/system/
 install -m 0755 deploy/debian-13/update-dm-command-table /usr/local/sbin/
 install -m 0644 deploy/debian-13/nginx-dm-command-table.conf /etc/nginx/sites-available/dm-command-table
-ln -s /etc/nginx/sites-available/dm-command-table /etc/nginx/sites-enabled/dm-command-table
+ln -sfn /etc/nginx/sites-available/dm-command-table /etc/nginx/sites-enabled/dm-command-table
+# On this dedicated application container, disable Debian's welcome site.
+# Its configuration remains available in sites-available/default.
+if [ -L /etc/nginx/sites-enabled/default ]; then
+  unlink /etc/nginx/sites-enabled/default
+fi
 nginx -t
 systemctl daemon-reload
 systemctl enable --now dm-command-table.service dm-command-table-backup.timer
 systemctl reload nginx
-curl --fail http://127.0.0.1:3000/api/health
+# systemctl can return before Node is listening; retry during startup.
+curl --fail --show-error --retry 30 --retry-connrefused --retry-delay 1 --max-time 5 \
+  http://127.0.0.1:3000/api/health
 ```
+
+The health response should be `{"status":"ready","version":"9.0.0"}` for v9.0.0. Open `http://<LXC-IP>/` or your configured hostname from your computer. Port 3000 is loopback-only; Nginx serves the application on port 80.
+
+If health checks fail after the retries, inspect the service rather than rebuilding immediately:
+
+```sh
+systemctl status dm-command-table.service --no-pager -l
+journalctl -u dm-command-table.service -b -n 80 --no-pager
+readlink -f /opt/dm-command-table/current
+ls -l /opt/dm-command-table/current/server.js
+ss -ltnp 'sport = :3000'
+```
+
+If you see **Welcome to nginx**, confirm that the application site is enabled and the default welcome-site symlink is disabled, then run `nginx -t && systemctl reload nginx` and refresh the page. Check `ls -l /etc/nginx/sites-enabled/` if the welcome page remains. On a host serving other applications, configure the application's actual `server_name` and preserve those other sites.
 
 Configure the Nginx server name and TLS for your local network. The Node service listens only on loopback. Nginx overwrites forwarded host/protocol headers; do not blindly trust client-supplied headers. If another trusted TLS proxy sits in front of Nginx, configure its exact addresses and the forwarded scheme explicitly. Verify login and cookie behavior through your actual HTTPS endpoint.
 
