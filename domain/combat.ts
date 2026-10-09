@@ -1,7 +1,14 @@
+import {
+  emptyRuntime,
+  runtimeForSnapshot,
+  snapshotMonster,
+} from "./combat-runtime.ts";
 import { MAX_COMBATANTS } from "./limits.ts";
 import type {
   CombatEncounter,
   Combatant,
+  CombatCondition,
+  CombatSnapshot,
   PreparedEncounter,
 } from "./encounters.ts";
 export type ZeroHpPolicy = "skip-all" | "include-players" | "include-all";
@@ -75,26 +82,45 @@ export function applyCombatAction(
     ...current,
     turn: next,
     round: current.round + (wrapped ? 1 : 0),
-    combatants: entries.map((entry, index) =>
-      index === next
-        ? {
-            ...entry,
-            conditions: entry.conditions.flatMap((condition) =>
-              condition.remainingTurns === null
-                ? [condition]
-                : condition.remainingTurns > 1
-                  ? [
-                      {
-                        ...condition,
-                        remainingTurns: condition.remainingTurns - 1,
-                      },
-                    ]
-                  : [],
-            ),
-          }
-        : entry,
-    ),
+    combatants: entries.map((entry, index) => {
+      let conditions = entry.conditions;
+      if (index === current.turn)
+        conditions = tickConditions(conditions, "end-turn");
+      if (index === next) conditions = tickConditions(conditions, "start-turn");
+      const runtime = entry.runtime ?? emptyRuntime();
+      return {
+        ...entry,
+        conditions,
+        runtime:
+          index === next
+            ? {
+                ...runtime,
+                resources: runtime.resources.map((resource) =>
+                  resource.reset === "start-turn"
+                    ? { ...resource, remaining: resource.maximum }
+                    : resource,
+                ),
+              }
+            : runtime,
+      };
+    }),
   };
+}
+export function tickConditions(
+  conditions: CombatCondition[],
+  phase: "start-turn" | "end-turn",
+): CombatCondition[] {
+  return conditions.flatMap((condition) => {
+    const timing =
+      condition.timing ??
+      (condition.remainingTurns === null ? "manual" : "start-turn");
+    if (timing !== phase) return [condition];
+    if (condition.remainingTurns !== null && condition.remainingTurns > 1)
+      return [{ ...condition, remainingTurns: condition.remainingTurns - 1 }];
+    if (condition.requiresSave)
+      return [{ ...condition, remainingTurns: null, saveDue: true }];
+    return condition.remainingTurns === null ? [condition] : [];
+  });
 }
 export class CombatCapacityError extends Error {
   constructor() {
@@ -121,7 +147,8 @@ export function assertPreparedCapacity(
     throw new CombatCapacityError();
 }
 
-type MonsterSource = {
+type MonsterSource = Omit<Partial<CombatSnapshot>, "source"> & {
+  source?: string | null;
   id: string;
   name: string;
   hitPoints: number;
@@ -154,6 +181,8 @@ export function loadPreparation(
       armorClass: source.armorClass,
       sortOrder: 0,
       conditions: [],
+      snapshot: snapshotMonster(source),
+      runtime: runtimeForSnapshot(snapshotMonster(source)),
       revision: 1,
     }));
   });
@@ -163,6 +192,8 @@ export function loadPreparation(
     playerId: null,
     monsterId: null,
     conditions: [],
+    snapshot: null,
+    runtime: emptyRuntime(),
     revision: 1,
   }));
   return normalizeCombat({

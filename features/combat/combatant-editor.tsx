@@ -1,5 +1,7 @@
 "use client";
 
+import { RuntimeControls } from "./runtime-controls";
+import type { CombatSnapshot, CombatCondition } from "@/domain/encounters";
 import { useState } from "react";
 
 import { DropdownMenu } from "radix-ui";
@@ -19,11 +21,10 @@ import {
 } from "@/features/rich-text/rich-text";
 import { DetailSection, Stat } from "@/features/shared/ui";
 import { uploadScreenshot } from "@/features/shared/api-client";
-import type { Combatant, Monster } from "@/domain/types";
+import type { Combatant } from "@/domain/types";
 
 export function CombatantEditor({
   combatant,
-  monster,
   editable,
   update,
   remove,
@@ -32,7 +33,6 @@ export function CombatantEditor({
   canUndoHp,
 }: {
   combatant?: Combatant;
-  monster?: Monster;
   editable: boolean;
   update: (part: Partial<Combatant>) => void;
   remove: () => void;
@@ -42,6 +42,9 @@ export function CombatantEditor({
 }) {
   const [condition, setCondition] = useState("Poisoned");
   const [duration, setDuration] = useState("");
+  const [timing, setTiming] =
+    useState<NonNullable<CombatCondition["timing"]>>("start-turn");
+  const [requiresSave, setRequiresSave] = useState(false);
   const [hpAmount, setHpAmount] = useState("");
   if (!combatant)
     return (
@@ -52,14 +55,27 @@ export function CombatantEditor({
   const current = combatant;
   function addCondition() {
     const name = condition.trim();
-    if (!name) return;
+    if (
+      !name ||
+      current.conditions.length >= 100 ||
+      (timing !== "manual" &&
+        duration &&
+        (!Number.isInteger(Number(duration)) || Number(duration) < 1))
+    )
+      return;
     update({
       conditions: [
         ...current.conditions,
         {
           id: crypto.randomUUID(),
           name,
-          remainingTurns: duration ? Math.max(1, Number(duration)) : null,
+          remainingTurns:
+            timing !== "manual" && duration
+              ? Math.max(1, Number(duration))
+              : null,
+          timing,
+          requiresSave,
+          saveDue: false,
         },
       ],
     });
@@ -194,9 +210,7 @@ export function CombatantEditor({
               <Button
                 size="icon"
                 variant="outline"
-                onClick={() =>
-                  update({ hitPoints: Math.max(0, combatant.hitPoints - 1) })
-                }
+                onClick={() => adjustHp(1, "damage")}
               >
                 <Minus />
               </Button>
@@ -225,14 +239,7 @@ export function CombatantEditor({
               <Button
                 size="icon"
                 variant="outline"
-                onClick={() =>
-                  update({
-                    hitPoints: Math.min(
-                      combatant.maximumHitPoints,
-                      combatant.hitPoints + 1,
-                    ),
-                  })
-                }
+                onClick={() => adjustHp(1, "heal")}
               >
                 <Plus />
               </Button>
@@ -245,30 +252,200 @@ export function CombatantEditor({
         <div className="mt-3 flex flex-wrap gap-2">
           {combatant.conditions.length ? (
             combatant.conditions.map((entry) => (
-              <button
+              <div
                 key={entry.id}
-                disabled={!editable}
-                onClick={() =>
-                  update({
-                    conditions: combatant.conditions.filter(
-                      ({ id }) => id !== entry.id,
-                    ),
-                  })
-                }
-                className="flex items-center gap-1.5 rounded-full bg-violet-400/15 px-3 py-1.5 text-xs text-violet-200"
+                className="w-full rounded-lg bg-violet-400/10 p-3 text-sm text-violet-200"
               >
-                <ConditionIcon name={entry.name} />
-                {entry.name}
-                {entry.remainingTurns !== null &&
-                  ` · ${entry.remainingTurns} turn${entry.remainingTurns === 1 ? "" : "s"}`}
-              </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ConditionIcon name={entry.name} />
+                  <strong>{entry.name}</strong>
+                  <span>
+                    {entry.remainingTurns === null
+                      ? entry.requiresSave
+                        ? "Until resolved"
+                        : "Until dismissed"
+                      : `${entry.remainingTurns} turn(s)`}{" "}
+                    ·{" "}
+                    {
+                      {
+                        "start-turn": "Start of own turn",
+                        "end-turn": "End of own turn",
+                        manual: "Manual",
+                      }[
+                        entry.timing ??
+                          (entry.remainingTurns === null
+                            ? "manual"
+                            : "start-turn")
+                      ]
+                    }
+                    {entry.requiresSave ? " · Requires save" : ""}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    disabled={!editable}
+                    onClick={() =>
+                      update({
+                        conditions: current.conditions.filter(
+                          (value) => value.id !== entry.id,
+                        ),
+                      })
+                    }
+                  >
+                    Clear {entry.name}
+                  </Button>
+                </div>
+                {entry.requiresSave && !entry.saveDue && (
+                  <Button
+                    variant="outline"
+                    disabled={!editable}
+                    onClick={() =>
+                      update({
+                        conditions: current.conditions.map((value) =>
+                          value.id === entry.id
+                            ? { ...value, saveDue: true }
+                            : value,
+                        ),
+                      })
+                    }
+                  >
+                    Mark save due for {entry.name}
+                  </Button>
+                )}
+                {entry.saveDue && (
+                  <div
+                    role="status"
+                    className="mt-2 flex flex-wrap items-center gap-2"
+                  >
+                    <span>Saving throw due. Resolve manually.</span>
+                    <Button
+                      variant="outline"
+                      disabled={!editable}
+                      onClick={() =>
+                        update({
+                          conditions: current.conditions.filter(
+                            (value) => value.id !== entry.id,
+                          ),
+                        })
+                      }
+                    >
+                      Save succeeded: clear {entry.name}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={!editable}
+                      onClick={() =>
+                        update({
+                          conditions: current.conditions.map((value) =>
+                            value.id === entry.id
+                              ? { ...value, saveDue: false }
+                              : value,
+                          ),
+                        })
+                      }
+                    >
+                      Save failed: keep {entry.name}
+                    </Button>
+                  </div>
+                )}
+                {editable && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs">
+                      Override timing or duration
+                    </summary>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <select
+                        aria-label={`${entry.name} timing`}
+                        className="rounded border border-white/10 bg-[#191d27] p-2"
+                        value={
+                          entry.timing ??
+                          (entry.remainingTurns === null
+                            ? "manual"
+                            : "start-turn")
+                        }
+                        onChange={(event) =>
+                          update({
+                            conditions: current.conditions.map((value) =>
+                              value.id === entry.id
+                                ? {
+                                    ...value,
+                                    timing: event.target
+                                      .value as CombatCondition["timing"],
+                                    remainingTurns:
+                                      event.target.value === "manual"
+                                        ? null
+                                        : value.remainingTurns,
+                                    saveDue: false,
+                                  }
+                                : value,
+                            ),
+                          })
+                        }
+                      >
+                        <option value="start-turn">Start of own turn</option>
+                        <option value="end-turn">End of own turn</option>
+                        <option value="manual">Until dismissed / manual</option>
+                      </select>
+                      <Input
+                        aria-label={`${entry.name} remaining turns`}
+                        type="number"
+                        min={1}
+                        className="w-24"
+                        placeholder="Indefinite"
+                        disabled={entry.timing === "manual"}
+                        value={entry.remainingTurns ?? ""}
+                        onChange={(event) =>
+                          update({
+                            conditions: current.conditions.map((value) =>
+                              value.id === entry.id
+                                ? {
+                                    ...value,
+                                    remainingTurns:
+                                      event.target.value === ""
+                                        ? null
+                                        : Math.max(
+                                            1,
+                                            Math.trunc(
+                                              Number(event.target.value),
+                                            ),
+                                          ),
+                                    saveDue: false,
+                                  }
+                                : value,
+                            ),
+                          })
+                        }
+                      />
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={!!entry.requiresSave}
+                          onChange={(event) =>
+                            update({
+                              conditions: current.conditions.map((value) =>
+                                value.id === entry.id
+                                  ? {
+                                      ...value,
+                                      requiresSave: event.target.checked,
+                                      saveDue: false,
+                                    }
+                                  : value,
+                              ),
+                            })
+                          }
+                        />{" "}
+                        Requires save
+                      </label>
+                    </div>
+                  </details>
+                )}
+              </div>
             ))
           ) : (
             <span className="text-sm text-stone-400">No active conditions</span>
           )}
         </div>
         {editable && (
-          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="flex min-w-0 gap-1">
               <Input
                 aria-label="Condition name"
@@ -311,16 +488,61 @@ export function CombatantEditor({
             <Input
               type="number"
               min={1}
+              aria-label="Condition duration"
+              disabled={timing === "manual"}
+              className="w-24"
               placeholder="Turns"
               value={duration}
               onChange={(event) => setDuration(event.target.value)}
             />
-            <Button variant="outline" onClick={addCondition}>
+            <select
+              aria-label="Condition timing"
+              className="rounded border border-white/10 bg-[#191d27] p-2 text-sm"
+              value={timing}
+              onChange={(event) =>
+                setTiming(
+                  event.target.value as NonNullable<CombatCondition["timing"]>,
+                )
+              }
+            >
+              <option value="start-turn">Start of own turn</option>
+              <option value="end-turn">End of own turn</option>
+              <option value="manual">Until dismissed / manual</option>
+            </select>
+            <label className="text-sm">
+              <input
+                type="checkbox"
+                checked={requiresSave}
+                onChange={(event) => setRequiresSave(event.target.checked)}
+              />{" "}
+              Requires save
+            </label>
+            <Button
+              variant="outline"
+              disabled={
+                current.conditions.length >= 100 ||
+                !condition.trim() ||
+                (timing !== "manual" &&
+                  duration !== "" &&
+                  (!Number.isInteger(Number(duration)) || Number(duration) < 1))
+              }
+              onClick={addCondition}
+            >
               <Plus /> Add
             </Button>
           </div>
         )}
       </section>
+      <p className="mt-2 text-xs text-stone-400">
+        Durations count this creature’s selected turn boundary. Saves are
+        flagged, never rolled automatically. Blank duration persists until
+        cleared.
+      </p>
+      <RuntimeControls
+        combatant={combatant}
+        editable={editable}
+        update={update}
+      />
       <div className="mt-5">
         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-stone-400">
           Encounter notes
@@ -339,16 +561,19 @@ export function CombatantEditor({
           <p className="text-sm text-stone-400">No encounter notes.</p>
         )}
       </div>
-      {combatant.kind === "monster" && <MonsterStatBlock monster={monster} />}
+      {combatant.kind === "monster" && (
+        <MonsterStatBlock monster={combatant.snapshot ?? undefined} />
+      )}
     </aside>
   );
 }
 
-function MonsterStatBlock({ monster }: { monster?: Monster }) {
+function MonsterStatBlock({ monster }: { monster?: CombatSnapshot }) {
   if (!monster)
     return (
       <div className="mt-6 rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-stone-400">
-        This one-time monster has no linked Bestiary stat block.
+        This one-time monster has no captured Bestiary stat block. Use encounter
+        notes for its details.
       </div>
     );
   const slots = monster.spellSlots
@@ -358,11 +583,14 @@ function MonsterStatBlock({ monster }: { monster?: Monster }) {
     <section className="mt-6 border-t border-white/10 pt-5">
       <div className="mb-4">
         <h3 className="font-serif text-2xl text-amber-100">{monster.name}</h3>
+        <p className="text-xs text-stone-400">
+          Encounter snapshot · Bestiary edits do not change this stat block.
+        </p>
         <p className="text-sm italic text-stone-400">
           {monster.type || "Unknown type"} · CR {monster.challengeRating || "—"}
           {monster.source ? ` · ${monster.source}` : ""}
         </p>
-        {!!monster.tags.length && (
+        {!!monster.tags?.length && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {monster.tags.map((tag) => (
               <span

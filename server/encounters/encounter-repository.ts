@@ -1,9 +1,18 @@
 import {
+  combatRichText,
+  emptyRuntime,
+  runtimeForSnapshot,
+  snapshotMonster,
+} from "../../domain/combat-runtime.ts";
+import { createBestiaryRepository } from "../bestiary/bestiary-repository.ts";
+import {
   assertPreparedCapacity,
   orderedCombatants,
 } from "../../domain/combat.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import {
+  combatRuntimeSchema,
+  combatSnapshotSchema,
   preparedCombatantSchema,
   preparedEncounterFields,
 } from "../http/schemas.ts";
@@ -299,7 +308,7 @@ export function createEncounterRepository(database: DatabaseSync) {
           actorUserId,
           "combat_history",
           String(historyInsert.lastInsertRowid),
-          ...current.combatants.map((entry) => entry.notes),
+          ...current.combatants.flatMap(combatRichText),
         );
         pruneCombatHistory(database, current.id);
         const result = database
@@ -333,7 +342,7 @@ export function createEncounterRepository(database: DatabaseSync) {
           actorUserId,
           "combat",
           current.id,
-          ...input.combatants.map(({ notes }) => notes),
+          ...getCombat(database, current.id).combatants.flatMap(combatRichText),
         );
       });
       return getCombat(database, current.id);
@@ -364,6 +373,30 @@ export function createEncounterRepository(database: DatabaseSync) {
         .get(current.id) as { id: number; beforeState: string } | undefined;
       if (!history) return current;
       const previous = JSON.parse(history.beforeState) as CombatEncounter;
+      const players = new Set(
+        (
+          database
+            .prepare("SELECT id FROM players WHERE campaign_id=?")
+            .all(campaignId) as Array<{ id: string }>
+        ).map((value) => value.id),
+      );
+      const monsters = new Set(
+        (
+          database
+            .prepare("SELECT id FROM monsters WHERE campaign_id=?")
+            .all(campaignId) as Array<{ id: string }>
+        ).map((value) => value.id),
+      );
+      previous.combatants = previous.combatants.map((entry) => ({
+        ...entry,
+        playerId:
+          entry.playerId && players.has(entry.playerId) ? entry.playerId : null,
+        monsterId:
+          entry.monsterId && monsters.has(entry.monsterId)
+            ? entry.monsterId
+            : null,
+        runtime: entry.runtime ?? emptyRuntime(),
+      }));
       runTransaction(database, () => {
         const updated = database
           .prepare(
@@ -402,7 +435,7 @@ export function createEncounterRepository(database: DatabaseSync) {
           actorUserId,
           "combat",
           current.id,
-          ...previous.combatants.map(({ notes }) => notes),
+          ...getCombat(database, current.id).combatants.flatMap(combatRichText),
         );
         database
           .prepare(
@@ -499,12 +532,12 @@ function replaceCombatants(
     `INSERT INTO combatants
       (id, encounter_id, player_id, monster_id, name, display_number, kind,
        notes, initiative, hit_points, maximum_hit_points, armor_class,
-       sort_order, revision, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       sort_order, revision, created_at, updated_at, runtime, snapshot)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertCondition = database.prepare(
     `INSERT INTO combat_conditions
-      (id, combatant_id, name, remaining_turns, created_at) VALUES (?, ?, ?, ?, ?)`,
+      (id, combatant_id, name, remaining_turns, created_at, timing, requires_save, save_due) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const validPlayer = database.prepare(
     "SELECT id FROM players WHERE id = ? AND campaign_id = ? LIMIT 1",
@@ -513,6 +546,24 @@ function replaceCombatants(
     "SELECT id FROM monsters WHERE id = ? AND campaign_id = ? LIMIT 1",
   );
   const now = Date.now();
+  const needsSnapshot = combatants.some(
+    (entry) =>
+      entry.monsterId && !entry.snapshot && !byId.get(entry.id)?.snapshot,
+  );
+  const monsters = new Map(
+    needsSnapshot
+      ? createBestiaryRepository(database)
+          .list(
+            campaignId,
+            (
+              database
+                .prepare("SELECT owner_id AS owner FROM campaigns WHERE id=?")
+                .get(campaignId) as { owner: string }
+            ).owner,
+          )
+          .map((monster) => [monster.id, monster] as const)
+      : [],
+  );
   for (const combatant of combatants) {
     if (unchanged.has(combatant.id)) continue;
     if (
@@ -537,6 +588,28 @@ function replaceCombatants(
       throw new PublicApiError(
         "NPC combatants cannot reference Bestiary monsters.",
       );
+    const priorSnapshot = byId.get(combatant.id)?.snapshot;
+    const source = combatant.monsterId
+      ? monsters.get(combatant.monsterId)
+      : undefined;
+    const submittedSnapshot =
+      combatant.snapshot ??
+      priorSnapshot ??
+      (source ? snapshotMonster(source) : null);
+    const snapshot = submittedSnapshot
+      ? combatSnapshotSchema.parse(submittedSnapshot)
+      : null;
+    if (snapshot) {
+      snapshot.stats = sanitizeRichText(snapshot.stats);
+      snapshot.abilities = sanitizeRichText(snapshot.abilities);
+      snapshot.spells = sanitizeRichText(snapshot.spells);
+      snapshot.notes = sanitizeRichText(snapshot.notes);
+    }
+    const runtime = combatRuntimeSchema.parse(
+      combatant.runtime ??
+        byId.get(combatant.id)?.runtime ??
+        (snapshot ? runtimeForSnapshot(snapshot) : emptyRuntime()),
+    );
     const combatantId = combatant.id || crypto.randomUUID();
     insertCombatant.run(
       combatantId,
@@ -555,6 +628,8 @@ function replaceCombatants(
       combatant.revision || 1,
       now,
       now,
+      JSON.stringify(runtime),
+      snapshot ? JSON.stringify(snapshot) : null,
     );
     for (const condition of combatant.conditions) {
       insertCondition.run(
@@ -563,6 +638,10 @@ function replaceCombatants(
         condition.name,
         condition.remainingTurns,
         now,
+        condition.timing ??
+          (condition.remainingTurns === null ? "manual" : "start-turn"),
+        condition.requiresSave ? 1 : 0,
+        condition.saveDue ? 1 : 0,
       );
     }
   }
@@ -621,31 +700,55 @@ function combatFromRow(
       `SELECT id, player_id AS playerId, monster_id AS monsterId, name,
             display_number AS displayNumber, kind, notes, initiative,
             hit_points AS hitPoints, maximum_hit_points AS maximumHitPoints,
-            armor_class AS armorClass, sort_order AS sortOrder, revision
+            armor_class AS armorClass, sort_order AS sortOrder, revision, runtime, snapshot
        FROM combatants WHERE encounter_id = ? ORDER BY sort_order, id`,
     )
-    .all(row.id) as Array<Omit<Combatant, "conditions">>;
+    .all(row.id) as Array<
+    Omit<Combatant, "conditions" | "runtime" | "snapshot"> & {
+      runtime: string;
+      snapshot: string | null;
+    }
+  >;
   const conditionRows = database
     .prepare(
-      `SELECT cc.id,cc.name,cc.remaining_turns AS remainingTurns,cc.combatant_id AS combatantId
+      `SELECT cc.id,cc.name,cc.remaining_turns AS remainingTurns,cc.timing,cc.requires_save AS requiresSave,cc.save_due AS saveDue,cc.combatant_id AS combatantId
     FROM combat_conditions cc JOIN combatants c ON c.id=cc.combatant_id WHERE c.encounter_id=? ORDER BY cc.created_at,cc.id`,
     )
-    .all(row.id) as Array<CombatCondition & { combatantId: string }>;
+    .all(row.id) as Array<
+    Omit<CombatCondition, "requiresSave" | "saveDue"> & {
+      combatantId: string;
+      requiresSave: number;
+      saveDue: number;
+    }
+  >;
   const conditions = new Map<string, CombatCondition[]>();
   for (const { combatantId, ...condition } of conditionRows) {
     const entries = conditions.get(combatantId) ?? [];
-    entries.push(condition);
+    entries.push({
+      ...condition,
+      requiresSave: !!condition.requiresSave,
+      saveDue: !!condition.saveDue,
+    });
     conditions.set(combatantId, entries);
   }
   const { activeCombatantId, ...metadata } = row;
   const activeIndex = orderedCombatants(
-    combatants.map((entry) => ({ ...entry, conditions: [] })),
+    combatants.map((entry) => ({
+      ...entry,
+      runtime: undefined,
+      snapshot: undefined,
+      conditions: [],
+    })),
   ).findIndex((entry) => entry.id === activeCombatantId);
   return {
     ...metadata,
     turn: activeIndex >= 0 ? activeIndex : row.turn,
-    combatants: combatants.map((combatant) => ({
+    combatants: combatants.map(({ runtime, snapshot, ...combatant }) => ({
       ...combatant,
+      runtime: combatRuntimeSchema.parse(JSON.parse(runtime)),
+      snapshot: snapshot
+        ? combatSnapshotSchema.parse(JSON.parse(snapshot))
+        : null,
       conditions: conditions.get(combatant.id) ?? [],
     })),
     createdAt: new Date(row.createdAt).toISOString(),

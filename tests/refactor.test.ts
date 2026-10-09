@@ -1,3 +1,4 @@
+import { emptyRuntime } from "../domain/combat-runtime.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
@@ -561,6 +562,72 @@ test("combat commands enforce the submitted zero-HP policy and reject invalid po
     assert.equal(
       encounters.getCombat(campaign.id, "owner").revision,
       next.revision,
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test("combat API validates live resources before writes and applies end-turn save prompts", async () => {
+  const { database, campaign, encounters } = fixture();
+  try {
+    const initial = encounters.getCombat(campaign.id, "owner");
+    const first = {
+      ...entry(crypto.randomUUID(), 20),
+      runtime: emptyRuntime(),
+      conditions: [
+        {
+          id: crypto.randomUUID(),
+          name: "Held",
+          remainingTurns: 1,
+          timing: "end-turn" as const,
+          requiresSave: true,
+        },
+      ],
+    };
+    const saved = encounters.saveCombat(
+      campaign.id,
+      "owner",
+      initial.revision,
+      { ...initial, combatants: [first, entry(crypto.randomUUID(), 10)] },
+    );
+    const request = (value: unknown) =>
+      new Request(`http://local/api/campaigns/${campaign.id}/combat/command`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ command: "next-turn", combat: value }),
+      });
+    const invalid = await handleApi(
+      request({
+        ...saved,
+        combatants: [
+          {
+            ...saved.combatants[0],
+            runtime: {
+              ...emptyRuntime(),
+              deathSaves: { successes: 0, failures: 4 },
+            },
+          },
+        ],
+      }),
+      database,
+      { userId: "owner", isAdmin: true },
+    );
+    assert.equal(invalid.status, 400);
+    assert.equal(
+      encounters.getCombat(campaign.id, "owner").revision,
+      saved.revision,
+    );
+    const result = await handleApi(request(saved), database, {
+      userId: "owner",
+      isAdmin: true,
+    });
+    assert.equal(result.status, 200);
+    const { combat: next } = await result.json();
+    assert.equal(
+      next.combatants.find((value: Combatant) => value.id === first.id)
+        .conditions[0].saveDue,
+      true,
     );
   } finally {
     database.close();

@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "../db/migrations.ts";
 import { hashPassword } from "../server/security/passwords.ts";
+import { loadPreparation } from "../domain/combat.ts";
 import { copyCampaign } from "../server/campaigns/campaign-copy.ts";
 import { createCampaignRepository } from "../server/campaigns/campaign-repository.ts";
 import { createContentRepository } from "../server/content/content-repository.ts";
@@ -121,6 +122,72 @@ copyCampaign(database, campaign.id, batchUser, "campaign");
 database
   .prepare("DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?")
   .run(campaign.id, batchUser);
+const runtimeUser = crypto.randomUUID();
+database
+  .prepare(
+    "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Runtime tester','browser-runtime',?,0,?,?)",
+  )
+  .run(runtimeUser, await hashPassword("browser-test-pass"), now, now);
+database
+  .prepare("INSERT INTO campaign_members VALUES(?,?,'editor',?,?)")
+  .run(campaign.id, runtimeUser, now, now);
+const runtimeCampaign = copyCampaign(
+  database,
+  campaign.id,
+  runtimeUser,
+  "campaign",
+);
+database
+  .prepare("DELETE FROM campaign_members WHERE campaign_id=? AND user_id=?")
+  .run(campaign.id, runtimeUser);
+const runtimeMage = createBestiaryRepository(database).create(
+  runtimeCampaign.id,
+  runtimeUser,
+  {
+    name: "Runtime mage",
+    type: "Humanoid",
+    challengeRating: "2",
+    hitPoints: 20,
+    armorClass: 12,
+    speed: "30 ft.",
+    stats: "",
+    abilities: "<p>Captured ability</p>",
+    spells: "<p>Magic</p>",
+    notes: "",
+    spellSlots: [2],
+    source: "Test",
+    favorite: false,
+  },
+);
+const runtimeCombat = repository.getCombat(runtimeCampaign.id, runtimeUser);
+repository.saveCombat(
+  runtimeCampaign.id,
+  runtimeUser,
+  runtimeCombat.revision,
+  loadPreparation(
+    runtimeCombat,
+    {
+      id: crypto.randomUUID(),
+      sessionId: session.id,
+      name: "Runtime battle",
+      notes: "",
+      sortOrder: 0,
+      monsters: [
+        {
+          id: crypto.randomUUID(),
+          monsterId: runtimeMage.id,
+          displayNumber: 1,
+          quantity: 2,
+          sortOrder: 0,
+        },
+      ],
+      revision: 1,
+      createdAt: "",
+      updatedAt: "",
+    },
+    [runtimeMage],
+  ),
+);
 database.close();
 const child = spawn(process.execPath, [".next/standalone/server.js"], {
   stdio: "inherit",

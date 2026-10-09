@@ -9,7 +9,12 @@ import {
 } from "../../domain/combat";
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { adjustHitPoints } from "@/features/combat/hit-points";
+import {
+  applyHitPointChange,
+  emptyRuntime,
+  runtimeForSnapshot,
+  snapshotMonster,
+} from "@/domain/combat-runtime";
 import { SaveStatus } from "@/features/shared/save-status";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
 import { Tabs } from "radix-ui";
@@ -63,8 +68,8 @@ export function CombatScreen({
   const pending = useRef(false);
   const [hpUndo, setHpUndo] = useState<{
     id: string;
-    before: number;
-    after: number;
+    before: Pick<Combatant, "hitPoints" | "runtime">;
+    after: Pick<Combatant, "hitPoints" | "runtime">;
   } | null>(null);
   const [confirmAction, setConfirmAction] = useState<
     "rounds" | "monsters" | "combat" | null
@@ -196,15 +201,18 @@ export function CombatScreen({
   function adjustHp(amount: number, action: "damage" | "heal") {
     if (!selected || pending.current) return;
     try {
-      const next = adjustHitPoints(
-        selected.hitPoints,
-        selected.maximumHitPoints,
-        amount,
-        action,
-      );
-      if (next === selected.hitPoints) return;
-      setHpUndo({ id: selected.id, before: selected.hitPoints, after: next });
-      patchSelected({ hitPoints: next });
+      const before = {
+        hitPoints: selected.hitPoints,
+        runtime: selected.runtime ?? emptyRuntime(),
+      };
+      const next = applyHitPointChange(selected, amount, action);
+      if (JSON.stringify(next) === JSON.stringify(before)) return;
+      setHpUndo({ id: selected.id, before, after: next });
+      patchSelected(next);
+      if (action === "damage" && before.runtime.concentration)
+        toast.info(
+          `Concentration check for ${selected.name}: DC ${Math.max(10, Math.floor(amount / 2))}. Resolve manually.`,
+        );
     } catch (error) {
       report(error);
     }
@@ -216,8 +224,12 @@ export function CombatScreen({
         ? {
             ...current,
             combatants: current.combatants.map((item) =>
-              item.id === hpUndo.id && item.hitPoints === hpUndo.after
-                ? { ...item, hitPoints: hpUndo.before }
+              item.id === hpUndo.id &&
+              JSON.stringify({
+                hitPoints: item.hitPoints,
+                runtime: item.runtime ?? emptyRuntime(),
+              }) === JSON.stringify(hpUndo.after)
+                ? { ...item, ...hpUndo.before }
                 : item,
             ),
           }
@@ -318,6 +330,7 @@ export function CombatScreen({
             null,
             monster.id,
             Math.max(0, ...numbers) + 1,
+            snapshotMonster(monster),
           ),
         );
       }
@@ -569,11 +582,19 @@ export function CombatScreen({
                     </span>
                     <span className="mt-1 block truncate text-xs text-stone-400">
                       {combatantSummary(item, players, monsters)}
+                      {item.runtime?.concentration && " · Concentrating"}
+                      {item.conditions.some((condition) => condition.saveDue) &&
+                        " · Save due"}
                     </span>
                   </span>
                   <span className="w-20 shrink-0 text-right">
                     <span className="block text-xs text-stone-200">
                       {item.hitPoints}/{item.maximumHitPoints} HP
+                      {!!item.runtime?.temporaryHitPoints && (
+                        <span className="block text-sky-200">
+                          +{item.runtime.temporaryHitPoints} temp
+                        </span>
+                      )}
                     </span>
                     <Progress
                       value={hpPercent}
@@ -608,14 +629,17 @@ export function CombatScreen({
             <CombatantEditor
               key={selected?.id ?? "empty"}
               combatant={selected}
-              monster={monsters.find(({ id }) => id === selected?.monsterId)}
               editable={editable && !busy}
               adjustHp={adjustHp}
               undoHp={undoHp}
               canUndoHp={
                 !!hpUndo &&
                 hpUndo.id === selected?.id &&
-                hpUndo.after === selected?.hitPoints
+                JSON.stringify(hpUndo.after) ===
+                  JSON.stringify({
+                    hitPoints: selected?.hitPoints,
+                    runtime: selected?.runtime ?? emptyRuntime(),
+                  })
               }
               update={patchSelected}
               remove={removeSelected}
@@ -693,6 +717,7 @@ function makeCombatant(
   playerId: string | null,
   monsterId: string | null,
   displayNumber: number | null,
+  snapshot: Combatant["snapshot"] = null,
 ): Combatant {
   return {
     id: crypto.randomUUID(),
@@ -708,6 +733,8 @@ function makeCombatant(
     armorClass: ac,
     sortOrder,
     conditions: [],
+    snapshot,
+    runtime: snapshot ? runtimeForSnapshot(snapshot) : emptyRuntime(),
     revision: 1,
   };
 }
@@ -743,9 +770,11 @@ function combatantSummary(
   const player = item.playerId
     ? players.find(({ id }) => id === item.playerId)
     : undefined;
-  const monster = item.monsterId
-    ? monsters.find(({ id }) => id === item.monsterId)
-    : undefined;
+  const monster =
+    item.snapshot ??
+    (item.monsterId
+      ? monsters.find(({ id }) => id === item.monsterId)
+      : undefined);
   if (player)
     return [
       player.race,
