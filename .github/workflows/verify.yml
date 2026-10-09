@@ -22,3 +22,26 @@ jobs:
       - run: pnpm verify
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:browser
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build and start local runtime
+        run: docker compose up --build --wait --wait-timeout 120
+        env:
+          DM_COMMAND_TABLE_BOOTSTRAP_TOKEN: ci-disposable-bootstrap-token
+      - name: Check readiness and authentication boundary
+        run: |
+          curl --fail http://127.0.0.1:3000/api/health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/api/campaigns)" = 401
+      - name: Check persistent storage and backup
+        run: |
+          docker compose exec -T dm-command-table node scripts/check-local-storage.mjs
+          docker compose exec -T dm-command-table node scripts/backup-local.mjs
+      - name: Container logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop disposable runtime
+        if: always()
+        run: docker compose down -v

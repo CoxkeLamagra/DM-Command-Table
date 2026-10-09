@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RosterFilter, type RosterFilterValue } from "./roster-filter";
-import type { V6Player, V6Monster, V6Combatant } from "@/features/v6/types";
+import type { Player, Monster, Combatant } from "@/domain/types";
 
 export type CombatantSelection = {
   singleUse?: SingleUseCombatant;
@@ -21,7 +21,7 @@ export type CombatantSelection = {
 };
 export type SingleUseCombatant = {
   name: string;
-  kind: V6Combatant["kind"];
+  kind: Combatant["kind"];
   hitPoints: number;
   armorClass: number;
 };
@@ -39,8 +39,8 @@ export function CombatantPicker({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  players: V6Player[];
-  monsters: V6Monster[];
+  players: Player[];
+  monsters: Monster[];
   existingPlayerIds?: Set<string>;
   onAdd: (selection: CombatantSelection) => void;
 }) {
@@ -68,8 +68,8 @@ function PickerContents({
   existingPlayerIds,
   onAdd,
 }: {
-  players: V6Player[];
-  monsters: V6Monster[];
+  players: Player[];
+  monsters: Monster[];
   existingPlayerIds: Set<string>;
   onAdd: (selection: CombatantSelection) => void;
 }) {

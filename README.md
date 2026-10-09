@@ -6,7 +6,11 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current release line is **v7**. The established v6 storage and API formats remain stable so existing local installations continue to use their data without migration.
+This branch implements the **v9 architecture**. It uses a fresh database baseline and new API routes; it does not upgrade earlier database formats. Keep a verified backup of any existing installation and deploy this version with a separate data directory. Do not point it at an older database.
+
+Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same packaged standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md) and [refactor architecture and validation](docs/refactor.md).
+
+Campaign data, accounts, screenshots, search, and backups remain on your server. Bestiary JSON files import offline. Connecting to the external monster catalogue is an explicit optional action. Next.js telemetry is disabled in the deployment templates.
 
 ## Features
 
@@ -14,7 +18,7 @@ The current release line is **v7**. The established v6 storage and API formats r
 
 - Create, switch between, and delete multiple campaigns.
 - Store normalized campaign records in SQLite on the local application server.
-- Export and import complete campaigns as portable JSON files.
+- Export and import campaign records as portable JSON, or choose **Export with images** for a self-contained campaign package. Full server backups additionally preserve accounts and undo history.
 - Copy a campaign as a complete independent campaign, including its players and progress.
 - Copy a campaign as a reusable template that keeps campaign content, Bestiary records, Stories, Sessions, prepared encounters, and Story–Session links while excluding players and resetting progress.
 - Share campaigns with another registered DM Command Table user by username.
@@ -124,18 +128,18 @@ DM Command Table uses a local-server model with no external database service:
 2. The application stores normalized campaign data in server-local SQLite.
 3. SQLite runs in WAL mode with foreign-key checks and a five-second busy timeout.
 4. The interface detects connectivity loss and never silently overwrites unsaved editor contents.
-5. Uploaded screenshots are stored in an `uploads-v6` directory beside the SQLite database.
+5. Uploaded screenshots are stored in an `uploads` directory beside the SQLite database.
 6. JSON export provides portable campaign data, while server backups preserve uploaded screenshots.
 
 The SQLite database contains local accounts, password hashes, login sessions, campaign ownership, campaign payloads, and Viewer or Editor memberships. The default location is:
 
 ```text
-./data/dm-command-table-v6.sqlite
+./data/dm-command-table.sqlite
 ```
 
-Set `DM_COMMAND_TABLE_V6_DB_PATH` to use a different location. The directory is created automatically, and migrations run when the database is opened.
+Set `DM_COMMAND_TABLE_DB_PATH` to use a different location. The directory is created automatically, and migrations run when the database is opened.
 
-By default, screenshots are written to an `uploads-v6` directory beside the database. Set `DM_COMMAND_TABLE_V6_UPLOAD_PATH` to override that location.
+By default, screenshots are written to an `uploads` directory beside the database. Set `DM_COMMAND_TABLE_UPLOAD_PATH` to override that location.
 
 > The remote monster catalogue is an import source, not a campaign database. Imported monsters are copied into the local campaign data.
 
@@ -221,7 +225,15 @@ Start the Node.js server:
 pnpm start
 ```
 
-The server listens on port `3000` by default. Make sure the process can write to the directories configured by `DM_COMMAND_TABLE_V6_DB_PATH` and `DM_COMMAND_TABLE_V6_UPLOAD_PATH`.
+The server listens on port `3000` by default. Make sure the process can write to the directories configured by `DM_COMMAND_TABLE_DB_PATH` and `DM_COMMAND_TABLE_UPLOAD_PATH`.
+
+## Debian 13 LXC deployment
+
+For a complete bare-metal-style LXC installation with Node.js 24 LTS, systemd, Nginx, persistent SQLite storage, backups, and a one-command GitHub update workflow, see:
+
+- [Deploy DM Command Table in a Debian 13 LXC](docs/debian-13-lxc.md)
+
+Reusable configuration templates are available under `deploy/debian-13/`.
 
 ## Docker
 
@@ -232,7 +244,7 @@ export DM_COMMAND_TABLE_BOOTSTRAP_TOKEN="$(openssl rand -base64 32)"
 docker compose up --build -d
 ```
 
-The application is then available at [http://localhost:3000](http://localhost:3000). Enter the generated token in the initial setup-token field when registering the first local account. The v6 SQLite database and uploaded screenshots persist in `/data`.
+The application is then available at [http://localhost:3000](http://localhost:3000). Enter the generated token in the initial setup-token field when registering the first local account. The current SQLite database and uploaded screenshots persist in `/data`.
 
 The container runs as the unprivileged `node` user, drops Linux capabilities, uses a read-only root filesystem, and exposes a readiness health check through `/api/health`. By default Compose binds port 3000 only to `127.0.0.1`; set `DMCT_BIND_ADDRESS` deliberately when another host must connect directly:
 
@@ -241,14 +253,6 @@ DMCT_BIND_ADDRESS=0.0.0.0 docker compose up --build -d
 docker compose ps
 docker compose exec dm-command-table node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.text()).then(console.log)"
 ```
-
-## Debian 13 LXC deployment
-
-For a complete bare-metal-style LXC installation with Node.js 22, systemd, Nginx, persistent SQLite storage, backups, and a one-command GitHub update workflow, see:
-
-- [Deploy DM Command Table in a Debian 13 LXC](docs/debian-13-lxc.md)
-
-Reusable configuration templates are available under `deploy/debian-13/`.
 
 ## Server data backup
 
@@ -293,18 +297,18 @@ Session Save writes the session and its prepared encounter edits in one transact
 
 ## Campaign API
 
-The authenticated API is exposed below `/api/v6`:
+The authenticated API is exposed below `/api`:
 
 | Method                           | Endpoint                                                             | Purpose                                                 |
 | -------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| `GET`, `POST`                    | `/api/v6/campaigns`                                                  | List or create campaigns.                               |
-| `GET`, `PATCH`, `DELETE`         | `/api/v6/campaigns/:id`                                              | Read, update, or delete a campaign.                     |
-| `POST`                           | `/api/v6/campaigns/:id/copy`                                         | Copy a complete campaign or create a reusable template. |
-| `GET`                            | `/api/v6/campaigns/:id/export`                                       | Download a portable campaign JSON document.             |
-| `POST`                           | `/api/v6/campaigns/import`                                           | Import a portable campaign JSON document.               |
-| `GET`, `POST`, `PATCH`, `DELETE` | `/api/v6/campaigns/:id/{players,sessions,story,monsters,encounters}` | Manage normalized campaign records.                     |
+| `GET`, `POST`                    | `/api/campaigns`                                                  | List or create campaigns.                               |
+| `GET`, `PATCH`, `DELETE`         | `/api/campaigns/:id`                                              | Read, update, or delete a campaign.                     |
+| `POST`                           | `/api/campaigns/:id/copy`                                         | Copy a complete campaign or create a reusable template. |
+| `GET`                            | `/api/campaigns/:id/export`                                       | Download a portable campaign JSON document.             |
+| `POST`                           | `/api/campaigns/import`                                           | Import a portable campaign JSON document.               |
+| `GET`, `POST`, `PATCH`, `DELETE` | `/api/campaigns/:id/{players,sessions,story,monsters,encounters}` | Manage normalized campaign records.                     |
 
-Local registration, login, and logout use `/api/v6-auth`. Account and Administration operations use `/api/v6-account` and `/api/v6-admin`.
+Local registration, login, and logout use `/api/auth`. Account and Administration operations use `/api/account` and `/api/admin`.
 
 ## Project structure
 
@@ -343,9 +347,9 @@ Browser and server rich-text handling share one formatting and color policy. API
 
 - Collaboration does not provide presence indicators or live cursor sharing; revision checks prevent silent stale writes.
 - SQLite is intended for one application instance with persistent local storage. Multiple application instances must not write independent copies of the database.
-- A campaign invite is managed by granting access again with the desired role; the interface does not yet include a membership-management screen.
-- Monster importing depends on the external catalogue being reachable and retaining its compatible JSON structure.
-- Campaign JSON exports contain screenshot references but not the uploaded image files; include the server `uploads-v6` directory in backups.
+- Campaign sharing uses registered local usernames and owner-managed Editor/Viewer memberships.
+- Optional remote catalogue imports depend on that source; local JSON imports work offline.
+- Plain campaign JSON exports contain image references. Use **Export with images** for campaign portability, and verified server backups for complete disaster recovery.
 
 ## Release history
 

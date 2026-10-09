@@ -6,7 +6,7 @@ import { rejectCrossOrigin } from "../server/http/origin.ts";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "../db/migrations.ts";
 import { consumePersistentRateLimit } from "../server/security/sqlite-rate-limit.ts";
-import { apiError, jsonBody } from "../server/v6/http.ts";
+import { apiError, jsonBody } from "../server/http/http.ts";
 
 test("rate limits reset after their window", () => {
   assert.deepEqual(consumeRateLimit("test-limit", 2, 1_000, 1_000), {
@@ -99,7 +99,7 @@ test("persistent rate limits survive independent calls and reset", () => {
 });
 
 test("JSON request bodies are rejected before exceeding their configured limit", async () => {
-  const request = new Request("https://dm.example.test/api/v6", {
+  const request = new Request("https://dm.example.test/api", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ value: "x".repeat(100) }),
@@ -114,7 +114,7 @@ test("JSON request bodies are rejected before exceeding their configured limit",
 });
 
 test("multipart readers enforce actual streamed bytes despite a misleading length", async () => {
-  const { boundedRequestBytes } = await import("../server/v6/http.ts");
+  const { boundedRequestBytes } = await import("../server/http/http.ts");
   const request = new Request("https://dm.example.test/upload", {
     method: "POST",
     headers: {

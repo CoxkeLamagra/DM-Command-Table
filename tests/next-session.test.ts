@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { nextSession } from "../features/shared/next-session.ts";
-import type { V6Session } from "../features/v6/types.ts";
+import type { Session } from "../domain/types.ts";
 function session(
   id: string,
-  status: V6Session["status"],
+  status: Session["status"],
   date: string,
   sortOrder = 0,
-): V6Session {
+): Session {
   return {
     id,
     campaignId: "campaign",

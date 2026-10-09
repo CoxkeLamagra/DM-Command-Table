@@ -43,7 +43,7 @@ test("local backups include WAL data and recorded screenshots and restore into a
     const restored = path.join(root, "restored");
     restoreLocalBackup(destination, restored);
     assert.equal(
-      readFileSync(path.join(restored, "uploads-v6", filename), "utf8"),
+      readFileSync(path.join(restored, "uploads", filename), "utf8"),
       "image-bytes",
     );
     assert.throws(

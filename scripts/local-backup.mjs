@@ -22,12 +22,12 @@ export function verifyBackup(directory) {
   if (manifest.format !== "dmct-local-backup" || manifest.version !== 1)
     throw new Error("Unsupported backup format");
   if (
-    checksum(path.join(directory, "dm-command-table-v6.sqlite")) !==
+    checksum(path.join(directory, "dm-command-table.sqlite")) !==
     manifest.databaseSha256
   )
     throw new Error("Backup database checksum mismatch");
   const database = new DatabaseSync(
-    path.join(directory, "dm-command-table-v6.sqlite"),
+    path.join(directory, "dm-command-table.sqlite"),
     { readOnly: true },
   );
   try {
@@ -43,11 +43,11 @@ export function verifyBackup(directory) {
     for (const filename of files) {
       if (
         !/^[0-9a-f-]+\.webp$/i.test(filename) ||
-        !existsSync(path.join(directory, "uploads-v6", filename))
+        !existsSync(path.join(directory, "uploads", filename))
       )
         throw new Error("Backup screenshot is missing or invalid");
       if (
-        checksum(path.join(directory, "uploads-v6", filename)) !==
+        checksum(path.join(directory, "uploads", filename)) !==
         manifest.screenshots?.[filename]
       )
         throw new Error("Backup screenshot checksum mismatch");
@@ -86,10 +86,10 @@ export function createLocalBackup({ databasePath, uploadPath, destination }) {
     locked = true;
     // A second connection reads the committed WAL snapshot while writes/deletions are held.
     snapshot = new DatabaseSync(databaseFile, { readOnly: true });
-    const output = path.join(target, "dm-command-table-v6.sqlite");
+    const output = path.join(target, "dm-command-table.sqlite");
     snapshot.exec(`VACUUM INTO '${output.replaceAll("'", "''")}'`);
     chmodSync(output, 0o600);
-    mkdirSync(path.join(target, "uploads-v6"), { mode: 0o700 });
+    mkdirSync(path.join(target, "uploads"), { mode: 0o700 });
     const filenames = snapshot
       .prepare("SELECT filename FROM screenshots")
       .all();
@@ -97,7 +97,7 @@ export function createLocalBackup({ databasePath, uploadPath, destination }) {
     for (const { filename } of filenames) {
       if (!/^[0-9a-f-]+\.webp$/i.test(filename))
         throw new Error("Invalid screenshot filename");
-      const dest = path.join(target, "uploads-v6", filename);
+      const dest = path.join(target, "uploads", filename);
       copyFileSync(path.join(uploads, filename), dest);
       chmodSync(dest, 0o600);
       screenshots[filename] = checksum(dest);
@@ -136,17 +136,17 @@ export function restoreLocalBackup(source, target) {
   mkdirSync(target, { mode: 0o700, recursive: false });
   try {
     copyFileSync(
-      path.join(source, "dm-command-table-v6.sqlite"),
-      path.join(target, "dm-command-table-v6.sqlite"),
+      path.join(source, "dm-command-table.sqlite"),
+      path.join(target, "dm-command-table.sqlite"),
     );
-    chmodSync(path.join(target, "dm-command-table-v6.sqlite"), 0o600);
-    mkdirSync(path.join(target, "uploads-v6"), { mode: 0o700 });
+    chmodSync(path.join(target, "dm-command-table.sqlite"), 0o600);
+    mkdirSync(path.join(target, "uploads"), { mode: 0o700 });
     for (const filename of result.files) {
       copyFileSync(
-        path.join(source, "uploads-v6", filename),
-        path.join(target, "uploads-v6", filename),
+        path.join(source, "uploads", filename),
+        path.join(target, "uploads", filename),
       );
-      chmodSync(path.join(target, "uploads-v6", filename), 0o600);
+      chmodSync(path.join(target, "uploads", filename), 0o600);
     }
   } catch (error) {
     rmSync(target, { recursive: true, force: true });

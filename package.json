@@ -1,23 +1,25 @@
 {
   "name": "dm-command-table",
-  "version": "8.1.0",
+  "version": "9.0.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build && node scripts/copy-runtime-assets.mjs",
+    "start": "node scripts/start-runtime.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "backup": "node scripts/backup-local.mjs",
     "check:storage": "node scripts/check-local-storage.mjs",
-    "format": "prettier --write app components db features lib server tests scripts proxy.ts next.config.ts",
-    "format:check": "prettier --check app components db features lib server tests scripts proxy.ts next.config.ts",
+    "format": "prettier --write domain app components db features lib server tests scripts proxy.ts next.config.ts",
+    "format:check": "prettier --check domain app components db features lib server tests scripts proxy.ts next.config.ts",
     "verify": "pnpm audit --prod && pnpm format:check && pnpm lint && pnpm exec tsc --noEmit && pnpm test && pnpm build",
     "test:browser": "playwright test",
-    "restore:check": "node scripts/restore-local.mjs"
+    "restore:check": "node scripts/restore-local.mjs",
+    "package:runtime": "node scripts/package-runtime.mjs",
+    "maintenance": "node scripts/maintenance.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",
