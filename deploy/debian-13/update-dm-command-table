@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 [[ $(id -u) == 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+for tool in /usr/bin/node /usr/bin/pnpm; do
+  [[ -x $tool ]] || { echo "Missing system-wide runtime: $tool. Follow the Node/pnpm setup in docs/debian-13-lxc.md." >&2; exit 1; }
+  runuser -u dmct -- "$tool" --version >/dev/null
+done
 exec 9>/run/lock/dm-command-table-update.lock
 flock -n 9 || { echo 'An update is already running.' >&2; exit 1; }
 BASE=/opt/dm-command-table
@@ -15,7 +19,7 @@ RELEASE=$BASE/releases/$(date +%s)-${TARGET:0:12}
 mkdir -p "$BASE/builds" "$BASE/releases"
 chown dmct:dmct "$BASE/builds" "$BASE/releases"
 runuser -u dmct -- git -C "$SOURCE" worktree add --detach "$BUILD" "$TARGET"
-runuser -u dmct -- /usr/bin/env NEXT_TELEMETRY_DISABLED=1 bash -c 'cd "$1" && pnpm install --frozen-lockfile && pnpm build && pnpm test && node scripts/package-runtime.mjs "$2"' _ "$BUILD" "$RELEASE"
+runuser -u dmct -- /usr/bin/env NEXT_TELEMETRY_DISABLED=1 bash -c 'cd "$1" && /usr/bin/pnpm install --frozen-lockfile && /usr/bin/pnpm build && /usr/bin/pnpm test && /usr/bin/node scripts/package-runtime.mjs "$2"' _ "$BUILD" "$RELEASE"
 printf '%s\n' "$TARGET" > "$RELEASE/REVISION"
 OLD=$(readlink -f "$CURRENT" || true)
 set -a
@@ -37,7 +41,7 @@ systemctl stop "$SERVICE"
 trap 'systemctl start "$SERVICE" || true' ERR
 BACKUP=''
 if [[ -f ${DM_COMMAND_TABLE_DB_PATH:-/var/lib/dm-command-table/dm-command-table.sqlite} ]]; then
-  BACKUP=$(runuser -u dmct --preserve-environment -- node "$RELEASE/scripts/backup-local.mjs")
+  BACKUP=$(runuser -u dmct --preserve-environment -- /usr/bin/node "$RELEASE/scripts/backup-local.mjs")
 fi
 switch_release "$RELEASE"
 trap - ERR
@@ -51,7 +55,7 @@ systemctl stop "$SERVICE" || true
 if [[ -n $OLD && -d $OLD ]]; then
   if [[ -n $BACKUP ]]; then
     RESTORED=/var/lib/dm-command-table/restored-$(date +%s)
-    runuser -u dmct --preserve-environment -- node "$RELEASE/scripts/restore-local.mjs" "$BACKUP" "$RESTORED"
+    runuser -u dmct --preserve-environment -- /usr/bin/node "$RELEASE/scripts/restore-local.mjs" "$BACKUP" "$RESTORED"
     cp -p /etc/dm-command-table.env "/etc/dm-command-table.env.failed-$(date +%s)"
     sed -i '/^DM_COMMAND_TABLE_DB_PATH=/d; /^DM_COMMAND_TABLE_UPLOAD_PATH=/d' /etc/dm-command-table.env
     printf '\nDM_COMMAND_TABLE_DB_PATH=%s/dm-command-table.sqlite\nDM_COMMAND_TABLE_UPLOAD_PATH=%s/uploads\n' "$RESTORED" "$RESTORED" >> /etc/dm-command-table.env

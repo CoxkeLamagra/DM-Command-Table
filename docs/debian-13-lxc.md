@@ -1,6 +1,6 @@
 # Debian 13 LXC deployment
 
-This is the primary deployment target. Use a Debian 13 container with at least 2 CPU cores, 2 GB RAM for builds, and sufficient local disk for data, releases, and backups. The application runs without external services. Install a supported Node 24 LTS runtime and enable Corepack before continuing. Pin and review your runtime version in your own provisioning process.
+This is the primary deployment target. Use a Debian 13 container with at least 2 CPU cores, 2 GB RAM for builds, and sufficient local disk for data, releases, and backups. The application runs without external services. Install Node 24 LTS and the pinned pnpm version system-wide using the commands below. Do not use a root-only nvm installation for the systemd service.
 
 ## Fresh installation
 
@@ -9,22 +9,29 @@ Run these commands as root. Install Git, Nginx, curl, and the build tools requir
 ```sh
 apt update
 apt install -y git nginx curl ca-certificates build-essential python3
-corepack enable
+curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/dmct-nodesource-setup.sh
+bash /tmp/dmct-nodesource-setup.sh
+apt install -y nodejs
+/usr/bin/npm install --global --prefix /usr pnpm@11.25.0
+/usr/bin/node --version
+/usr/bin/pnpm --version
 useradd --system --home-dir /opt/dm-command-table --shell /usr/sbin/nologin dmct
 install -d -o dmct -g dmct -m 0755 /opt/dm-command-table
 install -d -o dmct -g dmct -m 0700 /var/lib/dm-command-table
 runuser -u dmct -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git /opt/dm-command-table/source
 ```
 
-Check out the approved release or commit in `source`. The refactor branch is not a published release. Build the initial runtime as the service user:
+Check out the approved release or commit in `source`. For the v9 major release, use tag `v9.0.0`. Build the initial runtime as the service user:
 
 ```sh
 cd /opt/dm-command-table/source
-runuser -u dmct -- pnpm install --frozen-lockfile
-runuser -u dmct -- pnpm test
-runuser -u dmct -- env NEXT_TELEMETRY_DISABLED=1 pnpm build
+runuser -u dmct -- /usr/bin/node --version
+runuser -u dmct -- /usr/bin/pnpm --version
+runuser -u dmct -- /usr/bin/pnpm install --frozen-lockfile
+runuser -u dmct -- /usr/bin/pnpm test
+runuser -u dmct -- env NEXT_TELEMETRY_DISABLED=1 /usr/bin/pnpm build
 install -d -o dmct -g dmct /opt/dm-command-table/releases
-runuser -u dmct -- node scripts/package-runtime.mjs /opt/dm-command-table/releases/initial
+runuser -u dmct -- /usr/bin/node scripts/package-runtime.mjs /opt/dm-command-table/releases/initial
 ln -s /opt/dm-command-table/releases/initial /opt/dm-command-table/current
 install -m 0600 deploy/debian-13/dm-command-table.env.example /etc/dm-command-table.env
 ```
@@ -72,7 +79,13 @@ To recover, stop the service and restore into an empty, service-owned destinatio
 
 ```sh
 systemctl stop dm-command-table
-runuser -u dmct -- node scripts/restore-local.mjs /var/lib/dm-command-table/backups/BACKUP /var/lib/dm-command-table/recovered
+runuser -u dmct -- /usr/bin/node scripts/restore-local.mjs /var/lib/dm-command-table/backups/BACKUP /var/lib/dm-command-table/recovered
 ```
 
 Set `DM_COMMAND_TABLE_DB_PATH` to the recovered `dm-command-table.sqlite` and `DM_COMMAND_TABLE_UPLOAD_PATH` to its `uploads` directory. Start the matching application release and verify health, login, campaign records, and embedded images. Check `journalctl -u dm-command-table` and `systemctl list-timers dm-command-table-backup.timer` when diagnosing failures.
+
+## Missing node or pnpm
+
+If `runuser` reports that `node` or `pnpm` does not exist, the prerequisites were not installed system-wide or were installed only in root's shell environment. Run the NodeSource and pnpm installation commands above as root, then verify `/usr/bin/node` and `/usr/bin/pnpm` as `dmct` before retrying the build. The systemd units explicitly use `/usr/bin/node`.
+
+Do not copy root's nvm binaries or root-owned package-manager caches into the service account. If npm reports an existing Corepack pnpm shim, inspect `/usr/bin/pnpm` and remove that shim using `/usr/bin/corepack disable pnpm`, then repeat the pinned pnpm installation.
