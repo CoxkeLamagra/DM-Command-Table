@@ -1,6 +1,5 @@
 "use client";
 
-import { PartyChoices } from "../adventure/party-choices";
 import { useState } from "react";
 import { Tabs } from "radix-ui";
 import { Button } from "@/components/ui/button";
@@ -36,12 +35,8 @@ export function CombatantPicker({
   players,
   monsters,
   existingPlayerIds = new Set<string>(),
-  campaignId,
-  attendanceIds,
   onAdd,
 }: {
-  campaignId?: string;
-  attendanceIds?: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   players: Player[];
@@ -54,8 +49,6 @@ export function CombatantPicker({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open && (
         <PickerContents
-          campaignId={campaignId ?? players[0]?.campaignId}
-          attendanceIds={attendanceIds}
           players={players}
           monsters={monsters}
           existingPlayerIds={existingPlayerIds}
@@ -73,14 +66,10 @@ function PickerContents({
   players,
   monsters,
   existingPlayerIds,
-  campaignId,
-  attendanceIds,
   onAdd,
 }: {
   players: Player[];
   monsters: Monster[];
-  campaignId?: string;
-  attendanceIds?: string[];
   existingPlayerIds: Set<string>;
   onAdd: (selection: CombatantSelection) => void;
 }) {
@@ -174,17 +163,6 @@ function PickerContents({
             Import campaign Players and NPCs. Their roster records remain
             unchanged.
           </p>
-          <PartyChoices
-            campaignId={campaignId}
-            attendanceIds={attendanceIds}
-            players={players}
-            excluded={existingPlayerIds}
-            choose={(ids) => {
-              setChosenPlayers(new Set(ids));
-              setQuery("");
-              setFilter("all");
-            }}
-          />
           <RosterFilter value={filter} onChange={setFilter} />
           <div className="max-h-64 space-y-1 overflow-y-auto">
             {roster.map((entry) => (

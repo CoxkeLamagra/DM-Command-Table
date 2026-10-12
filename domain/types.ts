@@ -1,4 +1,3 @@
-import type { CampaignAdventure, SessionContinuity } from "./adventure";
 import type { CombatEncounter } from "./encounters";
 export type {
   PreparedMonster,
@@ -23,7 +22,6 @@ export type Campaign = {
   name: string;
   notes: string;
   archived: boolean;
-  adventure?: CampaignAdventure;
   revision: number;
   createdAt: string;
   updatedAt: string;
@@ -47,7 +45,6 @@ export type Session = {
   date: string;
   notes: string;
   status: ProgressStatus;
-  continuity?: SessionContinuity;
   sortOrder: number;
   revision: number;
   createdAt: string;
