@@ -6,7 +6,7 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current release is **v9.3.0**, using the **v9 architecture**. Existing v9 installations retain their data. The v9 baseline does not upgrade pre-v9 database formats; deploy those installations with a separate fresh data directory and keep their verified backups.
+The current release is **v10.0.0**, using the **v9 architecture**. Existing v9 installations retain their data and migrate locally to schema 2. v10.0.0 contains batches 1 and 2; batches 3 and 4 are excluded. If you deployed their schema changes, restore a matching pre-batch-3 backup before using this release. The v9 baseline does not upgrade pre-v9 database formats; deploy those installations with a separate fresh data directory and keep their verified backups.
 
 Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same packaged standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md) and [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
 
