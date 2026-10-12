@@ -2,6 +2,10 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+- Fix the Debian updater's runtime checks when launched from root's home directory, and document recovery and updater reinstallation.
+
 ## 10.1.0 — 2026-10-12
 
 - Recheck verified credentials before session issuance and use conditional password updates so concurrent resets cannot be overwritten or bypassed by a pending login.

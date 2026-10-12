@@ -114,6 +114,23 @@ If `runuser` reports that `node` or `pnpm` does not exist, the prerequisites wer
 
 Do not copy root's nvm binaries or root-owned package-manager caches into the service account. If npm reports an existing Corepack pnpm shim, inspect `/usr/bin/pnpm` and remove that shim using `/usr/bin/corepack disable pnpm`, then repeat the pinned pnpm installation.
 
+## Permission denied scanning /root during an update
+
+The updater changes to `/` before invoking Node or pnpm as `dmct`, so it can be launched from root's home directory. Older installed copies can fail with `EACCES: permission denied, scandir '/root'` during the runtime checks. As root, retry from an accessible directory:
+
+```bash
+cd /opt/dm-command-table/source
+update-dm-command-table v10.1.0
+```
+
+After obtaining a source checkout containing the fix, reinstall the updater as root:
+
+```bash
+install -m 0755 /opt/dm-command-table/source/deploy/debian-13/update-dm-command-table /usr/local/sbin/update-dm-command-table
+```
+
+The updater builds a detached worktree and does not advance the source checkout or replace its own installed copy. Confirm the source file contains the fix before reinstalling it.
+
 ## Configuration and maintenance
 
 See [operations](operations.md) for every environment setting, live backup and storage-check commands, media quarantine, retention and safe removal of old build/release directories. The updater and systemd use `/etc/dm-command-table.env`; a `.env.local` in the source checkout does not configure the service. If you move writable storage outside `/var/lib/dm-command-table`, update the service's `ReadWritePaths` before restarting.

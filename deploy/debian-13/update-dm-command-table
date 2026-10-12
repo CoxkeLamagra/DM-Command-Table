@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 [[ $(id -u) == 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+# runuser preserves the caller's working directory. pnpm inspects it even for
+# --version, so leave root-only directories before invoking the service user.
+cd /
 for tool in /usr/bin/node /usr/bin/pnpm; do
   [[ -x $tool ]] || { echo "Missing system-wide runtime: $tool. Follow the Node/pnpm setup in docs/debian-13-lxc.md." >&2; exit 1; }
   runuser -u dmct -- "$tool" --version >/dev/null
