@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 
@@ -26,11 +27,10 @@ const keys: Record<keyof ServerSettings, string> = {
 export function getServerSettings(database: DatabaseSync): ServerSettings {
   const stored = new Map(
     (
-      database
-        .prepare(
-          "SELECT key, value FROM application_settings WHERE key LIKE 'server.%'",
-        )
-        .all() as Array<{ key: string; value: string }>
+      statement(
+        database,
+        "SELECT key, value FROM application_settings WHERE key LIKE 'server.%'",
+      ).all() as Array<{ key: string; value: string }>
     ).map(({ key, value }) => [key, value]),
   );
   return serverSettingsSchema.parse({
@@ -80,7 +80,8 @@ export function saveServerSettings(
   input: unknown,
 ): ServerSettings {
   const settings = serverSettingsSchema.parse(input);
-  const statement = database.prepare(
+  const updateStatement = statement(
+    database,
     `INSERT INTO application_settings (key, value, updated_at) VALUES (?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
   );
@@ -90,7 +91,7 @@ export function saveServerSettings(
     for (const [property, key] of Object.entries(keys) as Array<
       [keyof ServerSettings, string]
     >)
-      statement.run(key, String(settings[property]), now);
+      updateStatement.run(key, String(settings[property]), now);
     database.exec("COMMIT");
   } catch (error) {
     database.exec("ROLLBACK");

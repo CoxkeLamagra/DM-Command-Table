@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -29,20 +30,19 @@ export function createCampaignRepository(database: DatabaseSync) {
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
-        database
-          .prepare(
-            `INSERT INTO campaigns
+        statement(
+          database,
+          `INSERT INTO campaigns
             (id, owner_id, name, notes, archived, revision, created_at, updated_at)
            VALUES (?, ?, ?, ?, 0, 1, ?, ?)`,
-          )
-          .run(
-            id,
-            ownerId,
-            input.name.trim() || "New campaign",
-            sanitizeRichText(input.notes ?? ""),
-            now,
-            now,
-          );
+        ).run(
+          id,
+          ownerId,
+          input.name.trim() || "New campaign",
+          sanitizeRichText(input.notes ?? ""),
+          now,
+          now,
+        );
         syncScreenshotReferences(
           database,
           id,
@@ -63,9 +63,9 @@ export function createCampaignRepository(database: DatabaseSync) {
     },
 
     list(userId: string, options: { archived?: boolean } = {}): Campaign[] {
-      const rows = database
-        .prepare(
-          `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived,
+      const rows = statement(
+        database,
+        `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived,
                   c.revision, c.created_at AS createdAt, c.updated_at AS updatedAt,
                   CASE WHEN c.owner_id = ? THEN 'owner' ELSE m.role END AS role
              FROM campaigns c
@@ -74,14 +74,13 @@ export function createCampaignRepository(database: DatabaseSync) {
             WHERE (c.owner_id = ? OR m.user_id = ?)
               AND c.archived = ?
             ORDER BY c.updated_at DESC`,
-        )
-        .all(
-          userId,
-          userId,
-          userId,
-          userId,
-          options.archived ? 1 : 0,
-        ) as CampaignRow[];
+      ).all(
+        userId,
+        userId,
+        userId,
+        userId,
+        options.archived ? 1 : 0,
+      ) as CampaignRow[];
       return rows.map(toCampaign);
     },
 
@@ -108,25 +107,25 @@ export function createCampaignRepository(database: DatabaseSync) {
       const nextArchived = patch.archived ?? current.archived;
       const now = Date.now();
       runTransaction(database, () => {
-        const result = database
-          .prepare(
-            `UPDATE campaigns
+        const result = statement(
+          database,
+          `UPDATE campaigns
               SET name = ?, notes = ?, archived = ?, revision = revision + 1,
                   updated_at = ?
             WHERE id = ? AND revision = ?`,
-          )
-          .run(
-            nextName,
-            nextNotes,
-            nextArchived ? 1 : 0,
-            now,
-            id,
-            expectedRevision,
-          );
+        ).run(
+          nextName,
+          nextNotes,
+          nextArchived ? 1 : 0,
+          now,
+          id,
+          expectedRevision,
+        );
         if (result.changes !== 1) {
-          const actual = database
-            .prepare("SELECT revision FROM campaigns WHERE id = ?")
-            .get(id) as { revision: number } | undefined;
+          const actual = statement(
+            database,
+            "SELECT revision FROM campaigns WHERE id = ?",
+          ).get(id) as { revision: number } | undefined;
           throw new RevisionConflictError(
             "campaign",
             id,
@@ -163,9 +162,10 @@ export function createCampaignRepository(database: DatabaseSync) {
       if (!campaign) throw new ResourceNotFoundError("campaign", id);
       if (campaign.role !== "owner")
         throw new PublicApiError("Only the campaign owner can delete it.", 403);
-      database
-        .prepare("DELETE FROM campaigns WHERE id = ? AND owner_id = ?")
-        .run(id, actorUserId);
+      statement(
+        database,
+        "DELETE FROM campaigns WHERE id = ? AND owner_id = ?",
+      ).run(id, actorUserId);
     },
   };
 }
@@ -175,9 +175,9 @@ function get(
   id: string,
   userId: string,
 ): Campaign | null {
-  const row = database
-    .prepare(
-      `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived,
+  const row = statement(
+    database,
+    `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived,
               c.revision, c.created_at AS createdAt, c.updated_at AS updatedAt,
               CASE WHEN c.owner_id = ? THEN 'owner' ELSE m.role END AS role
          FROM campaigns c
@@ -185,8 +185,7 @@ function get(
            ON m.campaign_id = c.id AND m.user_id = ?
         WHERE c.id = ? AND (c.owner_id = ? OR m.user_id = ?)
         LIMIT 1`,
-    )
-    .get(userId, userId, id, userId, userId) as CampaignRow | undefined;
+  ).get(userId, userId, id, userId, userId) as CampaignRow | undefined;
   return row ? toCampaign(row) : null;
 }
 
@@ -219,28 +218,27 @@ function writeAudit(
     action: string;
   },
 ): void {
-  database
-    .prepare(
-      `INSERT INTO audit_events
+  statement(
+    database,
+    `INSERT INTO audit_events
         (campaign_id, actor_user_id, resource_type, resource_id, action, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      event.campaignId,
-      event.actorUserId,
-      event.resourceType,
-      event.resourceId,
-      event.action,
-      Date.now(),
-    );
+  ).run(
+    event.campaignId,
+    event.actorUserId,
+    event.resourceType,
+    event.resourceId,
+    event.action,
+    Date.now(),
+  );
   const limit = getServerSettings(database).auditEventLimit;
-  const cutoff = database
-    .prepare(
-      "SELECT id FROM audit_events WHERE campaign_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
-    )
-    .get(event.campaignId, limit) as { id: number } | undefined;
+  const cutoff = statement(
+    database,
+    "SELECT id FROM audit_events WHERE campaign_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
+  ).get(event.campaignId, limit) as { id: number } | undefined;
   if (cutoff)
-    database
-      .prepare("DELETE FROM audit_events WHERE campaign_id = ? AND id <= ?")
-      .run(event.campaignId, cutoff.id);
+    statement(
+      database,
+      "DELETE FROM audit_events WHERE campaign_id = ? AND id <= ?",
+    ).run(event.campaignId, cutoff.id);
 }

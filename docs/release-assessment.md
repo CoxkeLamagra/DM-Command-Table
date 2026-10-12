@@ -1,8 +1,14 @@
-# v10.0.0 release scope
+# Current main technical assessment
+
+Reviewed on 2026-10-12 against the v10.0.0 feature set. The current refactor's findings, changes, regression evidence and limits are recorded in [security and efficiency review](security-efficiency-review.md). Application behavior remains at batches 1 and 2, storage remains local-only, and the schema remains version 2. Publication changes main only; the v10.0.0 release tag remains immutable.
+
+The release notes and earlier assessment below are historical context.
+
+## v10.0.0 release scope
 
 Prepared on 2026-10-12 from the restored batch 2 application tree (`92e6de9deef848db952ac5858529b28294ec7a44`), now on main after PR #23. Version and installation examples are updated to v10.0.0. No batch 3 or batch 4 functionality is included.
 
-The restored tree passed Node 22/24 verification and browser CI, Docker readiness/storage/backup checks, and a local production build. The release metadata changes receive another CI run before tagging. Deployment remains local-only, with Debian 13 LXC primary and Docker secondary. No live deployment or database rollback is performed by publication.
+The restored tree passed Node 22/24 verification and browser CI, Docker readiness/storage/backup checks, and a local production build. The release metadata changes also passed CI before tagging. Deployment remains local-only, with Debian 13 LXC primary and Docker secondary. No live deployment or database rollback is performed by publication.
 
 This release expects schema 2. Normal v9 installations migrate locally while retaining their data. A database already migrated by batch 3/4 must be restored from a matching pre-batch-3 backup; do not run this release against the newer schema. Back up current data before any recovery operation.
 

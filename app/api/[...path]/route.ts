@@ -1,7 +1,8 @@
+import { isPackageWork, withPackageWork } from "@/server/http/package-work";
 import { getDatabase } from "@/db/sqlite";
 import { handleApi } from "@/server/api/api-router";
 import { getUser } from "@/server/identity/auth";
-import { apiJson } from "@/server/http/http";
+import { apiJson, apiError } from "@/server/http/http";
 import { rejectCrossOrigin } from "@/server/http/origin";
 import { enforceRateLimit } from "@/server/http/request-security";
 
@@ -29,10 +30,18 @@ async function handle(request: Request): Promise<Response> {
     );
     if (rateLimit) return rateLimit;
   }
-  return handleApi(request, database, {
-    userId: user.userId,
-    isAdmin: user.isAdmin,
-  });
+  const operation = () =>
+    handleApi(request, database, {
+      userId: user.userId,
+      isAdmin: user.isAdmin,
+    });
+  try {
+    return isPackageWork(new URL(request.url).pathname)
+      ? await withPackageWork(operation)
+      : await operation();
+  } catch (error) {
+    return apiError(error);
+  }
 }
 
 export const GET = handle;

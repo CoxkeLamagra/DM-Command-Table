@@ -142,7 +142,7 @@ export async function saveScreenshot(
     url: `/api/screenshots/${id}`,
   };
 }
-export async function readScreenshot(
+export function screenshotFile(
   database: DatabaseSync,
   id: string,
   userId: string,
@@ -155,10 +155,21 @@ export async function readScreenshot(
     .get(id, admin ? 1 : 0, userId, userId, userId, userId) as
     { filename: string; mimeType: string } | undefined;
   if (!row) return null;
+  return { path: screenshotPath(row.filename), mimeType: row.mimeType };
+}
+
+export async function readScreenshot(
+  database: DatabaseSync,
+  id: string,
+  userId: string,
+  admin: boolean,
+) {
+  const file = screenshotFile(database, id, userId, admin);
+  if (!file) return null;
   try {
     return {
-      bytes: await readFile(screenshotPath(row.filename)),
-      mimeType: row.mimeType,
+      bytes: await readFile(file.path),
+      mimeType: file.mimeType,
     };
   } catch {
     return null;
@@ -204,21 +215,25 @@ export function syncScreenshotReferences(
   ...richText: string[]
 ): void {
   requireCampaignEdit(database, campaignId, actorUserId);
-  const ids = new Set(richText.flatMap(extractScreenshotIds));
-  const visible = database.prepare(
-    `SELECT s.id FROM screenshots s WHERE s.id=? AND (s.uploaded_by=? OR EXISTS (SELECT 1 FROM screenshot_references r JOIN campaigns c ON c.id=r.campaign_id LEFT JOIN campaign_members m ON m.campaign_id=c.id AND m.user_id=? WHERE r.screenshot_id=s.id AND (c.owner_id=? OR m.user_id=?))) LIMIT 1`,
-  );
-  database
-    .prepare(
-      "DELETE FROM screenshot_references WHERE campaign_id=? AND resource_type=? AND resource_id=?",
-    )
-    .run(campaignId, resourceType, resourceId);
-  const insert = database.prepare(
-    "INSERT INTO screenshot_references (screenshot_id,campaign_id,resource_type,resource_id,created_at) VALUES (?,?,?,?,?)",
-  );
-  for (const id of ids)
-    if (visible.get(id, actorUserId, actorUserId, actorUserId, actorUserId))
+  runTransaction(database, () => {
+    const ids = new Set(richText.flatMap(extractScreenshotIds));
+    const visible = database.prepare(
+      `SELECT s.id FROM screenshots s WHERE s.id=? AND (s.uploaded_by=? OR EXISTS (SELECT 1 FROM screenshot_references r JOIN campaigns c ON c.id=r.campaign_id LEFT JOIN campaign_members m ON m.campaign_id=c.id AND m.user_id=? WHERE r.screenshot_id=s.id AND (c.owner_id=? OR m.user_id=?))) LIMIT 1`,
+    );
+    const accessible = [...ids].filter((id) =>
+      visible.get(id, actorUserId, actorUserId, actorUserId, actorUserId),
+    );
+    database
+      .prepare(
+        "DELETE FROM screenshot_references WHERE campaign_id=? AND resource_type=? AND resource_id=?",
+      )
+      .run(campaignId, resourceType, resourceId);
+    const insert = database.prepare(
+      "INSERT INTO screenshot_references (screenshot_id,campaign_id,resource_type,resource_id,created_at) VALUES (?,?,?,?,?)",
+    );
+    for (const id of accessible)
       insert.run(id, campaignId, resourceType, resourceId, Date.now());
+  });
 }
 
 export function extractScreenshotIds(value: string): string[] {

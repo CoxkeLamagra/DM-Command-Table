@@ -92,3 +92,9 @@ docker compose exec -T dm-command-table node -e "fetch('http://127.0.0.1:3000/ap
 ```
 
 If localhost works but another computer cannot connect, check the host bind address, proxy and firewall. If login fails through HTTPS, check proxy trust, forwarded scheme and cookie settings. Use [operations](operations.md) for storage and authentication diagnostics.
+
+## Build the current main refactor
+
+The installation example pins the published v10.0.0 release. For the security/efficiency build on main, fetch and check out an approved main commit, then use the existing Compose update procedure. Record `git rev-parse HEAD` alongside the reported application version; no new release tag is created by a main-only publication.
+
+The refactor retains schema 2, the same persistent volume and unprivileged standalone runtime. Capacity limits and streaming reads are inside the local process; they do not require new services, ports or permissions. Keep your verified backup before replacing the container, then check readiness, login, campaign records, Combat, and embedded images. The original v10.0.0 tag remains unchanged.

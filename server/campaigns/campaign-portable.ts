@@ -184,17 +184,21 @@ export function exportCampaign(
   };
 }
 
-export function importCampaign(
-  database: DatabaseSync,
-  actorId: string,
-  value: unknown,
-) {
+export function validatePortableCampaign(value: unknown) {
   const parsed = portableCampaignSchema.safeParse(value);
   if (!parsed.success)
     throw new PublicApiError(
       "This is not a valid supported current campaign export.",
     );
-  const data = parsed.data;
+  return parsed.data;
+}
+
+export function importCampaign(
+  database: DatabaseSync,
+  actorId: string,
+  value: unknown,
+) {
+  const data = validatePortableCampaign(value);
 
   return runTransaction(database, () => {
     const campaigns = createCampaignRepository(database);

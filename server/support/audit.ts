@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { getServerSettings } from "../administration/server-settings.ts";
 
@@ -12,21 +13,20 @@ export function recordAuditEvent(
     details?: unknown;
   },
 ): void {
-  database
-    .prepare(
-      `INSERT INTO audit_events
+  statement(
+    database,
+    `INSERT INTO audit_events
         (campaign_id, actor_user_id, resource_type, resource_id, action, details, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      input.campaignId ?? null,
-      input.actorUserId ?? null,
-      input.resourceType,
-      input.resourceId ?? null,
-      input.action,
-      input.details === undefined ? null : JSON.stringify(input.details),
-      Date.now(),
-    );
+  ).run(
+    input.campaignId ?? null,
+    input.actorUserId ?? null,
+    input.resourceType,
+    input.resourceId ?? null,
+    input.action,
+    input.details === undefined ? null : JSON.stringify(input.details),
+    Date.now(),
+  );
   pruneAuditEvents(
     database,
     input.campaignId ?? null,
@@ -44,13 +44,13 @@ function pruneAuditEvents(
   const owner = campaignId ?? actorUserId;
   if (!owner) return;
   const column = campaign ? "campaign_id" : "actor_user_id";
-  const cutoff = database
-    .prepare(
-      `SELECT id FROM audit_events WHERE ${column} = ? ORDER BY id DESC LIMIT 1 OFFSET ?`,
-    )
-    .get(owner, limit) as { id: number } | undefined;
+  const cutoff = statement(
+    database,
+    `SELECT id FROM audit_events WHERE ${column} = ? ORDER BY id DESC LIMIT 1 OFFSET ?`,
+  ).get(owner, limit) as { id: number } | undefined;
   if (cutoff)
-    database
-      .prepare(`DELETE FROM audit_events WHERE ${column} = ? AND id <= ?`)
-      .run(owner, cutoff.id);
+    statement(
+      database,
+      `DELETE FROM audit_events WHERE ${column} = ? AND id <= ?`,
+    ).run(owner, cutoff.id);
 }

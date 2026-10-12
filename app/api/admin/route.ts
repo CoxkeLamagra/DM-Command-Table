@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
 import {
+  requireAdministrator,
   createManagedUser,
   deleteManagedUser,
   listUsers,
@@ -80,7 +81,7 @@ async function mutate(
           password: z.string(),
         })
         .parse(await jsonBody(request));
-      await createManagedUser(database, input);
+      await createManagedUser(database, input, user.userId);
       return apiJson(state(database), 201);
     }
     if (operation === "delete") {
@@ -103,6 +104,7 @@ async function mutate(
         serverSettings: serverSettingsSchema.optional(),
       })
       .parse(await jsonBody(request));
+    requireAdministrator(database, user.userId);
     if (input.action === "set-registration")
       setRegistrationEnabled(database, Boolean(input.registrationEnabled));
     else if (input.action === "set-server-settings")

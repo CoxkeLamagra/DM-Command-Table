@@ -119,3 +119,9 @@ Do not copy root's nvm binaries or root-owned package-manager caches into the se
 See [operations](operations.md) for every environment setting, live backup and storage-check commands, media quarantine, retention and safe removal of old build/release directories. The updater and systemd use `/etc/dm-command-table.env`; a `.env.local` in the source checkout does not configure the service. If you move writable storage outside `/var/lib/dm-command-table`, update the service's `ReadWritePaths` before restarting.
 
 The updater installs new application code and operational scripts in each runtime. It does not replace the installed updater, Nginx configuration, environment file or systemd units. Review changes under `deploy/debian-13/` separately when upgrading and reinstall approved templates without overwriting your local settings.
+
+## Install the current main refactor
+
+The commands above pin the published v10.0.0 release. To use the subsequent security/efficiency build, choose an approved commit from `main` and run `update-dm-command-table <approved-main-commit>` as root after checking your backup. The default updater target is `origin/main`; it resolves the target to a concrete commit before building. This refactor retains schema 2 and requires no fresh data directory for a normal v9/v10 installation. It does not restore the reverted batch 3/4 features.
+
+The application still displays version 10.0.0 until a separate release is requested. Check the deployed `REVISION` file as well as `/api/health` to identify the exact build. Backup hashing now streams fixed-size chunks; backup verification/recovery commands and installed service templates remain unchanged.

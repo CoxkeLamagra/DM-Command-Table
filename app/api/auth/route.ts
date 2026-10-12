@@ -73,7 +73,7 @@ export async function POST(request: Request) {
           password: input.password ?? "",
           bootstrapToken: input.bootstrapToken,
         });
-        await createSession(user.userId, database);
+        await createSession(user, database);
         return apiJson({ user }, 201);
       }
       const user = await authenticateUser(
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       );
       if (!user)
         return apiJson({ error: "Invalid username or password." }, 401);
-      await createSession(user.userId, database);
+      await createSession(user, database);
       return apiJson({ user });
     });
   } catch (error) {

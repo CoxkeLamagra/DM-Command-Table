@@ -1,5 +1,8 @@
 import {
   copyFileSync,
+  openSync,
+  readSync,
+  closeSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -9,7 +12,17 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 function checksum(filename) {
-  return createHash("sha256").update(readFileSync(filename)).digest("hex");
+  const hash = createHash("sha256"),
+    handle = openSync(filename, "r"),
+    buffer = Buffer.allocUnsafe(64 * 1024);
+  try {
+    let bytes;
+    while ((bytes = readSync(handle, buffer, 0, buffer.length, null)) > 0)
+      hash.update(buffer.subarray(0, bytes));
+    return hash.digest("hex");
+  } finally {
+    closeSync(handle);
+  }
 }
 
 import path from "node:path";

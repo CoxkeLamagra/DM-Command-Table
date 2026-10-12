@@ -1,3 +1,5 @@
+import { runTransaction } from "../../db/transaction.ts";
+import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -33,13 +35,12 @@ export function createSupportRepository(database: DatabaseSync) {
   return {
     listTemplates(ownerId: string): SessionTemplate[] {
       return (
-        database
-          .prepare(
-            `SELECT id, owner_id AS ownerId, name, content,
+        statement(
+          database,
+          `SELECT id, owner_id AS ownerId, name, content,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM session_templates WHERE owner_id = ? ORDER BY name COLLATE NOCASE`,
-          )
-          .all(ownerId) as TemplateRow[]
+        ).all(ownerId) as TemplateRow[]
       ).map(toTemplate);
     },
 
@@ -69,39 +70,38 @@ export function createSupportRepository(database: DatabaseSync) {
       });
       const id = input.id ?? crypto.randomUUID();
       const now = Date.now();
-      database
-        .prepare(
-          `INSERT INTO session_templates
+      statement(
+        database,
+        `INSERT INTO session_templates
           (id, owner_id, name, content, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, content = excluded.content,
            updated_at = excluded.updated_at
          WHERE session_templates.owner_id = excluded.owner_id`,
-        )
-        .run(
-          id,
-          ownerId,
-          input.name.trim() || "Session template",
-          safeContent,
-          now,
-          now,
-        );
-      const row = database
-        .prepare(
-          `SELECT id, owner_id AS ownerId, name, content,
+      ).run(
+        id,
+        ownerId,
+        input.name.trim() || "Session template",
+        safeContent,
+        now,
+        now,
+      );
+      const row = statement(
+        database,
+        `SELECT id, owner_id AS ownerId, name, content,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM session_templates WHERE id = ? AND owner_id = ?`,
-        )
-        .get(id, ownerId) as TemplateRow | undefined;
+      ).get(id, ownerId) as TemplateRow | undefined;
       if (!row) throw new ResourceNotFoundError("session template", id);
       return toTemplate(row);
     },
 
     deleteTemplate(ownerId: string, id: string): void {
-      const result = database
-        .prepare("DELETE FROM session_templates WHERE id = ? AND owner_id = ?")
-        .run(id, ownerId);
+      const result = statement(
+        database,
+        "DELETE FROM session_templates WHERE id = ? AND owner_id = ?",
+      ).run(id, ownerId);
       if (!result.changes)
         throw new ResourceNotFoundError("session template", id);
     },
@@ -113,44 +113,49 @@ export function createSupportRepository(database: DatabaseSync) {
       resourceId: string,
       screenshotIds: string[],
     ): void {
-      requireCampaignEdit(database, campaignId, actorUserId);
-      database
-        .prepare(
-          "DELETE FROM screenshot_references WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-        )
-        .run(campaignId, resourceType, resourceId);
-      const visible = database.prepare(
-        `SELECT s.id FROM screenshots s
+      return runTransaction(database, () => {
+        requireCampaignEdit(database, campaignId, actorUserId);
+        const visible = statement(
+          database,
+          `SELECT s.id FROM screenshots s
           WHERE s.id = ? AND (
             s.uploaded_by = ? OR EXISTS (
               SELECT 1 FROM screenshot_references r
               WHERE r.screenshot_id = s.id AND r.campaign_id = ?
             )
           ) LIMIT 1`,
-      );
-      const insert = database.prepare(
-        `INSERT INTO screenshot_references
+        );
+        const uniqueIds = [...new Set(screenshotIds)];
+        for (const id of uniqueIds)
+          if (!visible.get(id, actorUserId, campaignId))
+            throw new ResourceNotFoundError("screenshot", id);
+        statement(
+          database,
+          "DELETE FROM screenshot_references WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
+        ).run(campaignId, resourceType, resourceId);
+        const insert = statement(
+          database,
+          `INSERT INTO screenshot_references
           (screenshot_id, campaign_id, resource_type, resource_id, created_at)
          VALUES (?, ?, ?, ?, ?)`,
-      );
-      for (const screenshotId of new Set(screenshotIds)) {
-        if (!visible.get(screenshotId, actorUserId, campaignId))
-          throw new ResourceNotFoundError("screenshot", screenshotId);
-        insert.run(
-          screenshotId,
+        );
+        for (const screenshotId of uniqueIds) {
+          insert.run(
+            screenshotId,
+            campaignId,
+            resourceType,
+            resourceId,
+            Date.now(),
+          );
+        }
+        recordAuditEvent(database, {
           campaignId,
+          actorUserId,
           resourceType,
           resourceId,
-          Date.now(),
-        );
-      }
-      recordAuditEvent(database, {
-        campaignId,
-        actorUserId,
-        resourceType,
-        resourceId,
-        action: "screenshot_references_updated",
-        details: { screenshotIds: [...new Set(screenshotIds)] },
+          action: "screenshot_references_updated",
+          details: { screenshotIds: [...new Set(screenshotIds)] },
+        });
       });
     },
 
@@ -161,18 +166,16 @@ export function createSupportRepository(database: DatabaseSync) {
       title: string,
       content: string,
     ): void {
-      database
-        .prepare(
-          "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-        )
-        .run(campaignId, resourceType, resourceId);
-      database
-        .prepare(
-          `INSERT INTO search_index
+      statement(
+        database,
+        "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
+      ).run(campaignId, resourceType, resourceId);
+      statement(
+        database,
+        `INSERT INTO search_index
           (campaign_id, resource_type, resource_id, title, content)
          VALUES (?, ?, ?, ?, ?)`,
-        )
-        .run(campaignId, resourceType, resourceId, title, content);
+      ).run(campaignId, resourceType, resourceId, title, content);
     },
 
     removeFromIndex(
@@ -180,11 +183,10 @@ export function createSupportRepository(database: DatabaseSync) {
       resourceType: string,
       resourceId: string,
     ): void {
-      database
-        .prepare(
-          "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-        )
-        .run(campaignId, resourceType, resourceId);
+      statement(
+        database,
+        "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
+      ).run(campaignId, resourceType, resourceId);
     },
 
     search(
@@ -197,23 +199,22 @@ export function createSupportRepository(database: DatabaseSync) {
       requireCampaignRead(database, campaignId, actorUserId);
       const expression = searchExpression(query);
       if (!expression) return [];
-      return database
-        .prepare(
-          `SELECT CASE WHEN resource_type = 'player' AND EXISTS (SELECT 1 FROM players p WHERE p.id = search_index.resource_id AND p.campaign_id = search_index.campaign_id AND p.kind = 'npc') THEN 'npc' ELSE resource_type END AS resourceType, resource_id AS resourceId,
+      return statement(
+        database,
+        `SELECT CASE WHEN resource_type = 'player' AND EXISTS (SELECT 1 FROM players p WHERE p.id = search_index.resource_id AND p.campaign_id = search_index.campaign_id AND p.kind = 'npc') THEN 'npc' ELSE resource_type END AS resourceType, resource_id AS resourceId,
                 title, snippet(search_index, 4, '<mark>', '</mark>', '…', 18) AS excerpt,
                 bm25(search_index) AS rank
            FROM search_index
           WHERE search_index MATCH ? AND campaign_id = ?
             AND (? = 'all' OR CASE WHEN resource_type = 'player' AND EXISTS (SELECT 1 FROM players p WHERE p.id = search_index.resource_id AND p.campaign_id = search_index.campaign_id AND p.kind = 'npc') THEN 'npc' ELSE resource_type END = ?)
           ORDER BY rank LIMIT ?`,
-        )
-        .all(
-          expression,
-          campaignId,
-          type,
-          type,
-          Math.max(1, Math.min(limit, 100)),
-        ) as CampaignSearchResult[];
+      ).all(
+        expression,
+        campaignId,
+        type,
+        type,
+        Math.max(1, Math.min(limit, 100)),
+      ) as CampaignSearchResult[];
     },
   };
 }

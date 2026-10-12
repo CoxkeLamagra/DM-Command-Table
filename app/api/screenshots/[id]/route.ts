@@ -1,34 +1,28 @@
+import { screenshotResponse } from "@/server/media/screenshot-response";
 import { getDatabase } from "@/db/sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
 import { getUser } from "@/server/identity/auth";
 import { apiJson } from "@/server/http/http";
 import { enforceRateLimit } from "@/server/http/request-security";
-import { deleteScreenshot, readScreenshot } from "@/server/media/screenshots";
+import { deleteScreenshot } from "@/server/media/screenshots";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Context) {
+export async function GET(request: Request, { params }: Context) {
   const database = getDatabase();
   const user = await getUser(database);
   if (!user) return apiJson({ error: "Authentication required." }, 401);
-  const screenshot = await readScreenshot(
+  const response = await screenshotResponse(
     database,
     (await params).id,
     user.userId,
     user.isAdmin,
+    request,
   );
-  if (!screenshot) return apiJson({ error: "Screenshot not found." }, 404);
-  return new Response(new Uint8Array(screenshot.bytes), {
-    headers: {
-      "content-type": screenshot.mimeType,
-      "cache-control": "private, max-age=300",
-      "x-content-type-options": "nosniff",
-      vary: "Cookie",
-    },
-  });
+  return response ?? apiJson({ error: "Screenshot not found." }, 404);
 }
 
 export async function DELETE(request: Request, { params }: Context) {

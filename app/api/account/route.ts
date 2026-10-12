@@ -42,13 +42,13 @@ export async function PATCH(request: Request) {
     if (input.action === "rename") {
       renameAccount(database, user.userId, input.username, input.displayName);
     } else {
-      await changePassword(
+      const authenticated = await changePassword(
         database,
         user.userId,
         input.currentPassword,
         input.newPassword,
       );
-      await createSession(user.userId, database);
+      await createSession(authenticated, database);
     }
     return apiJson({ changed: true });
   } catch (error) {

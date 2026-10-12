@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
@@ -32,14 +33,13 @@ export function createContentRepository(database: DatabaseSync) {
     listPlayers(campaignId: string, actorUserId: string): Player[] {
       requireCampaignRead(database, campaignId, actorUserId);
       return (
-        database
-          .prepare(
-            `SELECT id, campaign_id AS campaignId, name, kind, race, class_name AS className,
+        statement(
+          database,
+          `SELECT id, campaign_id AS campaignId, name, kind, race, class_name AS className,
                 level, hit_points AS hitPoints, armor_class AS armorClass, notes,
                 revision, created_at AS createdAt, updated_at AS updatedAt
            FROM players WHERE campaign_id = ? ORDER BY name COLLATE NOCASE, id`,
-          )
-          .all(campaignId) as PlayerRow[]
+        ).all(campaignId) as PlayerRow[]
       ).map(toPlayer);
     },
 
@@ -55,27 +55,26 @@ export function createContentRepository(database: DatabaseSync) {
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
-        database
-          .prepare(
-            `INSERT INTO players
+        statement(
+          database,
+          `INSERT INTO players
           (id, campaign_id, kind, name, race, class_name, level, hit_points,
            armor_class, notes, revision, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-          )
-          .run(
-            id,
-            campaignId,
-            input.kind ?? "player",
-            input.name,
-            input.race,
-            input.className,
-            input.level,
-            input.hitPoints,
-            input.armorClass,
-            sanitizeRichText(input.notes ?? ""),
-            now,
-            now,
-          );
+        ).run(
+          id,
+          campaignId,
+          input.kind ?? "player",
+          input.name,
+          input.race,
+          input.className,
+          input.level,
+          input.hitPoints,
+          input.armorClass,
+          sanitizeRichText(input.notes ?? ""),
+          now,
+          now,
+        );
         changed(database, campaignId, actorUserId, "player", id, "created");
         index(
           database,
@@ -109,27 +108,26 @@ export function createContentRepository(database: DatabaseSync) {
     ): Player {
       requireCampaignEdit(database, campaignId, actorUserId);
       runTransaction(database, () => {
-        const result = database
-          .prepare(
-            `UPDATE players SET kind = ?, name = ?, race = ?, class_name = ?, level = ?,
+        const result = statement(
+          database,
+          `UPDATE players SET kind = ?, name = ?, race = ?, class_name = ?, level = ?,
            hit_points = ?, armor_class = ?, notes = ?, revision = revision + 1,
            updated_at = ?
          WHERE id = ? AND campaign_id = ? AND revision = ?`,
-          )
-          .run(
-            input.kind ?? "player",
-            input.name,
-            input.race,
-            input.className,
-            input.level,
-            input.hitPoints,
-            input.armorClass,
-            sanitizeRichText(input.notes ?? ""),
-            Date.now(),
-            id,
-            campaignId,
-            expectedRevision,
-          );
+        ).run(
+          input.kind ?? "player",
+          input.name,
+          input.race,
+          input.className,
+          input.level,
+          input.hitPoints,
+          input.armorClass,
+          sanitizeRichText(input.notes ?? ""),
+          Date.now(),
+          id,
+          campaignId,
+          expectedRevision,
+        );
         assertUpdated(
           database,
           "players",
@@ -170,9 +168,10 @@ export function createContentRepository(database: DatabaseSync) {
           id,
           "",
         );
-        const result = database
-          .prepare("DELETE FROM players WHERE id = ? AND campaign_id = ?")
-          .run(id, campaignId);
+        const result = statement(
+          database,
+          "DELETE FROM players WHERE id = ? AND campaign_id = ?",
+        ).run(id, campaignId);
         if (!result.changes) throw new ResourceNotFoundError("player", id);
         removeIndex(database, campaignId, "player", id);
         changed(database, campaignId, actorUserId, "player", id, "deleted");
@@ -182,15 +181,14 @@ export function createContentRepository(database: DatabaseSync) {
     listSessions(campaignId: string, actorUserId: string): Session[] {
       requireCampaignRead(database, campaignId, actorUserId);
       return (
-        database
-          .prepare(
-            `SELECT id, campaign_id AS campaignId, title, session_date AS date, notes,
+        statement(
+          database,
+          `SELECT id, campaign_id AS campaignId, title, session_date AS date, notes,
                 status, sort_order AS sortOrder, revision,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM sessions WHERE campaign_id = ?
           ORDER BY session_date DESC, sort_order, id`,
-          )
-          .all(campaignId) as SessionRow[]
+        ).all(campaignId) as SessionRow[]
       ).map(toSession);
     },
 
@@ -203,24 +201,23 @@ export function createContentRepository(database: DatabaseSync) {
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
-        database
-          .prepare(
-            `INSERT INTO sessions
+        statement(
+          database,
+          `INSERT INTO sessions
           (id, campaign_id, title, session_date, notes, status, sort_order,
            revision, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-          )
-          .run(
-            id,
-            campaignId,
-            input.title,
-            input.date,
-            sanitizeRichText(input.notes ?? ""),
-            input.status,
-            input.sortOrder,
-            now,
-            now,
-          );
+        ).run(
+          id,
+          campaignId,
+          input.title,
+          input.date,
+          sanitizeRichText(input.notes ?? ""),
+          input.status,
+          input.sortOrder,
+          now,
+          now,
+        );
         changed(database, campaignId, actorUserId, "session", id, "created");
         index(
           database,
@@ -251,23 +248,22 @@ export function createContentRepository(database: DatabaseSync) {
     ): Session {
       requireCampaignEdit(database, campaignId, actorUserId);
       runTransaction(database, () => {
-        const result = database
-          .prepare(
-            `UPDATE sessions SET title = ?, session_date = ?, notes = ?, status = ?,
+        const result = statement(
+          database,
+          `UPDATE sessions SET title = ?, session_date = ?, notes = ?, status = ?,
            sort_order = ?, revision = revision + 1, updated_at = ?
          WHERE id = ? AND campaign_id = ? AND revision = ?`,
-          )
-          .run(
-            input.title,
-            input.date,
-            sanitizeRichText(input.notes ?? ""),
-            input.status,
-            input.sortOrder,
-            Date.now(),
-            id,
-            campaignId,
-            expectedRevision,
-          );
+        ).run(
+          input.title,
+          input.date,
+          sanitizeRichText(input.notes ?? ""),
+          input.status,
+          input.sortOrder,
+          Date.now(),
+          id,
+          campaignId,
+          expectedRevision,
+        );
         assertUpdated(
           database,
           "sessions",
@@ -308,16 +304,16 @@ export function createContentRepository(database: DatabaseSync) {
           id,
           "",
         );
-        database
-          .prepare(
-            `DELETE FROM screenshot_references
+        statement(
+          database,
+          `DELETE FROM screenshot_references
             WHERE campaign_id = ? AND resource_type = 'prepared_encounter'
               AND resource_id IN (SELECT id FROM prepared_encounters WHERE session_id = ?)`,
-          )
-          .run(campaignId, id);
-        const result = database
-          .prepare("DELETE FROM sessions WHERE id = ? AND campaign_id = ?")
-          .run(id, campaignId);
+        ).run(campaignId, id);
+        const result = statement(
+          database,
+          "DELETE FROM sessions WHERE id = ? AND campaign_id = ?",
+        ).run(id, campaignId);
         if (!result.changes) throw new ResourceNotFoundError("session", id);
         removeIndex(database, campaignId, "session", id);
         changed(database, campaignId, actorUserId, "session", id, "deleted");
@@ -326,16 +322,16 @@ export function createContentRepository(database: DatabaseSync) {
 
     listStory(campaignId: string, actorUserId: string): StoryBeat[] {
       requireCampaignRead(database, campaignId, actorUserId);
-      const rows = database
-        .prepare(
-          `SELECT id, campaign_id AS campaignId, title, chapter, details, status,
+      const rows = statement(
+        database,
+        `SELECT id, campaign_id AS campaignId, title, chapter, details, status,
                 sort_order AS sortOrder, revision,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM story_beats WHERE campaign_id = ?
           ORDER BY sort_order, id`,
-        )
-        .all(campaignId) as StoryRow[];
-      const sessions = database.prepare(
+      ).all(campaignId) as StoryRow[];
+      const sessions = statement(
+        database,
         "SELECT session_id AS sessionId FROM story_session_links WHERE story_beat_id = ? ORDER BY session_id",
       );
       return rows.map((row) => ({
@@ -358,24 +354,23 @@ export function createContentRepository(database: DatabaseSync) {
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
-        database
-          .prepare(
-            `INSERT INTO story_beats
+        statement(
+          database,
+          `INSERT INTO story_beats
             (id, campaign_id, title, chapter, details, status, sort_order,
              revision, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-          )
-          .run(
-            id,
-            campaignId,
-            input.title,
-            input.chapter,
-            sanitizeRichText(input.details ?? ""),
-            input.status,
-            input.sortOrder,
-            now,
-            now,
-          );
+        ).run(
+          id,
+          campaignId,
+          input.title,
+          input.chapter,
+          sanitizeRichText(input.details ?? ""),
+          input.status,
+          input.sortOrder,
+          now,
+          now,
+        );
         replaceStoryLinks(database, campaignId, id, input.sessionIds);
         changed(database, campaignId, actorUserId, "story_beat", id, "created");
         index(
@@ -410,23 +405,22 @@ export function createContentRepository(database: DatabaseSync) {
     ): StoryBeat {
       requireCampaignEdit(database, campaignId, actorUserId);
       runTransaction(database, () => {
-        const result = database
-          .prepare(
-            `UPDATE story_beats SET title = ?, chapter = ?, details = ?, status = ?,
+        const result = statement(
+          database,
+          `UPDATE story_beats SET title = ?, chapter = ?, details = ?, status = ?,
              sort_order = ?, revision = revision + 1, updated_at = ?
            WHERE id = ? AND campaign_id = ? AND revision = ?`,
-          )
-          .run(
-            input.title,
-            input.chapter,
-            sanitizeRichText(input.details ?? ""),
-            input.status,
-            input.sortOrder,
-            Date.now(),
-            id,
-            campaignId,
-            expectedRevision,
-          );
+        ).run(
+          input.title,
+          input.chapter,
+          sanitizeRichText(input.details ?? ""),
+          input.status,
+          input.sortOrder,
+          Date.now(),
+          id,
+          campaignId,
+          expectedRevision,
+        );
         assertUpdated(
           database,
           "story_beats",
@@ -468,9 +462,10 @@ export function createContentRepository(database: DatabaseSync) {
           id,
           "",
         );
-        const result = database
-          .prepare("DELETE FROM story_beats WHERE id = ? AND campaign_id = ?")
-          .run(id, campaignId);
+        const result = statement(
+          database,
+          "DELETE FROM story_beats WHERE id = ? AND campaign_id = ?",
+        ).run(id, campaignId);
         if (!result.changes) throw new ResourceNotFoundError("story beat", id);
         removeIndex(database, campaignId, "story", id);
         changed(database, campaignId, actorUserId, "story_beat", id, "deleted");
@@ -487,16 +482,14 @@ function index(
   title: string,
   content: string,
 ) {
-  database
-    .prepare(
-      "DELETE FROM search_index WHERE campaign_id=? AND resource_type=? AND resource_id=?",
-    )
-    .run(campaignId, type, id);
-  database
-    .prepare(
-      "INSERT INTO search_index (campaign_id,resource_type,resource_id,title,content) VALUES (?,?,?,?,?)",
-    )
-    .run(campaignId, type, id, title, content);
+  statement(
+    database,
+    "DELETE FROM search_index WHERE campaign_id=? AND resource_type=? AND resource_id=?",
+  ).run(campaignId, type, id);
+  statement(
+    database,
+    "INSERT INTO search_index (campaign_id,resource_type,resource_id,title,content) VALUES (?,?,?,?,?)",
+  ).run(campaignId, type, id, title, content);
 }
 function removeIndex(
   database: DatabaseSync,
@@ -504,11 +497,10 @@ function removeIndex(
   type: string,
   id: string,
 ) {
-  database
-    .prepare(
-      "DELETE FROM search_index WHERE campaign_id=? AND resource_type=? AND resource_id=?",
-    )
-    .run(campaignId, type, id);
+  statement(
+    database,
+    "DELETE FROM search_index WHERE campaign_id=? AND resource_type=? AND resource_id=?",
+  ).run(campaignId, type, id);
 }
 
 function replaceStoryLinks(
@@ -517,14 +509,17 @@ function replaceStoryLinks(
   storyBeatId: string,
   sessionIds: string[],
 ): void {
-  database
-    .prepare("DELETE FROM story_session_links WHERE story_beat_id = ?")
-    .run(storyBeatId);
+  statement(
+    database,
+    "DELETE FROM story_session_links WHERE story_beat_id = ?",
+  ).run(storyBeatId);
   const uniqueIds = [...new Set(sessionIds)];
-  const valid = database.prepare(
+  const valid = statement(
+    database,
     "SELECT id FROM sessions WHERE id = ? AND campaign_id = ? LIMIT 1",
   );
-  const insert = database.prepare(
+  const insert = statement(
+    database,
     "INSERT INTO story_session_links (story_beat_id, session_id) VALUES (?, ?)",
   );
   for (const sessionId of uniqueIds) {
@@ -543,9 +538,10 @@ function assertUpdated(
   changes: number | bigint,
 ): void {
   if (Number(changes) !== 0) return;
-  const actual = database
-    .prepare(`SELECT revision FROM ${table} WHERE id = ?`)
-    .get(id) as { revision: number } | undefined;
+  const actual = statement(
+    database,
+    `SELECT revision FROM ${table} WHERE id = ?`,
+  ).get(id) as { revision: number } | undefined;
   if (!actual) throw new ResourceNotFoundError(resourceType, id);
   throw new RevisionConflictError(
     resourceType,
@@ -563,11 +559,10 @@ function changed(
   resourceId: string,
   action: string,
 ): void {
-  database
-    .prepare(
-      "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",
-    )
-    .run(Date.now(), campaignId);
+  statement(
+    database,
+    "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",
+  ).run(Date.now(), campaignId);
   recordAuditEvent(database, {
     campaignId,
     actorUserId,
@@ -578,47 +573,43 @@ function changed(
 }
 
 function getPlayer(database: DatabaseSync, id: string): Player {
-  const row = database
-    .prepare(
-      `SELECT id, campaign_id AS campaignId, name, kind, race, class_name AS className,
+  const row = statement(
+    database,
+    `SELECT id, campaign_id AS campaignId, name, kind, race, class_name AS className,
             level, hit_points AS hitPoints, armor_class AS armorClass, notes,
             revision, created_at AS createdAt, updated_at AS updatedAt
        FROM players WHERE id = ?`,
-    )
-    .get(id) as PlayerRow | undefined;
+  ).get(id) as PlayerRow | undefined;
   if (!row) throw new ResourceNotFoundError("player", id);
   return toPlayer(row);
 }
 
 function getSession(database: DatabaseSync, id: string): Session {
-  const row = database
-    .prepare(
-      `SELECT id, campaign_id AS campaignId, title, session_date AS date, notes,
+  const row = statement(
+    database,
+    `SELECT id, campaign_id AS campaignId, title, session_date AS date, notes,
             status, sort_order AS sortOrder, revision,
             created_at AS createdAt, updated_at AS updatedAt
        FROM sessions WHERE id = ?`,
-    )
-    .get(id) as SessionRow | undefined;
+  ).get(id) as SessionRow | undefined;
   if (!row) throw new ResourceNotFoundError("session", id);
   return toSession(row);
 }
 
 function getStory(database: DatabaseSync, id: string): StoryBeat {
-  const row = database
-    .prepare(
-      `SELECT id, campaign_id AS campaignId, title, chapter, details, status,
+  const row = statement(
+    database,
+    `SELECT id, campaign_id AS campaignId, title, chapter, details, status,
             sort_order AS sortOrder, revision,
             created_at AS createdAt, updated_at AS updatedAt
        FROM story_beats WHERE id = ?`,
-    )
-    .get(id) as StoryRow | undefined;
+  ).get(id) as StoryRow | undefined;
   if (!row) throw new ResourceNotFoundError("story beat", id);
   const sessionIds = (
-    database
-      .prepare(
-        "SELECT session_id AS sessionId FROM story_session_links WHERE story_beat_id = ? ORDER BY session_id",
-      )
-      .all(id) as Array<{ sessionId: string }>
+    statement(
+      database,
+      "SELECT session_id AS sessionId FROM story_session_links WHERE story_beat_id = ? ORDER BY session_id",
+    ).all(id) as Array<{ sessionId: string }>
   ).map(({ sessionId }) => sessionId);
   return { ...toStory(row), sessionIds };
 }

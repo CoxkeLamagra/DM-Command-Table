@@ -1,6 +1,11 @@
+import { statement } from "../../db/statements.ts";
 import { z } from "zod";
 import type { DatabaseSync } from "node:sqlite";
-import { exportCampaign, importCampaign } from "./campaign-portable.ts";
+import {
+  exportCampaign,
+  importCampaign,
+  validatePortableCampaign,
+} from "./campaign-portable.ts";
 import {
   readScreenshot,
   saveScreenshot,
@@ -50,6 +55,20 @@ export async function exportCampaignPackage(
 ) {
   const campaign = exportCampaign(database, campaignId, actorId);
   const assets = [];
+  let encodedSize = Buffer.byteLength(
+    JSON.stringify({
+      format: "dmct-campaign-package",
+      version: 1,
+      campaign,
+      assets: [],
+    }),
+  );
+  const tooLarge = () =>
+    new PublicApiError(
+      "Campaign packages must be no larger than 50 MB. Use a full server backup for larger campaigns.",
+      413,
+    );
+  if (encodedSize > CAMPAIGN_PACKAGE_LIMIT) throw tooLarge();
   for (const id of new Set(imageIds(campaign))) {
     const image = await readScreenshot(database, id, actorId, false);
     if (!image)
@@ -57,11 +76,15 @@ export async function exportCampaignPackage(
         "A referenced image is missing or inaccessible. Repair it before exporting.",
         409,
       );
-    assets.push({
+    const asset = {
       id,
       name: `${id}.webp`,
       bytes: image.bytes.toString("base64"),
-    });
+    };
+    encodedSize +=
+      Buffer.byteLength(JSON.stringify(asset)) + (assets.length ? 1 : 0);
+    if (encodedSize > CAMPAIGN_PACKAGE_LIMIT) throw tooLarge();
+    assets.push(asset);
   }
   const result = {
     format: "dmct-campaign-package" as const,
@@ -69,11 +92,6 @@ export async function exportCampaignPackage(
     campaign,
     assets,
   };
-  if (Buffer.byteLength(JSON.stringify(result)) > CAMPAIGN_PACKAGE_LIMIT)
-    throw new PublicApiError(
-      "Campaign packages must be no larger than 50 MB. Use a full server backup for larger campaigns.",
-      413,
-    );
   return result;
 }
 export async function importCampaignPackage(
@@ -82,17 +100,25 @@ export async function importCampaignPackage(
   value: unknown,
 ) {
   const parsed = packageSchema.parse(value);
+  const validatedCampaign = validatePortableCampaign(parsed.campaign);
+  const referenced = new Set(imageIds(validatedCampaign));
   const ids = new Set(parsed.assets.map((asset) => asset.id));
   if (
     ids.size !== parsed.assets.length ||
-    imageIds(parsed.campaign).some((id) => !ids.has(id))
+    [...referenced].some((id) => !ids.has(id)) ||
+    parsed.assets.some((asset) => !referenced.has(asset.id))
   )
-    throw new PublicApiError("The package has missing or duplicate images.");
+    throw new PublicApiError(
+      "The package has missing, duplicate or unused images.",
+    );
   const created: string[] = [];
   const mapping = new Map<string, string>();
   try {
     for (const asset of parsed.assets) {
-      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(asset.bytes))
+      if (
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(asset.bytes) ||
+        asset.bytes.length % 4 !== 0
+      )
         throw new PublicApiError("Invalid encoded image");
       const image = await saveScreenshot(
         database,
@@ -103,18 +129,20 @@ export async function importCampaignPackage(
       );
       created.push(image.id);
       mapping.set(asset.id, image.id);
-      database
-        .prepare("UPDATE screenshots SET staging=1 WHERE id=?")
-        .run(image.id);
+      statement(database, "UPDATE screenshots SET staging=1 WHERE id=?").run(
+        image.id,
+      );
     }
     return runTransaction(database, () => {
       const campaign = importCampaign(
         database,
         actorId,
-        remap(parsed.campaign, mapping),
+        remap(validatedCampaign, mapping),
       );
       for (const id of created)
-        database.prepare("UPDATE screenshots SET staging=0 WHERE id=?").run(id);
+        statement(database, "UPDATE screenshots SET staging=0 WHERE id=?").run(
+          id,
+        );
       return campaign;
     });
   } catch (error) {

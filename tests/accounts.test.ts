@@ -21,11 +21,15 @@ test("current administrators manage local accounts without removing the final ad
     password: "password-one",
   });
   assert.equal(registrationStatus(database).registrationEnabled, false);
-  const member = await createManagedUser(database, {
-    username: "member",
-    displayName: "Member",
-    password: "password-two",
-  });
+  const member = await createManagedUser(
+    database,
+    {
+      username: "member",
+      displayName: "Member",
+      password: "password-two",
+    },
+    owner.userId,
+  );
   assert.equal(registrationStatus(database).registrationEnabled, false);
   renameAccount(database, member.userId, "renamed", "Renamed Member");
   await updateManagedUser(
