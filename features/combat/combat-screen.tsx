@@ -691,7 +691,6 @@ export function CombatScreen({
         </DialogContent>
       </Dialog>
       <CombatantPicker
-        campaignId={campaignId}
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         players={players}

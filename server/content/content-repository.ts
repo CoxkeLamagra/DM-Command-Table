@@ -1,5 +1,3 @@
-import { cleanContinuity, continuityText } from "./adventure-data.ts";
-import { continuitySchema } from "../http/adventure-schemas.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
@@ -20,8 +18,7 @@ type PlayerRow = Omit<Player, "createdAt" | "updatedAt"> & {
   createdAt: number;
   updatedAt: number;
 };
-type SessionRow = Omit<Session, "createdAt" | "updatedAt" | "continuity"> & {
-  continuity: string;
+type SessionRow = Omit<Session, "createdAt" | "updatedAt"> & {
   createdAt: number;
   updatedAt: number;
 };
@@ -188,7 +185,7 @@ export function createContentRepository(database: DatabaseSync) {
         database
           .prepare(
             `SELECT id, campaign_id AS campaignId, title, session_date AS date, notes,
-                status, sort_order AS sortOrder, revision, continuity,
+                status, sort_order AS sortOrder, revision,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM sessions WHERE campaign_id = ?
           ORDER BY session_date DESC, sort_order, id`,
@@ -200,17 +197,9 @@ export function createContentRepository(database: DatabaseSync) {
     createSession(
       campaignId: string,
       actorUserId: string,
-      input: Pick<
-        Session,
-        "title" | "date" | "notes" | "status" | "sortOrder" | "continuity"
-      >,
+      input: Pick<Session, "title" | "date" | "notes" | "status" | "sortOrder">,
     ): Session {
       requireCampaignEdit(database, campaignId, actorUserId);
-      const continuity = cleanContinuity(
-        database,
-        campaignId,
-        input.continuity,
-      );
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
@@ -218,8 +207,8 @@ export function createContentRepository(database: DatabaseSync) {
           .prepare(
             `INSERT INTO sessions
           (id, campaign_id, title, session_date, notes, status, sort_order,
-           revision, created_at, updated_at, continuity)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+           revision, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           )
           .run(
             id,
@@ -231,7 +220,6 @@ export function createContentRepository(database: DatabaseSync) {
             input.sortOrder,
             now,
             now,
-            JSON.stringify(continuity),
           );
         changed(database, campaignId, actorUserId, "session", id, "created");
         index(
@@ -240,7 +228,7 @@ export function createContentRepository(database: DatabaseSync) {
           "session",
           id,
           input.title,
-          `${input.date} ${input.notes} ${continuityText(continuity).join(" ")}`,
+          `${input.date} ${input.notes}`,
         );
         syncScreenshotReferences(
           database,
@@ -249,7 +237,6 @@ export function createContentRepository(database: DatabaseSync) {
           "session",
           id,
           sanitizeRichText(input.notes ?? ""),
-          ...continuityText(continuity),
         );
       });
       return getSession(database, id);
@@ -260,25 +247,14 @@ export function createContentRepository(database: DatabaseSync) {
       actorUserId: string,
       id: string,
       expectedRevision: number,
-      input: Pick<
-        Session,
-        "title" | "date" | "notes" | "status" | "sortOrder" | "continuity"
-      >,
+      input: Pick<Session, "title" | "date" | "notes" | "status" | "sortOrder">,
     ): Session {
       requireCampaignEdit(database, campaignId, actorUserId);
-      const current = getSession(database, id);
-      if (current.campaignId !== campaignId)
-        throw new ResourceNotFoundError("session", id);
-      const continuity = cleanContinuity(
-        database,
-        campaignId,
-        input.continuity ?? current.continuity,
-      );
       runTransaction(database, () => {
         const result = database
           .prepare(
             `UPDATE sessions SET title = ?, session_date = ?, notes = ?, status = ?,
-           sort_order = ?, continuity = ?, revision = revision + 1, updated_at = ?
+           sort_order = ?, revision = revision + 1, updated_at = ?
          WHERE id = ? AND campaign_id = ? AND revision = ?`,
           )
           .run(
@@ -287,7 +263,6 @@ export function createContentRepository(database: DatabaseSync) {
             sanitizeRichText(input.notes ?? ""),
             input.status,
             input.sortOrder,
-            JSON.stringify(continuity),
             Date.now(),
             id,
             campaignId,
@@ -308,7 +283,7 @@ export function createContentRepository(database: DatabaseSync) {
           "session",
           id,
           input.title,
-          `${input.date} ${input.notes} ${continuityText(continuity).join(" ")}`,
+          `${input.date} ${input.notes}`,
         );
         syncScreenshotReferences(
           database,
@@ -317,7 +292,6 @@ export function createContentRepository(database: DatabaseSync) {
           "session",
           id,
           sanitizeRichText(input.notes ?? ""),
-          ...continuityText(continuity),
         );
       });
       return getSession(database, id);
@@ -620,7 +594,7 @@ function getSession(database: DatabaseSync, id: string): Session {
   const row = database
     .prepare(
       `SELECT id, campaign_id AS campaignId, title, session_date AS date, notes,
-            status, sort_order AS sortOrder, revision, continuity,
+            status, sort_order AS sortOrder, revision,
             created_at AS createdAt, updated_at AS updatedAt
        FROM sessions WHERE id = ?`,
     )
@@ -659,7 +633,6 @@ function toPlayer(row: PlayerRow): Player {
 function toSession(row: SessionRow): Session {
   return {
     ...row,
-    continuity: continuitySchema.parse(JSON.parse(row.continuity)),
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };

@@ -1,6 +1,3 @@
-import { cleanAdventure } from "../content/adventure-data.ts";
-import { adventureSchema } from "../http/adventure-schemas.ts";
-import type { CampaignAdventure } from "../../domain/adventure.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -20,7 +17,6 @@ type CampaignRow = {
   name: string;
   notes: string;
   archived: number;
-  adventure: string;
   revision: number;
   createdAt: number;
   updatedAt: number;
@@ -69,7 +65,7 @@ export function createCampaignRepository(database: DatabaseSync) {
     list(userId: string, options: { archived?: boolean } = {}): Campaign[] {
       const rows = database
         .prepare(
-          `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived, c.adventure,
+          `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived,
                   c.revision, c.created_at AS createdAt, c.updated_at AS updatedAt,
                   CASE WHEN c.owner_id = ? THEN 'owner' ELSE m.role END AS role
              FROM campaigns c
@@ -97,12 +93,7 @@ export function createCampaignRepository(database: DatabaseSync) {
       id: string,
       actorUserId: string,
       expectedRevision: number,
-      patch: {
-        name?: string;
-        notes?: string;
-        archived?: boolean;
-        adventure?: CampaignAdventure;
-      },
+      patch: { name?: string; notes?: string; archived?: boolean },
     ): Campaign {
       const current = get(database, id, actorUserId);
       if (!current) throw new ResourceNotFoundError("campaign", id);
@@ -115,17 +106,12 @@ export function createCampaignRepository(database: DatabaseSync) {
           : patch.name.trim() || "Campaign";
       const nextNotes = patch.notes ?? current.notes;
       const nextArchived = patch.archived ?? current.archived;
-      const adventure = cleanAdventure(
-        database,
-        id,
-        patch.adventure ?? current.adventure,
-      );
       const now = Date.now();
       runTransaction(database, () => {
         const result = database
           .prepare(
             `UPDATE campaigns
-              SET name = ?, notes = ?, archived = ?, adventure = ?, revision = revision + 1,
+              SET name = ?, notes = ?, archived = ?, revision = revision + 1,
                   updated_at = ?
             WHERE id = ? AND revision = ?`,
           )
@@ -133,7 +119,6 @@ export function createCampaignRepository(database: DatabaseSync) {
             nextName,
             nextNotes,
             nextArchived ? 1 : 0,
-            JSON.stringify(adventure),
             now,
             id,
             expectedRevision,
@@ -156,7 +141,6 @@ export function createCampaignRepository(database: DatabaseSync) {
           "campaign",
           id,
           nextNotes,
-          ...adventure.threads.map((thread) => thread.notes),
         );
         writeAudit(database, {
           campaignId: id,
@@ -193,7 +177,7 @@ function get(
 ): Campaign | null {
   const row = database
     .prepare(
-      `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived, c.adventure,
+      `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived,
               c.revision, c.created_at AS createdAt, c.updated_at AS updatedAt,
               CASE WHEN c.owner_id = ? THEN 'owner' ELSE m.role END AS role
          FROM campaigns c
@@ -220,7 +204,6 @@ function toCampaign(row: CampaignRow): Campaign {
   return {
     ...row,
     archived: Boolean(row.archived),
-    adventure: adventureSchema.parse(JSON.parse(row.adventure)),
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };
