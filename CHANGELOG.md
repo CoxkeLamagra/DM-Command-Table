@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 10.0.0 — 2026-10-12
 
 - Track temporary HP, concentration, death saves, spell slots, legendary actions and configurable ability-use counters independently for each live combatant.
 - Capture Bestiary stat blocks when creatures enter Combat, preserve snapshots after source edits/deletion, and include runtime state and embedded images in saves, undo and campaign exports.
@@ -13,6 +13,8 @@ All notable DM Command Table releases are documented here.
 - Add a Session play view combining notes, linked story details, prepared encounters and searchable Player/NPC references.
 - Preview prepared encounter loads, including retained and replaced records, additions, possible duplicates, capacity and revision checks.
 - Choose whether turn advancement skips everyone at 0 HP, retains Player turns, or retains all turns.
+
+This release contains batches 1 and 2. Batch 3 was reverted; unfinished batch 4 is excluded. Existing v9 installations migrate locally to schema 2. Installations already using batch 3/4 schema require a matching pre-batch-3 backup; a source rollback does not downgrade their database.
 
 ## 9.3.0 — 2026-10-09
 

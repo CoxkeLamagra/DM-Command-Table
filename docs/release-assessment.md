@@ -1,4 +1,14 @@
-# v9.1.0 release assessment
+# v10.0.0 release scope
+
+Prepared on 2026-10-12 from the restored batch 2 application tree (`92e6de9deef848db952ac5858529b28294ec7a44`), now on main after PR #23. Version and installation examples are updated to v10.0.0. No batch 3 or batch 4 functionality is included.
+
+The restored tree passed Node 22/24 verification and browser CI, Docker readiness/storage/backup checks, and a local production build. The release metadata changes receive another CI run before tagging. Deployment remains local-only, with Debian 13 LXC primary and Docker secondary. No live deployment or database rollback is performed by publication.
+
+This release expects schema 2. Normal v9 installations migrate locally while retaining their data. A database already migrated by batch 3/4 must be restored from a matching pre-batch-3 backup; do not run this release against the newer schema. Back up current data before any recovery operation.
+
+The assessment below is historical and describes the earlier cleanup work.
+
+## Historical v9.1.0 release assessment
 
 Assessed on 2026-10-09 against GitHub tag `v9.1.0`, commit `e67d9c41dcd9b415ba0d85774c26d2bb336ec764`. This assessment covers source organization, feature boundaries, runtime packaging, deployment templates and documentation. It is not a penetration test or a proof that every browser or LXC host configuration works.
 
