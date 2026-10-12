@@ -21,11 +21,11 @@ install -d -o dmct -g dmct -m 0700 /var/lib/dm-command-table
 runuser -u dmct -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git /opt/dm-command-table/source
 ```
 
-Check out the approved release or commit in `source`. The current assessed release is `v10.0.0`. Check it out explicitly; cloning alone selects the moving main branch. Build the initial runtime as the service user:
+Check out the approved release or commit in `source`. The current assessed release is `v10.1.0`. Check it out explicitly; cloning alone selects the moving main branch. Build the initial runtime as the service user:
 
 ```sh
 cd /opt/dm-command-table/source
-runuser -u dmct -- git checkout --detach v10.0.0
+runuser -u dmct -- git checkout --detach v10.1.0
 runuser -u dmct -- /usr/bin/node --version
 runuser -u dmct -- /usr/bin/pnpm --version
 runuser -u dmct -- /usr/bin/pnpm install --frozen-lockfile
@@ -62,7 +62,7 @@ curl --fail --show-error --retry 30 --retry-connrefused --retry-delay 1 --max-ti
   http://127.0.0.1:3000/api/health
 ```
 
-The health response should be `{"status":"ready","version":"10.0.0"}` for v10.0.0. Open `http://<LXC-IP>/` or your configured hostname from your computer. Port 3000 is loopback-only; Nginx serves the application on port 80.
+The health response should be `{"status":"ready","version":"10.1.0"}` for v10.1.0. Open `http://<LXC-IP>/` or your configured hostname from your computer. Port 3000 is loopback-only; Nginx serves the application on port 80.
 
 If health checks fail after the retries, inspect the service rather than rebuilding immediately:
 
@@ -80,7 +80,7 @@ Configure the Nginx server name and TLS for your local network. The Node service
 
 ## Updates and rollback
 
-For the current release, run `update-dm-command-table v10.0.0`. Existing v9 installations use their current data; only pre-v9 installations need separate fresh storage.
+For the current release, run `update-dm-command-table v10.1.0`. Existing v9 installations use their current data; only pre-v9 installations need separate fresh storage.
 
 Run `update-dm-command-table <approved-tag-or-commit>` as root. The default target is `origin/main`. A clean source checkout is required. The updater locks concurrent updates, builds and tests a detached worktree while the old service runs, packages an immutable candidate, stops the service, creates a consistent database-and-image backup, then atomically switches the `current` symlink. It checks `/api/health` after starting.
 
@@ -120,8 +120,8 @@ See [operations](operations.md) for every environment setting, live backup and s
 
 The updater installs new application code and operational scripts in each runtime. It does not replace the installed updater, Nginx configuration, environment file or systemd units. Review changes under `deploy/debian-13/` separately when upgrading and reinstall approved templates without overwriting your local settings.
 
-## Install the current main refactor
+## Security/efficiency release
 
-The commands above pin the published v10.0.0 release. To use the subsequent security/efficiency build, choose an approved commit from `main` and run `update-dm-command-table <approved-main-commit>` as root after checking your backup. The default updater target is `origin/main`; it resolves the target to a concrete commit before building. This refactor retains schema 2 and requires no fresh data directory for a normal v9/v10 installation. It does not restore the reverted batch 3/4 features.
+The commands above pin v10.1.0, including the security/efficiency refactor. Upgrade with `update-dm-command-table v10.1.0` as root after checking your backup. For a later main build, choose an approved commit and run `update-dm-command-table <approved-main-commit>`. The default updater target is `origin/main`; it resolves the target to a concrete commit before building. This refactor retains schema 2 and requires no fresh data directory for a normal v9/v10 installation. It does not restore the reverted batch 3/4 features.
 
-The application still displays version 10.0.0 until a separate release is requested. Check the deployed `REVISION` file as well as `/api/health` to identify the exact build. Backup hashing now streams fixed-size chunks; backup verification/recovery commands and installed service templates remain unchanged.
+The release reports version 10.1.0. Check the deployed `REVISION` file as well as `/api/health` to identify the exact build. Backup hashing now streams fixed-size chunks; backup verification/recovery commands and installed service templates remain unchanged.

@@ -1,6 +1,6 @@
-# Current main technical assessment
+# v10.1.0 technical assessment
 
-Reviewed on 2026-10-12 against the v10.0.0 feature set. The current refactor's findings, changes, regression evidence and limits are recorded in [security and efficiency review](security-efficiency-review.md). Application behavior remains at batches 1 and 2, storage remains local-only, and the schema remains version 2. Publication changes main only; the v10.0.0 release tag remains immutable.
+Reviewed on 2026-10-12 against the v10.0.0 feature set. The released refactor's findings, changes, regression evidence and limits are recorded in [security and efficiency review](security-efficiency-review.md). Application behavior remains at batches 1 and 2, storage remains local-only, and the schema remains version 2. v10.1.0 packages the refactor from PR #25; the earlier v10.0.0 release tag remains immutable.
 
 The release notes and earlier assessment below are historical context.
 
