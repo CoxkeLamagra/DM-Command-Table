@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
@@ -37,16 +38,15 @@ export function createBestiaryRepository(database: DatabaseSync) {
     list(campaignId: string, actorUserId: string): Monster[] {
       requireCampaignRead(database, campaignId, actorUserId);
       return (
-        database
-          .prepare(
-            `SELECT id, campaign_id AS campaignId, name, type,
+        statement(
+          database,
+          `SELECT id, campaign_id AS campaignId, name, type,
                 challenge_rating AS challengeRating, armor_class AS armorClass,
                 hit_points AS hitPoints, speed, stats, abilities, spells, notes,
                 spell_slots AS spellSlots, source, favorite, revision,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM monsters WHERE campaign_id = ? ORDER BY name COLLATE NOCASE, id`,
-          )
-          .all(campaignId) as MonsterRow[]
+        ).all(campaignId) as MonsterRow[]
       ).map((row) => toMonster(database, row));
     },
 
@@ -59,33 +59,32 @@ export function createBestiaryRepository(database: DatabaseSync) {
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
-        database
-          .prepare(
-            `INSERT INTO monsters
+        statement(
+          database,
+          `INSERT INTO monsters
             (id, campaign_id, name, type, challenge_rating, armor_class,
              hit_points, speed, stats, abilities, spells, notes, spell_slots,
              source, favorite, revision, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-          )
-          .run(
-            id,
-            campaignId,
-            input.name,
-            input.type,
-            input.challengeRating,
-            input.armorClass,
-            input.hitPoints,
-            input.speed,
-            input.stats,
-            sanitizeRichText(input.abilities ?? ""),
-            sanitizeRichText(input.spells ?? ""),
-            sanitizeRichText(input.notes ?? ""),
-            JSON.stringify(input.spellSlots),
-            input.source,
-            input.favorite ? 1 : 0,
-            now,
-            now,
-          );
+        ).run(
+          id,
+          campaignId,
+          input.name,
+          input.type,
+          input.challengeRating,
+          input.armorClass,
+          input.hitPoints,
+          input.speed,
+          input.stats,
+          sanitizeRichText(input.abilities ?? ""),
+          sanitizeRichText(input.spells ?? ""),
+          sanitizeRichText(input.notes ?? ""),
+          JSON.stringify(input.spellSlots),
+          input.source,
+          input.favorite ? 1 : 0,
+          now,
+          now,
+        );
         replaceTags(database, campaignId, id, input.tagIds ?? []);
         touch(database, campaignId, actorUserId, id, "created");
         indexMonster(database, campaignId, id, input);
@@ -112,39 +111,37 @@ export function createBestiaryRepository(database: DatabaseSync) {
     ): Monster {
       requireCampaignEdit(database, campaignId, actorUserId);
       runTransaction(database, () => {
-        const result = database
-          .prepare(
-            `UPDATE monsters SET name = ?, type = ?, challenge_rating = ?,
+        const result = statement(
+          database,
+          `UPDATE monsters SET name = ?, type = ?, challenge_rating = ?,
              armor_class = ?, hit_points = ?, speed = ?, stats = ?, abilities = ?,
              spells = ?, notes = ?, spell_slots = ?, source = ?, favorite = ?,
              revision = revision + 1, updated_at = ?
            WHERE id = ? AND campaign_id = ? AND revision = ?`,
-          )
-          .run(
-            input.name,
-            input.type,
-            input.challengeRating,
-            input.armorClass,
-            input.hitPoints,
-            input.speed,
-            input.stats,
-            sanitizeRichText(input.abilities ?? ""),
-            sanitizeRichText(input.spells ?? ""),
-            sanitizeRichText(input.notes ?? ""),
-            JSON.stringify(input.spellSlots),
-            input.source,
-            input.favorite ? 1 : 0,
-            Date.now(),
-            id,
-            campaignId,
-            expectedRevision,
-          );
+        ).run(
+          input.name,
+          input.type,
+          input.challengeRating,
+          input.armorClass,
+          input.hitPoints,
+          input.speed,
+          input.stats,
+          sanitizeRichText(input.abilities ?? ""),
+          sanitizeRichText(input.spells ?? ""),
+          sanitizeRichText(input.notes ?? ""),
+          JSON.stringify(input.spellSlots),
+          input.source,
+          input.favorite ? 1 : 0,
+          Date.now(),
+          id,
+          campaignId,
+          expectedRevision,
+        );
         if (!result.changes) {
-          const actual = database
-            .prepare(
-              "SELECT revision FROM monsters WHERE id = ? AND campaign_id = ?",
-            )
-            .get(id, campaignId) as { revision: number } | undefined;
+          const actual = statement(
+            database,
+            "SELECT revision FROM monsters WHERE id = ? AND campaign_id = ?",
+          ).get(id, campaignId) as { revision: number } | undefined;
           if (!actual) throw new ResourceNotFoundError("monster", id);
           throw new RevisionConflictError(
             "monster",
@@ -182,16 +179,16 @@ export function createBestiaryRepository(database: DatabaseSync) {
             id,
             "",
           );
-          const result = database
-            .prepare("DELETE FROM monsters WHERE id = ? AND campaign_id = ?")
-            .run(id, campaignId);
+          const result = statement(
+            database,
+            "DELETE FROM monsters WHERE id = ? AND campaign_id = ?",
+          ).run(id, campaignId);
           if (!result.changes) throw new ResourceNotFoundError("monster", id);
           touch(database, campaignId, actorUserId, id, "deleted");
-          database
-            .prepare(
-              "DELETE FROM search_index WHERE campaign_id=? AND resource_type='monster' AND resource_id=?",
-            )
-            .run(campaignId, id);
+          statement(
+            database,
+            "DELETE FROM search_index WHERE campaign_id=? AND resource_type='monster' AND resource_id=?",
+          ).run(campaignId, id);
         });
       } catch (error) {
         if (error instanceof Error && error.message.includes("FOREIGN KEY"))
@@ -215,22 +212,20 @@ export function createBestiaryRepository(database: DatabaseSync) {
         color: input.color ?? null,
       };
       if (!tag.name) throw new PublicApiError("A tag name is required.");
-      database
-        .prepare(
-          "INSERT INTO tags (id, campaign_id, name, color) VALUES (?, ?, ?, ?)",
-        )
-        .run(tag.id, campaignId, tag.name, tag.color);
+      statement(
+        database,
+        "INSERT INTO tags (id, campaign_id, name, color) VALUES (?, ?, ?, ?)",
+      ).run(tag.id, campaignId, tag.name, tag.color);
       touch(database, campaignId, actorUserId, tag.id, "tag_created");
       return tag;
     },
 
     listTags(campaignId: string, actorUserId: string): Tag[] {
       requireCampaignRead(database, campaignId, actorUserId);
-      return database
-        .prepare(
-          "SELECT id, name, color FROM tags WHERE campaign_id = ? ORDER BY name COLLATE NOCASE",
-        )
-        .all(campaignId) as Tag[];
+      return statement(
+        database,
+        "SELECT id, name, color FROM tags WHERE campaign_id = ? ORDER BY name COLLATE NOCASE",
+      ).all(campaignId) as Tag[];
     },
   };
 }
@@ -241,21 +236,19 @@ function indexMonster(
   id: string,
   input: MonsterInput,
 ): void {
-  database
-    .prepare(
-      "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = 'monster' AND resource_id = ?",
-    )
-    .run(campaignId, id);
-  database
-    .prepare(
-      "INSERT INTO search_index (campaign_id, resource_type, resource_id, title, content) VALUES (?, 'monster', ?, ?, ?)",
-    )
-    .run(
-      campaignId,
-      id,
-      input.name,
-      `${input.type} ${input.challengeRating} ${input.source ?? ""} ${input.stats} ${input.abilities} ${input.spells} ${input.notes}`,
-    );
+  statement(
+    database,
+    "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = 'monster' AND resource_id = ?",
+  ).run(campaignId, id);
+  statement(
+    database,
+    "INSERT INTO search_index (campaign_id, resource_type, resource_id, title, content) VALUES (?, 'monster', ?, ?, ?)",
+  ).run(
+    campaignId,
+    id,
+    input.name,
+    `${input.type} ${input.challengeRating} ${input.source ?? ""} ${input.stats} ${input.abilities} ${input.spells} ${input.notes}`,
+  );
 }
 
 function replaceTags(
@@ -264,13 +257,15 @@ function replaceTags(
   monsterId: string,
   tagIds: string[],
 ): void {
-  database
-    .prepare("DELETE FROM monster_tags WHERE monster_id = ?")
-    .run(monsterId);
-  const valid = database.prepare(
+  statement(database, "DELETE FROM monster_tags WHERE monster_id = ?").run(
+    monsterId,
+  );
+  const valid = statement(
+    database,
     "SELECT id FROM tags WHERE id = ? AND campaign_id = ? LIMIT 1",
   );
-  const insert = database.prepare(
+  const insert = statement(
+    database,
     "INSERT INTO monster_tags (monster_id, tag_id) VALUES (?, ?)",
   );
   for (const tagId of new Set(tagIds)) {
@@ -281,28 +276,26 @@ function replaceTags(
 }
 
 function getMonster(database: DatabaseSync, id: string): Monster {
-  const row = database
-    .prepare(
-      `SELECT id, campaign_id AS campaignId, name, type,
+  const row = statement(
+    database,
+    `SELECT id, campaign_id AS campaignId, name, type,
             challenge_rating AS challengeRating, armor_class AS armorClass,
             hit_points AS hitPoints, speed, stats, abilities, spells, notes,
             spell_slots AS spellSlots, source, favorite, revision,
             created_at AS createdAt, updated_at AS updatedAt
        FROM monsters WHERE id = ?`,
-    )
-    .get(id) as MonsterRow | undefined;
+  ).get(id) as MonsterRow | undefined;
   if (!row) throw new ResourceNotFoundError("monster", id);
   return toMonster(database, row);
 }
 
 function toMonster(database: DatabaseSync, row: MonsterRow): Monster {
-  const tags = database
-    .prepare(
-      `SELECT t.id, t.name, t.color FROM tags t
+  const tags = statement(
+    database,
+    `SELECT t.id, t.name, t.color FROM tags t
        JOIN monster_tags mt ON mt.tag_id = t.id
       WHERE mt.monster_id = ? ORDER BY t.name COLLATE NOCASE`,
-    )
-    .all(row.id) as Tag[];
+  ).all(row.id) as Tag[];
   return {
     ...row,
     spellSlots: JSON.parse(row.spellSlots) as number[],
@@ -320,11 +313,10 @@ function touch(
   resourceId: string,
   action: string,
 ): void {
-  database
-    .prepare(
-      "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",
-    )
-    .run(Date.now(), campaignId);
+  statement(
+    database,
+    "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",
+  ).run(Date.now(), campaignId);
   recordAuditEvent(database, {
     campaignId,
     actorUserId,

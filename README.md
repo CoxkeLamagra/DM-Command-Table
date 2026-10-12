@@ -12,6 +12,8 @@ Debian 13 LXC is the primary deployment option; Docker is secondary. Both run th
 
 Campaign data, accounts, screenshots, search, and backups remain on your server. Bestiary JSON files import offline. Connecting to the external monster catalogue is an explicit optional action. Next.js telemetry is disabled in the deployment templates.
 
+The current `main` branch additionally contains the security/efficiency refactor documented in [the technical review](docs/security-efficiency-review.md). It keeps the v10.0.0 feature set and schema 2; publication to main does not change the v10.0.0 tag or deploy your server.
+
 ## Features
 
 ### Campaigns and sharing
@@ -333,3 +335,5 @@ See [CHANGELOG.md](CHANGELOG.md). The version shown in the lower-left corner of 
 ## License
 
 No open-source license has been assigned. All rights are reserved unless the repository owner adds a license.
+
+Security and operational details are documented in [architecture](docs/architecture.md), [API](docs/api.md), [operations](docs/operations.md), and [the current technical review](docs/security-efficiency-review.md). Password changes invalidate old sessions, pending credential checks are revalidated, and expensive password/package work returns a retryable busy response when its local capacity is full. No external database, identity or media service is introduced.

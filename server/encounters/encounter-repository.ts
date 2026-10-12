@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import {
   combatRichText,
   emptyRuntime,
@@ -72,32 +73,29 @@ export function createEncounterRepository(database: DatabaseSync) {
     ): PreparedEncounter[] {
       requireCampaignRead(database, campaignId, actorUserId);
       ensureSession(database, campaignId, sessionId);
-      const rows = database
-        .prepare(
-          `SELECT id, session_id AS sessionId, name, notes, sort_order AS sortOrder,
+      const rows = statement(
+        database,
+        `SELECT id, session_id AS sessionId, name, notes, sort_order AS sortOrder,
                 revision, created_at AS createdAt, updated_at AS updatedAt
            FROM prepared_encounters WHERE session_id = ? ORDER BY sort_order, id`,
-        )
-        .all(sessionId) as PreparedRow[];
-      const allMonsters = database
-        .prepare(
-          `SELECT m.id, m.encounter_id AS encounterId, m.monster_id AS monsterId,
+      ).all(sessionId) as PreparedRow[];
+      const allMonsters = statement(
+        database,
+        `SELECT m.id, m.encounter_id AS encounterId, m.monster_id AS monsterId,
         m.display_number AS displayNumber, m.quantity, m.sort_order AS sortOrder
         FROM prepared_encounter_monsters m JOIN prepared_encounters e ON e.id = m.encounter_id
         WHERE e.session_id = ? ORDER BY m.sort_order, m.id`,
-        )
-        .all(sessionId) as Array<PreparedMonster & { encounterId: string }>;
+      ).all(sessionId) as Array<PreparedMonster & { encounterId: string }>;
       const grouped = new Map<string, PreparedMonster[]>();
       for (const { encounterId, ...monster } of allMonsters) {
         const group = grouped.get(encounterId) ?? [];
         group.push(monster);
         grouped.set(encounterId, group);
       }
-      const copies = database
-        .prepare(
-          `SELECT pc.id,pc.encounter_id AS encounterId,pc.name,pc.kind,pc.notes,pc.display_number AS displayNumber,pc.initiative,pc.hit_points AS hitPoints,pc.maximum_hit_points AS maximumHitPoints,pc.armor_class AS armorClass,pc.sort_order AS sortOrder FROM prepared_combatants pc JOIN prepared_encounters e ON e.id=pc.encounter_id WHERE e.session_id=? ORDER BY pc.sort_order,pc.id`,
-        )
-        .all(sessionId) as Array<PreparedCombatant & { encounterId: string }>;
+      const copies = statement(
+        database,
+        `SELECT pc.id,pc.encounter_id AS encounterId,pc.name,pc.kind,pc.notes,pc.display_number AS displayNumber,pc.initiative,pc.hit_points AS hitPoints,pc.maximum_hit_points AS maximumHitPoints,pc.armor_class AS armorClass,pc.sort_order AS sortOrder FROM prepared_combatants pc JOIN prepared_encounters e ON e.id=pc.encounter_id WHERE e.session_id=? ORDER BY pc.sort_order,pc.id`,
+      ).all(sessionId) as Array<PreparedCombatant & { encounterId: string }>;
       const groupedCopies = new Map<string, PreparedCombatant[]>();
       for (const { encounterId, ...copy } of copies) {
         const values = groupedCopies.get(encounterId) ?? [];
@@ -129,21 +127,20 @@ export function createEncounterRepository(database: DatabaseSync) {
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
-        database
-          .prepare(
-            `INSERT INTO prepared_encounters
+        statement(
+          database,
+          `INSERT INTO prepared_encounters
             (id, session_id, name, notes, sort_order, revision, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
-          )
-          .run(
-            id,
-            sessionId,
-            input.name,
-            sanitizeRichText(input.notes),
-            input.sortOrder,
-            now,
-            now,
-          );
+        ).run(
+          id,
+          sessionId,
+          input.name,
+          sanitizeRichText(input.notes),
+          input.sortOrder,
+          now,
+          now,
+        );
         const combatants = preparedEncounterFields.shape.combatants
           .parse(input.combatants ?? [])
           .map((entry) => {
@@ -185,22 +182,21 @@ export function createEncounterRepository(database: DatabaseSync) {
       requireCampaignEdit(database, campaignId, actorUserId);
       assertPreparedCapacity(input);
       runTransaction(database, () => {
-        const result = database
-          .prepare(
-            `UPDATE prepared_encounters SET name = ?, notes = ?, sort_order = ?,
+        const result = statement(
+          database,
+          `UPDATE prepared_encounters SET name = ?, notes = ?, sort_order = ?,
              revision = revision + 1, updated_at = ?
            WHERE id = ? AND revision = ? AND session_id IN
              (SELECT id FROM sessions WHERE campaign_id = ?)`,
-          )
-          .run(
-            input.name,
-            sanitizeRichText(input.notes),
-            input.sortOrder,
-            Date.now(),
-            id,
-            expectedRevision,
-            campaignId,
-          );
+        ).run(
+          input.name,
+          sanitizeRichText(input.notes),
+          input.sortOrder,
+          Date.now(),
+          id,
+          expectedRevision,
+          campaignId,
+        );
         if (!result.changes)
           conflictOrMissing(
             database,
@@ -248,12 +244,11 @@ export function createEncounterRepository(database: DatabaseSync) {
           id,
           "",
         );
-        const result = database
-          .prepare(
-            `DELETE FROM prepared_encounters WHERE id = ? AND session_id IN
+        const result = statement(
+          database,
+          `DELETE FROM prepared_encounters WHERE id = ? AND session_id IN
             (SELECT id FROM sessions WHERE campaign_id = ?)`,
-          )
-          .run(id, campaignId);
+        ).run(id, campaignId);
         if (!result.changes)
           throw new ResourceNotFoundError("prepared encounter", id);
         touch(
@@ -289,19 +284,18 @@ export function createEncounterRepository(database: DatabaseSync) {
           current.revision,
         );
       runTransaction(database, () => {
-        const historyInsert = database
-          .prepare(
-            `INSERT INTO combat_history
+        const historyInsert = statement(
+          database,
+          `INSERT INTO combat_history
             (encounter_id, actor_user_id, action, before_state, created_at)
            VALUES (?, ?, ?, ?, ?)`,
-          )
-          .run(
-            current.id,
-            actorUserId,
-            action,
-            JSON.stringify(current),
-            Date.now(),
-          );
+        ).run(
+          current.id,
+          actorUserId,
+          action,
+          JSON.stringify(current),
+          Date.now(),
+        );
         syncScreenshotReferences(
           database,
           campaignId,
@@ -311,21 +305,20 @@ export function createEncounterRepository(database: DatabaseSync) {
           ...current.combatants.flatMap(combatRichText),
         );
         pruneCombatHistory(database, current.id);
-        const result = database
-          .prepare(
-            `UPDATE combat_encounters SET name = ?, round = ?, turn = ?, active_combatant_id = ?,
+        const result = statement(
+          database,
+          `UPDATE combat_encounters SET name = ?, round = ?, turn = ?, active_combatant_id = ?,
              revision = revision + 1, updated_at = ?
            WHERE id = ? AND revision = ?`,
-          )
-          .run(
-            input.name,
-            input.round,
-            input.turn,
-            orderedCombatants(input.combatants)[input.turn]?.id ?? null,
-            Date.now(),
-            current.id,
-            expectedRevision,
-          );
+        ).run(
+          input.name,
+          input.round,
+          input.turn,
+          orderedCombatants(input.combatants)[input.turn]?.id ?? null,
+          Date.now(),
+          current.id,
+          expectedRevision,
+        );
         if (!result.changes)
           conflictOrMissing(
             database,
@@ -365,26 +358,26 @@ export function createEncounterRepository(database: DatabaseSync) {
           expectedRevision,
           current.revision,
         );
-      const history = database
-        .prepare(
-          `SELECT id, before_state AS beforeState FROM combat_history
+      const history = statement(
+        database,
+        `SELECT id, before_state AS beforeState FROM combat_history
           WHERE encounter_id = ? ORDER BY id DESC LIMIT 1`,
-        )
-        .get(current.id) as { id: number; beforeState: string } | undefined;
+      ).get(current.id) as { id: number; beforeState: string } | undefined;
       if (!history) return current;
       const previous = JSON.parse(history.beforeState) as CombatEncounter;
       const players = new Set(
         (
-          database
-            .prepare("SELECT id FROM players WHERE campaign_id=?")
-            .all(campaignId) as Array<{ id: string }>
+          statement(database, "SELECT id FROM players WHERE campaign_id=?").all(
+            campaignId,
+          ) as Array<{ id: string }>
         ).map((value) => value.id),
       );
       const monsters = new Set(
         (
-          database
-            .prepare("SELECT id FROM monsters WHERE campaign_id=?")
-            .all(campaignId) as Array<{ id: string }>
+          statement(
+            database,
+            "SELECT id FROM monsters WHERE campaign_id=?",
+          ).all(campaignId) as Array<{ id: string }>
         ).map((value) => value.id),
       );
       previous.combatants = previous.combatants.map((entry) => ({
@@ -398,20 +391,19 @@ export function createEncounterRepository(database: DatabaseSync) {
         runtime: entry.runtime ?? emptyRuntime(),
       }));
       runTransaction(database, () => {
-        const updated = database
-          .prepare(
-            `UPDATE combat_encounters SET name = ?, round = ?, turn = ?, active_combatant_id = ?,
+        const updated = statement(
+          database,
+          `UPDATE combat_encounters SET name = ?, round = ?, turn = ?, active_combatant_id = ?,
              revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ?`,
-          )
-          .run(
-            previous.name,
-            previous.round,
-            previous.turn,
-            orderedCombatants(previous.combatants)[previous.turn]?.id ?? null,
-            Date.now(),
-            current.id,
-            current.revision,
-          );
+        ).run(
+          previous.name,
+          previous.round,
+          previous.turn,
+          orderedCombatants(previous.combatants)[previous.turn]?.id ?? null,
+          Date.now(),
+          current.id,
+          current.revision,
+        );
         if (updated.changes !== 1)
           throw new RevisionConflictError(
             "combat",
@@ -425,9 +417,9 @@ export function createEncounterRepository(database: DatabaseSync) {
           current.id,
           previous.combatants,
         );
-        database
-          .prepare("DELETE FROM combat_history WHERE id = ?")
-          .run(history.id);
+        statement(database, "DELETE FROM combat_history WHERE id = ?").run(
+          history.id,
+        );
         touch(database, campaignId, actorUserId, "combat", current.id, "undo");
         syncScreenshotReferences(
           database,
@@ -437,11 +429,10 @@ export function createEncounterRepository(database: DatabaseSync) {
           current.id,
           ...getCombat(database, current.id).combatants.flatMap(combatRichText),
         );
-        database
-          .prepare(
-            "DELETE FROM screenshot_references WHERE resource_type='combat_history' AND resource_id=?",
-          )
-          .run(String(history.id));
+        statement(
+          database,
+          "DELETE FROM screenshot_references WHERE resource_type='combat_history' AND resource_id=?",
+        ).run(String(history.id));
       });
       return getCombat(database, current.id);
     },
@@ -450,27 +441,25 @@ export function createEncounterRepository(database: DatabaseSync) {
 
 function pruneCombatHistory(database: DatabaseSync, encounterId: string): void {
   const limit = getServerSettings(database).combatHistoryLimit;
-  const cutoff = database
-    .prepare(
-      "SELECT id FROM combat_history WHERE encounter_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
-    )
-    .get(encounterId, limit) as { id: number } | undefined;
-  database
-    .prepare(
-      `DELETE FROM combat_history WHERE id IN (
+  const cutoff = statement(
+    database,
+    "SELECT id FROM combat_history WHERE encounter_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
+  ).get(encounterId, limit) as { id: number } | undefined;
+  statement(
+    database,
+    `DELETE FROM combat_history WHERE id IN (
     SELECT id FROM (SELECT id, SUM(length(COALESCE(before_state,''))) OVER (ORDER BY id DESC) AS bytes
     FROM combat_history WHERE encounter_id=?) WHERE bytes > 25*1024*1024)`,
-    )
-    .run(encounterId);
+  ).run(encounterId);
   if (cutoff)
-    database
-      .prepare("DELETE FROM combat_history WHERE encounter_id = ? AND id <= ?")
-      .run(encounterId, cutoff.id);
-  database
-    .prepare(
-      "DELETE FROM screenshot_references WHERE resource_type='combat_history' AND resource_id NOT IN (SELECT CAST(id AS TEXT) FROM combat_history)",
-    )
-    .run();
+    statement(
+      database,
+      "DELETE FROM combat_history WHERE encounter_id = ? AND id <= ?",
+    ).run(encounterId, cutoff.id);
+  statement(
+    database,
+    "DELETE FROM screenshot_references WHERE resource_type='combat_history' AND resource_id NOT IN (SELECT CAST(id AS TEXT) FROM combat_history)",
+  ).run();
 }
 
 function replacePreparedMonsters(
@@ -479,13 +468,16 @@ function replacePreparedMonsters(
   encounterId: string,
   monsters: PreparedMonster[],
 ): void {
-  database
-    .prepare("DELETE FROM prepared_encounter_monsters WHERE encounter_id = ?")
-    .run(encounterId);
-  const valid = database.prepare(
+  statement(
+    database,
+    "DELETE FROM prepared_encounter_monsters WHERE encounter_id = ?",
+  ).run(encounterId);
+  const valid = statement(
+    database,
     "SELECT id FROM monsters WHERE id = ? AND campaign_id = ? LIMIT 1",
   );
-  const insert = database.prepare(
+  const insert = statement(
+    database,
     `INSERT INTO prepared_encounter_monsters
       (id, encounter_id, monster_id, display_number, quantity, sort_order)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -522,27 +514,32 @@ function replaceCombatants(
       )
       .map((entry) => entry.id),
   );
-  const remove = database.prepare(
+  const remove = statement(
+    database,
     "DELETE FROM combatants WHERE id=? AND encounter_id=?",
   );
   for (const entry of prior)
     if (!inputById.has(entry.id) || !unchanged.has(entry.id))
       remove.run(entry.id, encounterId);
-  const insertCombatant = database.prepare(
+  const insertCombatant = statement(
+    database,
     `INSERT INTO combatants
       (id, encounter_id, player_id, monster_id, name, display_number, kind,
        notes, initiative, hit_points, maximum_hit_points, armor_class,
        sort_order, revision, created_at, updated_at, runtime, snapshot)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
-  const insertCondition = database.prepare(
+  const insertCondition = statement(
+    database,
     `INSERT INTO combat_conditions
       (id, combatant_id, name, remaining_turns, created_at, timing, requires_save, save_due) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
-  const validPlayer = database.prepare(
+  const validPlayer = statement(
+    database,
     "SELECT id FROM players WHERE id = ? AND campaign_id = ? LIMIT 1",
   );
-  const validMonster = database.prepare(
+  const validMonster = statement(
+    database,
     "SELECT id FROM monsters WHERE id = ? AND campaign_id = ? LIMIT 1",
   );
   const now = Date.now();
@@ -556,9 +553,10 @@ function replaceCombatants(
           .list(
             campaignId,
             (
-              database
-                .prepare("SELECT owner_id AS owner FROM campaigns WHERE id=?")
-                .get(campaignId) as { owner: string }
+              statement(
+                database,
+                "SELECT owner_id AS owner FROM campaigns WHERE id=?",
+              ).get(campaignId) as { owner: string }
             ).owner,
           )
           .map((monster) => [monster.id, monster] as const)
@@ -651,42 +649,38 @@ function getOrCreateCombat(
   database: DatabaseSync,
   campaignId: string,
 ): CombatEncounter {
-  let row = database
-    .prepare(
-      `SELECT id, campaign_id AS campaignId, name, round, turn, active_combatant_id AS activeCombatantId, revision,
+  let row = statement(
+    database,
+    `SELECT id, campaign_id AS campaignId, name, round, turn, active_combatant_id AS activeCombatantId, revision,
             created_at AS createdAt, updated_at AS updatedAt
        FROM combat_encounters WHERE campaign_id = ?`,
-    )
-    .get(campaignId) as CombatRow | undefined;
+  ).get(campaignId) as CombatRow | undefined;
   if (!row) {
     const now = Date.now();
     const id = crypto.randomUUID();
-    database
-      .prepare(
-        `INSERT INTO combat_encounters
+    statement(
+      database,
+      `INSERT INTO combat_encounters
         (id, campaign_id, name, round, turn, revision, created_at, updated_at)
        VALUES (?, ?, 'Encounter', 1, 0, 1, ?, ?)`,
-      )
-      .run(id, campaignId, now, now);
-    row = database
-      .prepare(
-        `SELECT id, campaign_id AS campaignId, name, round, turn, active_combatant_id AS activeCombatantId, revision,
+    ).run(id, campaignId, now, now);
+    row = statement(
+      database,
+      `SELECT id, campaign_id AS campaignId, name, round, turn, active_combatant_id AS activeCombatantId, revision,
               created_at AS createdAt, updated_at AS updatedAt
          FROM combat_encounters WHERE id = ?`,
-      )
-      .get(id) as CombatRow;
+    ).get(id) as CombatRow;
   }
   return combatFromRow(database, row);
 }
 
 function getCombat(database: DatabaseSync, id: string): CombatEncounter {
-  const row = database
-    .prepare(
-      `SELECT id, campaign_id AS campaignId, name, round, turn, active_combatant_id AS activeCombatantId, revision,
+  const row = statement(
+    database,
+    `SELECT id, campaign_id AS campaignId, name, round, turn, active_combatant_id AS activeCombatantId, revision,
             created_at AS createdAt, updated_at AS updatedAt
        FROM combat_encounters WHERE id = ?`,
-    )
-    .get(id) as CombatRow | undefined;
+  ).get(id) as CombatRow | undefined;
   if (!row) throw new ResourceNotFoundError("combat", id);
   return combatFromRow(database, row);
 }
@@ -695,26 +689,24 @@ function combatFromRow(
   database: DatabaseSync,
   row: CombatRow,
 ): CombatEncounter {
-  const combatants = database
-    .prepare(
-      `SELECT id, player_id AS playerId, monster_id AS monsterId, name,
+  const combatants = statement(
+    database,
+    `SELECT id, player_id AS playerId, monster_id AS monsterId, name,
             display_number AS displayNumber, kind, notes, initiative,
             hit_points AS hitPoints, maximum_hit_points AS maximumHitPoints,
             armor_class AS armorClass, sort_order AS sortOrder, revision, runtime, snapshot
        FROM combatants WHERE encounter_id = ? ORDER BY sort_order, id`,
-    )
-    .all(row.id) as Array<
+  ).all(row.id) as Array<
     Omit<Combatant, "conditions" | "runtime" | "snapshot"> & {
       runtime: string;
       snapshot: string | null;
     }
   >;
-  const conditionRows = database
-    .prepare(
-      `SELECT cc.id,cc.name,cc.remaining_turns AS remainingTurns,cc.timing,cc.requires_save AS requiresSave,cc.save_due AS saveDue,cc.combatant_id AS combatantId
+  const conditionRows = statement(
+    database,
+    `SELECT cc.id,cc.name,cc.remaining_turns AS remainingTurns,cc.timing,cc.requires_save AS requiresSave,cc.save_due AS saveDue,cc.combatant_id AS combatantId
     FROM combat_conditions cc JOIN combatants c ON c.id=cc.combatant_id WHERE c.encounter_id=? ORDER BY cc.created_at,cc.id`,
-    )
-    .all(row.id) as Array<
+  ).all(row.id) as Array<
     Omit<CombatCondition, "requiresSave" | "saveDue"> & {
       combatantId: string;
       requiresSave: number;
@@ -757,13 +749,12 @@ function combatFromRow(
 }
 
 function getPrepared(database: DatabaseSync, id: string): PreparedEncounter {
-  const row = database
-    .prepare(
-      `SELECT id, session_id AS sessionId, name, notes, sort_order AS sortOrder,
+  const row = statement(
+    database,
+    `SELECT id, session_id AS sessionId, name, notes, sort_order AS sortOrder,
             revision, created_at AS createdAt, updated_at AS updatedAt
        FROM prepared_encounters WHERE id = ?`,
-    )
-    .get(id) as PreparedRow | undefined;
+  ).get(id) as PreparedRow | undefined;
   if (!row) throw new ResourceNotFoundError("prepared encounter", id);
   return preparedFromRow(database, row);
 }
@@ -776,27 +767,26 @@ function preparedFromRow(
 ): PreparedEncounter {
   const monsters =
     suppliedMonsters ??
-    (database
-      .prepare(
-        `SELECT id, monster_id AS monsterId, display_number AS displayNumber,
+    (statement(
+      database,
+      `SELECT id, monster_id AS monsterId, display_number AS displayNumber,
             quantity, sort_order AS sortOrder
        FROM prepared_encounter_monsters WHERE encounter_id = ?
       ORDER BY sort_order, id`,
-      )
-      .all(row.id) as PreparedMonster[]);
+    ).all(row.id) as PreparedMonster[]);
   return {
     ...row,
     monsters,
     combatants:
       suppliedCombatants ??
-      (database
-        .prepare(
-          `SELECT id, name, kind, notes,
+      (statement(
+        database,
+        `SELECT id, name, kind, notes,
       display_number AS displayNumber, initiative, hit_points AS hitPoints,
       maximum_hit_points AS maximumHitPoints, armor_class AS armorClass,
       sort_order AS sortOrder FROM prepared_combatants WHERE encounter_id = ?
       ORDER BY sort_order, id`,
-        )
+      )
         .all(row.id)
         .map((entry) => ({ ...entry })) as PreparedCombatant[]),
     createdAt: new Date(row.createdAt).toISOString(),
@@ -810,11 +800,10 @@ function ensureSession(
   sessionId: string,
 ): void {
   if (
-    !database
-      .prepare(
-        "SELECT id FROM sessions WHERE id = ? AND campaign_id = ? LIMIT 1",
-      )
-      .get(sessionId, campaignId)
+    !statement(
+      database,
+      "SELECT id FROM sessions WHERE id = ? AND campaign_id = ? LIMIT 1",
+    ).get(sessionId, campaignId)
   )
     throw new ResourceNotFoundError("session", sessionId);
 }
@@ -826,9 +815,10 @@ function conflictOrMissing(
   id: string,
   expectedRevision: number,
 ): never {
-  const row = database
-    .prepare(`SELECT revision FROM ${table} WHERE id = ?`)
-    .get(id) as { revision: number } | undefined;
+  const row = statement(
+    database,
+    `SELECT revision FROM ${table} WHERE id = ?`,
+  ).get(id) as { revision: number } | undefined;
   if (!row) throw new ResourceNotFoundError(type, id);
   throw new RevisionConflictError(type, id, expectedRevision, row.revision);
 }
@@ -841,11 +831,10 @@ function touch(
   resourceId: string,
   action: string,
 ): void {
-  database
-    .prepare(
-      "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",
-    )
-    .run(Date.now(), campaignId);
+  statement(
+    database,
+    "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",
+  ).run(Date.now(), campaignId);
   recordAuditEvent(database, {
     campaignId,
     actorUserId,
@@ -860,12 +849,16 @@ function replacePreparedCombatants(
   encounterId: string,
   entries: PreparedCombatant[],
 ): void {
-  database
-    .prepare("DELETE FROM prepared_combatants WHERE encounter_id = ?")
-    .run(encounterId);
-  const insert = database.prepare(`INSERT INTO prepared_combatants
+  statement(
+    database,
+    "DELETE FROM prepared_combatants WHERE encounter_id = ?",
+  ).run(encounterId);
+  const insert = statement(
+    database,
+    `INSERT INTO prepared_combatants
  (id,encounter_id,name,kind,notes,display_number,initiative,hit_points,maximum_hit_points,armor_class,sort_order)
- VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+ VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+  );
   for (const entry of entries)
     insert.run(
       entry.id,

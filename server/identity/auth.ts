@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { getDatabase } from "../../db/sqlite.ts";
@@ -14,6 +15,8 @@ import { runTransaction } from "../../db/transaction.ts";
 
 const DUMMY_PASSWORD_HASH =
   "scrypt-v1$AAAAAAAAAAAAAAAAAAAAAA==$" + Buffer.alloc(64).toString("base64");
+
+const sessionCredentials = new WeakMap<User, string>();
 
 const sessionCleanup = new WeakMap<DatabaseSync, number>();
 
@@ -32,14 +35,14 @@ type UserRow = Omit<User, "isAdmin"> & {
 };
 
 export function registrationStatus(database = getDatabase()) {
-  const count = database
-    .prepare("SELECT COUNT(*) AS count FROM users")
-    .get() as { count: number };
-  const setting = database
-    .prepare(
-      "SELECT value FROM application_settings WHERE key = 'registration_enabled'",
-    )
-    .get() as { value: string } | undefined;
+  const count = statement(
+    database,
+    "SELECT COUNT(*) AS count FROM users",
+  ).get() as { count: number };
+  const setting = statement(
+    database,
+    "SELECT value FROM application_settings WHERE key = 'registration_enabled'",
+  ).get() as { value: string } | undefined;
   return {
     initialSetup: count.count === 0,
     registrationEnabled: count.count === 0 || setting?.value === "true",
@@ -50,13 +53,12 @@ export function setRegistrationEnabled(
   database: DatabaseSync,
   enabled: boolean,
 ): void {
-  database
-    .prepare(
-      `INSERT INTO application_settings (key, value, updated_at)
+  statement(
+    database,
+    `INSERT INTO application_settings (key, value, updated_at)
      VALUES ('registration_enabled', ?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    )
-    .run(enabled ? "true" : "false", Date.now());
+  ).run(enabled ? "true" : "false", Date.now());
 }
 
 export async function registerUser(
@@ -90,14 +92,16 @@ export async function registerUser(
 export async function createManagedUserRecord(
   database: DatabaseSync,
   input: { username: string; displayName: string; password: string },
+  authorize: () => void = () => undefined,
 ): Promise<User> {
   const username = normaliseUsername(input.username);
   const validation = validateCredentials(username, input.password);
   if (validation) throw new PublicApiError(validation);
   const passwordHash = await hashPassword(input.password);
-  return runTransaction(database, () =>
-    createUserRecord(database, input, passwordHash, false),
-  );
+  return runTransaction(database, () => {
+    authorize();
+    return createUserRecord(database, input, passwordHash, false);
+  });
 }
 
 export async function authenticateUser(
@@ -105,67 +109,106 @@ export async function authenticateUser(
   usernameValue: string,
   password: string,
 ): Promise<User | null> {
-  const row = database
-    .prepare(
-      `SELECT id AS userId, username, display_name AS displayName,
+  const row = statement(
+    database,
+    `SELECT id AS userId, username, display_name AS displayName,
             is_admin AS isAdmin, password_hash AS passwordHash
        FROM users WHERE username = ? COLLATE NOCASE LIMIT 1`,
-    )
-    .get(normaliseUsername(usernameValue)) as UserRow | undefined;
+  ).get(normaliseUsername(usernameValue)) as UserRow | undefined;
   const valid = await verifyPassword(
     password,
     row?.passwordHash ?? DUMMY_PASSWORD_HASH,
   );
   if (!row?.passwordHash || !valid) return null;
-  if (passwordHashNeedsUpgrade(row.passwordHash))
-    database
-      .prepare(
-        "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
-      )
-      .run(await hashPassword(password), Date.now(), row.userId);
-  return toUser(row);
+  let credential = row.passwordHash;
+  if (passwordHashNeedsUpgrade(credential)) {
+    const upgraded = await hashPassword(password);
+    const changed = statement(
+      database,
+      "UPDATE users SET password_hash=?,updated_at=? WHERE id=? AND password_hash=?",
+    ).run(upgraded, Date.now(), row.userId, credential);
+    if (!changed.changes) return null;
+    credential = upgraded;
+  }
+  return userForCredential(database, row.userId, credential);
 }
 
 export async function getUser(database = getDatabase()): Promise<User | null> {
   const { cookies } = await import("next/headers");
   const token = (await cookies()).get(COOKIE_NAME)?.value;
-  if (!token) return null;
+  if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
   const now = Date.now();
   if (now - (sessionCleanup.get(database) ?? 0) >= 60_000) {
-    database
-      .prepare("DELETE FROM local_sessions WHERE expires_at <= ?")
-      .run(now);
+    statement(database, "DELETE FROM local_sessions WHERE expires_at <= ?").run(
+      now,
+    );
     sessionCleanup.set(database, now);
   }
-  const row = database
-    .prepare(
-      `SELECT u.id AS userId, u.username, u.display_name AS displayName,
+  const row = statement(
+    database,
+    `SELECT u.id AS userId, u.username, u.display_name AS displayName,
             u.is_admin AS isAdmin
        FROM local_sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.expires_at > ? LIMIT 1`,
-    )
-    .get(hashToken(token), now) as UserRow | undefined;
+  ).get(hashToken(token), now) as UserRow | undefined;
   return row ? toUser(row) : null;
 }
 
-export async function createSession(
+// Credential evidence remains server-side and is rechecked immediately before issuing a session.
+export function userForCredential(
+  database: DatabaseSync,
   userId: string,
+  passwordHash: string,
+): User | null {
+  const row = statement(
+    database,
+    "SELECT id AS userId,username,display_name AS displayName,is_admin AS isAdmin,password_hash AS passwordHash FROM users WHERE id=? AND password_hash=?",
+  ).get(userId, passwordHash) as UserRow | undefined;
+  if (!row) return null;
+  const user = toUser(row);
+  sessionCredentials.set(user, passwordHash);
+  return user;
+}
+export function createSessionRecord(
+  user: User,
+  database: DatabaseSync,
+  now = Date.now(),
+) {
+  return runTransaction(database, () => {
+    const credential = sessionCredentials.get(user);
+    if (
+      !credential ||
+      !statement(
+        database,
+        "SELECT 1 FROM users WHERE id=? AND password_hash=?",
+      ).get(user.userId, credential)
+    )
+      throw new PublicApiError(
+        "Credentials changed. Please sign in again.",
+        401,
+      );
+    const token = randomBytes(32).toString("base64url"),
+      sessionSeconds =
+        getServerSettings(database).sessionLifetimeDays * 24 * 60 * 60;
+    statement(
+      database,
+      "INSERT INTO local_sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)",
+    ).run(hashToken(token), user.userId, now + sessionSeconds * 1000, now);
+    return { token, sessionSeconds };
+  });
+}
+export async function createSession(
+  user: User,
   database = getDatabase(),
 ): Promise<void> {
   const { cookies } = await import("next/headers");
-  const token = randomBytes(32).toString("base64url");
-  const now = Date.now();
-  const sessionSeconds =
-    getServerSettings(database).sessionLifetimeDays * 24 * 60 * 60;
-  database
-    .prepare(
-      "INSERT INTO local_sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-    )
-    .run(hashToken(token), userId, now + sessionSeconds * 1000, now);
-  (await cookies()).set(COOKIE_NAME, token, {
+  const store = await cookies();
+  const secure = await secureCookieEnabled(database);
+  const { token, sessionSeconds } = createSessionRecord(user, database);
+  store.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: await secureCookieEnabled(database),
+    secure,
     path: "/",
     maxAge: sessionSeconds,
   });
@@ -176,9 +219,9 @@ export async function destroySession(database = getDatabase()): Promise<void> {
   const store = await cookies();
   const token = store.get(COOKIE_NAME)?.value;
   if (token)
-    database
-      .prepare("DELETE FROM local_sessions WHERE token_hash = ?")
-      .run(hashToken(token));
+    statement(database, "DELETE FROM local_sessions WHERE token_hash = ?").run(
+      hashToken(token),
+    );
   store.set(COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
@@ -215,9 +258,10 @@ function createUserRecord(
 ): User {
   const username = normaliseUsername(input.username);
   if (
-    database
-      .prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE")
-      .get(username)
+    statement(
+      database,
+      "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+    ).get(username)
   )
     throw new PublicApiError("That username is already registered.", 409);
   const user: User = {
@@ -227,21 +271,21 @@ function createUserRecord(
     isAdmin,
   };
   const now = Date.now();
-  database
-    .prepare(
-      `INSERT INTO users
+  statement(
+    database,
+    `INSERT INTO users
       (id, display_name, username, password_hash, is_admin, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      user.userId,
-      user.displayName,
-      user.username,
-      passwordHash,
-      user.isAdmin ? 1 : 0,
-      now,
-      now,
-    );
+  ).run(
+    user.userId,
+    user.displayName,
+    user.username,
+    passwordHash,
+    user.isAdmin ? 1 : 0,
+    now,
+    now,
+  );
+  sessionCredentials.set(user, passwordHash);
   return user;
 }
 

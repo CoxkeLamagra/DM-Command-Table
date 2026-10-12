@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
 import { requireCampaignOwner } from "./access.ts";
@@ -19,9 +20,9 @@ export function createMembershipRepository(database: DatabaseSync) {
   return {
     list(campaignId: string, actorUserId: string): CampaignMember[] {
       requireCampaignOwner(database, campaignId, actorUserId);
-      const rows = database
-        .prepare(
-          `SELECT u.id AS userId, u.username, u.display_name AS displayName,
+      const rows = statement(
+        database,
+        `SELECT u.id AS userId, u.username, u.display_name AS displayName,
                   CASE WHEN c.owner_id = u.id THEN 'owner' ELSE m.role END AS role,
                   CASE WHEN c.owner_id = u.id THEN c.updated_at ELSE m.updated_at END AS updatedAt
              FROM campaigns c
@@ -33,8 +34,7 @@ export function createMembershipRepository(database: DatabaseSync) {
              FROM campaign_members m
              JOIN users u ON u.id = m.user_id
             WHERE m.campaign_id = ?`,
-        )
-        .all(campaignId, campaignId) as MemberRow[];
+      ).all(campaignId, campaignId) as MemberRow[];
       const rank = { owner: 0, editor: 1, viewer: 2 } as const;
       return rows
         .map(toMember)
@@ -52,27 +52,26 @@ export function createMembershipRepository(database: DatabaseSync) {
       role: "viewer" | "editor",
     ): CampaignMember[] {
       requireCampaignOwner(database, campaignId, actorUserId);
-      const target = database
-        .prepare(
-          "SELECT id, username FROM users WHERE username = ? COLLATE NOCASE LIMIT 1",
-        )
-        .get(username.trim()) as { id: string; username: string } | undefined;
+      const target = statement(
+        database,
+        "SELECT id, username FROM users WHERE username = ? COLLATE NOCASE LIMIT 1",
+      ).get(username.trim()) as { id: string; username: string } | undefined;
       if (!target) throw new ResourceNotFoundError("user", username);
-      const owner = database
-        .prepare("SELECT owner_id AS ownerId FROM campaigns WHERE id = ?")
-        .get(campaignId) as { ownerId: string };
+      const owner = statement(
+        database,
+        "SELECT owner_id AS ownerId FROM campaigns WHERE id = ?",
+      ).get(campaignId) as { ownerId: string };
       if (target.id === owner.ownerId)
         throw new PublicApiError("The campaign owner already has full access.");
       const now = Date.now();
-      database
-        .prepare(
-          `INSERT INTO campaign_members
+      statement(
+        database,
+        `INSERT INTO campaign_members
             (campaign_id, user_id, role, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(campaign_id, user_id)
            DO UPDATE SET role = excluded.role, updated_at = excluded.updated_at`,
-        )
-        .run(campaignId, target.id, role, now, now);
+      ).run(campaignId, target.id, role, now, now);
       recordAuditEvent(database, {
         campaignId,
         actorUserId,
@@ -90,11 +89,10 @@ export function createMembershipRepository(database: DatabaseSync) {
       userId: string,
     ): CampaignMember[] {
       requireCampaignOwner(database, campaignId, actorUserId);
-      database
-        .prepare(
-          "DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
-        )
-        .run(campaignId, userId);
+      statement(
+        database,
+        "DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
+      ).run(campaignId, userId);
       recordAuditEvent(database, {
         campaignId,
         actorUserId,
@@ -111,32 +109,28 @@ export function createMembershipRepository(database: DatabaseSync) {
       newOwnerId: string,
     ): CampaignMember[] {
       requireCampaignOwner(database, campaignId, actorUserId);
-      const target = database
-        .prepare(
-          "SELECT role FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
-        )
-        .get(campaignId, newOwnerId) as { role: string } | undefined;
+      const target = statement(
+        database,
+        "SELECT role FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
+      ).get(campaignId, newOwnerId) as { role: string } | undefined;
       if (!target)
         throw new ResourceNotFoundError("campaign member", newOwnerId);
       runTransaction(database, () => {
         const now = Date.now();
-        database
-          .prepare(
-            `INSERT INTO campaign_members
+        statement(
+          database,
+          `INSERT INTO campaign_members
             (campaign_id, user_id, role, created_at, updated_at)
            VALUES (?, ?, 'editor', ?, ?)`,
-          )
-          .run(campaignId, actorUserId, now, now);
-        database
-          .prepare(
-            "DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
-          )
-          .run(campaignId, newOwnerId);
-        database
-          .prepare(
-            "UPDATE campaigns SET owner_id = ?, revision = revision + 1, updated_at = ? WHERE id = ?",
-          )
-          .run(newOwnerId, now, campaignId);
+        ).run(campaignId, actorUserId, now, now);
+        statement(
+          database,
+          "DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?",
+        ).run(campaignId, newOwnerId);
+        statement(
+          database,
+          "UPDATE campaigns SET owner_id = ?, revision = revision + 1, updated_at = ? WHERE id = ?",
+        ).run(newOwnerId, now, campaignId);
         recordAuditEvent(database, {
           campaignId,
           actorUserId,

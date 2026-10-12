@@ -1,3 +1,4 @@
+import { PublicApiError } from "../http/errors.ts";
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/;
@@ -46,7 +47,8 @@ export async function verifyPassword(
     return (
       expected.length === actual.length && timingSafeEqual(expected, actual)
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof PublicApiError) throw error;
     return false;
   }
 }
@@ -55,12 +57,22 @@ export function passwordHashNeedsUpgrade(stored: string): boolean {
   return !stored.startsWith("scrypt-v1$");
 }
 
+let activePasswordWork = 0;
+
 function derive(
   password: string,
   salt: Buffer,
   length: number,
 ): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
+  if (activePasswordWork >= 4)
+    return Promise.reject(
+      new PublicApiError(
+        "Password processing is busy. Please try again shortly.",
+        503,
+      ),
+    );
+  activePasswordWork++;
+  return new Promise<Buffer>((resolve, reject) => {
     scrypt(
       password,
       salt,
@@ -71,5 +83,7 @@ function derive(
         else resolve(value);
       },
     );
+  }).finally(() => {
+    activePasswordWork--;
   });
 }

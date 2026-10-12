@@ -2,6 +2,16 @@
 
 All notable DM Command Table releases are documented here.
 
+## Unreleased
+
+- Recheck verified credentials before session issuance and use conditional password updates so concurrent resets cannot be overwritten or bypassed by a pending login.
+- Recheck administrator rights after asynchronous account work and bound all password derivations, including reset/self-service paths.
+- Reuse up to 256 prepared SQL statements per connection without caching rows or authorization results; update compound rate limits in one transaction.
+- Stream authorized screenshots with private conditional caching and fresh authorization on cache validation. Preserve sole image references after uploader deletion and make failed reference replacements atomic.
+- Validate campaign packages before image decoding, reject malformed asset manifests, bound concurrent package work before body reading, and enforce export size incrementally.
+- Hash backup files in fixed-size chunks to avoid loading whole databases into memory. Preserve the backup format, schema 2, local-only deployment and all existing features.
+- Add security/efficiency regression coverage and update architecture, API, deployment and operations documentation.
+
 ## 10.0.0 — 2026-10-12
 
 - Track temporary HP, concentration, death saves, spell slots, legendary actions and configurable ability-use counters independently for each live combatant.

@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import type { CampaignRole } from "./campaign-repository.ts";
 
@@ -13,16 +14,15 @@ export function campaignRole(
   campaignId: string,
   userId: string,
 ): CampaignRole | null {
-  const row = database
-    .prepare(
-      `SELECT CASE WHEN c.owner_id = ? THEN 'owner' ELSE m.role END AS role
+  const row = statement(
+    database,
+    `SELECT CASE WHEN c.owner_id = ? THEN 'owner' ELSE m.role END AS role
          FROM campaigns c
          LEFT JOIN campaign_members m
            ON m.campaign_id = c.id AND m.user_id = ?
         WHERE c.id = ? AND (c.owner_id = ? OR m.user_id = ?)
         LIMIT 1`,
-    )
-    .get(userId, userId, campaignId, userId, userId) as
+  ).get(userId, userId, campaignId, userId, userId) as
     { role: CampaignRole } | undefined;
   return row?.role ?? null;
 }

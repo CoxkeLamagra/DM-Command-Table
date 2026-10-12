@@ -9,7 +9,7 @@ The v9 application uses a fresh SQLite schema and removes version-prefixed appli
 | `domain`             | Shared record contracts, combat rules, aggregate limits                                                             |
 | `features`           | Campaign, character, Bestiary, story, session, encounter, combat, identity, administration, search and workspace UI |
 | `server`             | Authorization, persistence, HTTP validation, media access and campaign portability                                  |
-| `db`                 | Fresh baseline, transaction boundaries and SQLite configuration                                                     |
+| `db`                 | Fresh baseline, transaction boundaries, bounded prepared-statement cache and SQLite configuration                                                     |
 | `scripts` / `deploy` | Shared standalone runtime, consistent backup/restore, maintenance and deployment                                    |
 
 Prepared custom combatants are normalized rows rather than JSON blobs. Combat reads conditions in a batch and saves changed rows incrementally. Mutating commands use expected revisions; bulk character/Bestiary deletion is atomic. Combat history has a count and byte budget and retains image references needed by undo. Combatant runtime resources and stat-block snapshots are separate bounded JSON values on each combatant row; conditions remain normalized rows with start/end/manual timing and save-prompt flags. Bestiary/prepared definitions are never updated by live resource spending. Snapshot image references are retained for live Combat and undo, and portable campaign packages remap embedded images. Schema migration 2 adds these fields to existing v9 storage and captures currently linked stat blocks and slot totals.
@@ -17,6 +17,16 @@ Prepared custom combatants are normalized rows rather than JSON blobs. Combat re
 Rich text is sanitized at persistence boundaries and when rendered or pasted. Local images retain campaign authorization after an uploader account is removed. Campaign packages include embedded images and remap their IDs on import; failed imports clean up staged uploads, and maintenance handles abandoned staging.
 
 The workspace supports addressable campaign/section/record URLs and browser navigation, dirty-draft reconciliation, separate authorization and server availability messages, and a mobile navigation focus trap. Editor components and shared record/draft helpers are extracted from large screens. Offline Bestiary JSON imports do not contact external services; connecting to the catalogue is opt-in.
+
+## Security and efficiency refactor
+
+The v10 main branch retains schema 2 and the released feature set. `db/statements.ts` keeps an LRU cache of at most 256 prepared SQL statements per connection using a WeakMap. It caches executable SQL only: bindings, returned rows and permission decisions are evaluated anew. Compound authentication budgets use one transaction, read all limits before any increment, and perform cleanup per connection.
+
+Credential evidence stays in a server-only WeakMap rather than in API user objects. Login verification and hash upgrades recheck the stored password; session issuance rechecks the evidence after cookie/settings awaits. Password changes update only the hash that was verified and revoke existing sessions. Administrator account creation/reset checks current administrator rights after asynchronous hashing. All password derivations share a four-operation capacity limit, in addition to the existing sign-in admission limits.
+
+Screenshot HTTP reads stream through a single authorized file handle. Private ETags avoid retransmitting unchanged bytes, but conditional requests still check access before returning 304. Image-reference replacement validates visibility before deleting the old reference, inside a transaction. This retains access when an uploader has been deleted and the resource's existing reference is the only remaining authorization path.
+
+Package import validates the portable campaign and exact asset manifest before decoding images. Package routes admit at most two operations before reading request bodies, return 503 instead of queuing, and release capacity on failure. Export size is counted incrementally. Backup checksums read 64 KiB chunks; their format and restore procedure remain unchanged.
 
 ## Deployment contract
 
@@ -48,3 +58,5 @@ This is a breaking baseline, not an in-place data migration. Previous API aliase
 Run `pnpm verify`, then `pnpm exec playwright install chromium` and `pnpm test:browser`. CI runs unit/API checks, production builds and browser regression tests on Node 22 and 24, plus Docker startup, authentication-boundary, storage and backup checks. See [release assessment](release-assessment.md) for observed results and [API reference](api.md) for the route contract.
 
 SQLite serves a single application instance with persistent local storage. Revision checks prevent stale writes but do not provide live presence or cursor sharing. Health checks exercise readiness, not complete disaster recovery. Backup retention is manual. Debian systemd/Nginx lifecycle acceptance requires the actual LXC host and is not established by Docker CI. The rich-text editor remains a contenteditable implementation; major editor changes need cross-browser acceptance testing.
+
+See [the technical review](security-efficiency-review.md) for source-backed findings, regression evidence and review limits.
