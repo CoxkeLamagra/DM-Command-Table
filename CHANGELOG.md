@@ -2,7 +2,7 @@
 
 All notable DM Command Table releases are documented here.
 
-## Unreleased
+## 10.1.0 — 2026-10-12
 
 - Recheck verified credentials before session issuance and use conditional password updates so concurrent resets cannot be overwritten or bypassed by a pending login.
 - Recheck administrator rights after asynchronous account work and bound all password derivations, including reset/self-service paths.

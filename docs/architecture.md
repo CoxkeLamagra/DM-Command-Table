@@ -20,7 +20,7 @@ The workspace supports addressable campaign/section/record URLs and browser navi
 
 ## Security and efficiency refactor
 
-The v10 main branch retains schema 2 and the released feature set. `db/statements.ts` keeps an LRU cache of at most 256 prepared SQL statements per connection using a WeakMap. It caches executable SQL only: bindings, returned rows and permission decisions are evaluated anew. Compound authentication budgets use one transaction, read all limits before any increment, and perform cleanup per connection.
+The v10.1.0 release retains schema 2 and the v10.0.0 feature set. `db/statements.ts` keeps an LRU cache of at most 256 prepared SQL statements per connection using a WeakMap. It caches executable SQL only: bindings, returned rows and permission decisions are evaluated anew. Compound authentication budgets use one transaction, read all limits before any increment, and perform cleanup per connection.
 
 Credential evidence stays in a server-only WeakMap rather than in API user objects. Login verification and hash upgrades recheck the stored password; session issuance rechecks the evidence after cookie/settings awaits. Password changes update only the hash that was verified and revoke existing sessions. Administrator account creation/reset checks current administrator rights after asynchronous hashing. All password derivations share a four-operation capacity limit, in addition to the existing sign-in admission limits.
 

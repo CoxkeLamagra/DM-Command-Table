@@ -60,7 +60,7 @@ Combatants accept optional `runtime` and `snapshot` fields. Runtime contains non
 
 Conditions support `timing` (`start-turn`, `end-turn`, `manual`), `requiresSave` and `saveDue`. Defaults preserve earlier timed-start-turn and indefinite-manual behavior. Turn commands decrement the outgoing end-turn and incoming start-turn conditions; save-gated expiry sets `saveDue` instead of removing the condition. Clients manually resolve saves and death saves. Own-turn resources reset only for the incoming eligible combatant, including round wrap. Reset-rounds changes round/turn without consuming conditions or restoring resources.
 
-## Current main security/efficiency behavior
+## v10.1.0 security/efficiency behavior
 
 The route and JSON record contracts remain unchanged. Authentication user objects never contain password hashes or credential evidence. A login or password change racing a reset returns a failure rather than issuing a session from obsolete credentials. Administrator rights are rechecked at the account mutation boundary. Password work and campaign package import/export return 503 with a retry message when their process-local capacity is full; retry the operation after a short delay.
 

@@ -1,4 +1,4 @@
-# v10 security and efficiency review
+# v10.1.0 security and efficiency review
 
 Reviewed 2026-10-12. The target is the v10.0.0 application after the batch 3/4 rollback. Changes preserve the existing feature set, schema 2, local SQLite/media/identity storage, Debian 13 LXC as primary deployment and Docker as secondary. This is a source review with regression and runtime validation; no live penetration test was performed. The automated Codex Security skill's supporting resources were unavailable, so this is not presented as a completed automated scan.
 

@@ -90,9 +90,9 @@ Client addresses are read only when `DM_COMMAND_TABLE_TRUST_PROXY=true`. Use thi
 
 Prepared encounters may expand to at most 10,000 combatants, including custom Players/NPCs and any Players/NPCs retained in the current combat. Oversized encounters are rejected before expansion. Loading a prepared encounter requires campaign editor or owner access.
 
-## Current main technical refactor
+## v10.1.0 technical refactor
 
-The refactor keeps schema 2, existing settings, local storage paths, backup format and deployment topology. Upgrade using an approved main commit after verifying a backup. Updating application code does not alter installed systemd/Nginx templates or local environment settings. The v10.0.0 tag remains the original release; it is not moved by main updates.
+The refactor keeps schema 2, existing settings, local storage paths, backup format and deployment topology. Upgrade to v10.1.0 after verifying a backup, or choose an approved main commit for later changes. Updating application code does not alter installed systemd/Nginx templates or local environment settings. The v10.0.0 tag remains the original release; it is not moved by main updates.
 
 Password derivation capacity is four concurrent operations per server process across all credential paths. Package import/export capacity is two operations, admitted before request-body reading. Busy operations return 503 and should be retried; authentication rate limits still apply. Capacity limits are local safeguards, not remote services or a substitute for proxy/body limits.
 
