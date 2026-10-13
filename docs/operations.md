@@ -96,7 +96,7 @@ Prepared encounters may expand to at most 10,000 combatants, including custom Pl
 
 The application uses a fresh schema-version-1 baseline named `offline-runtime-baseline`. Use separate fresh database and uploads paths for the first v11 installation; upgrades within v11 retain existing paths and data. Earlier installations and their backups remain separate; startup refuses their schema metadata. Never delete existing data to resolve a format error.
 
-Runtime hosts need no Internet access. Catalogue imports can read local browser files or optionally fetch from dnd5e.lamagra.link in the browser, and Debian GUI updates install the fixed host-staged runtime directory. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
+Runtime hosts need no Internet access. Catalogue imports can read local browser files or optionally fetch from dnd5e.lamagra.link in the browser, and Debian GUI updates optionally fetch/build/test approved releases before installing them. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
 
 Password derivation capacity is four concurrent operations per server process across all credential paths. Package import/export capacity is two operations, admitted before request-body reading. Busy operations return 503 and should be retried; authentication rate limits still apply. Capacity limits are local safeguards, not remote services or a substitute for proxy/body limits.
 
@@ -104,9 +104,11 @@ Screenshot bytes stream with backpressure and private conditional caching. Every
 
 Use `pnpm verify` and CI's Node 22/24 browser and Docker checks before accepting a source update. Host-specific systemd/Nginx and restore acceptance still require your own LXC. Review [the technical assessment](security-efficiency-review.md) for exact coverage and limits.
 
-## Offline update staging
+## Automatic and offline updates
 
-Follow [Debian GUI setup](debian-13-lxc.md#updates-from-administration) to stage and approve a package. `runtime-manifest.json` records the fresh baseline, version and exact runtime inventory. An independently installed verifier checks hashes and rejects external dependency links. The incoming path and release directories belong to root; the application account cannot change executable code. A checksum manifest is not a signature: approve the build source and artifact before staging. Keep prior releases and stopped-service backups until recovery is accepted; retention is host-managed.
+After the one-time [Debian updater installation](debian-13-lxc.md#updates-from-administration), the Admin button fetches, installs, verifies, builds, runs browser tests and packages the latest stable v11 release. Source preparation runs as a separate build account without application storage/settings/bootstrap variables; failures leave the active release running. The root-owned deployment helper verifies the immutable candidate, takes a stopped-service backup, switches and checks the exact expected health version, restoring code/data on failure.
+
+Automatic updates need GitHub/package-registry connectivity and preconfigured system tools, supplied by the one-time installer. The browser cannot select commands, sources or paths. Root can pin a target or deliberately choose `staged` for an offline package workflow. Manifests detect transfer corruption rather than establish publisher authenticity; automatic mode trusts the fixed project repository. Keep prior releases/backups and retain failed build output for diagnosis. Routine application updates need no manual build or staging; root-owned helper/service changes remain host maintenance.
 
 ## Optional remote Bestiary catalogue
 

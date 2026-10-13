@@ -2,7 +2,15 @@
 
 Version 11.0.0 introduces the fresh-install baseline. This refactor retains local accounts, administrator account/settings/media management, campaign ownership/sharing/copy/templates/import/export, Players/NPCs, Bestiary, Stories/Sessions and links, prepared encounters, live combat/conditions/resources/undo, local search, rich text/screenshots, responsive navigation and backup/restore/maintenance.
 
-Catalogue search/import defaults to local JSON. Version 11.1.0 also restores an optional remote source after explicit browser connection. Administrator application updates retain GUI controls, progress, logs, auditing and recovery while installing a fixed root-approved host-staged package. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
+Catalogue search/import defaults to local JSON. Version 11.1.0 also restores an optional remote source after explicit browser connection. Administrator application updates retain GUI controls, progress, logs, auditing and recovery; version 11.2.0 automates trusted source fetch, dependency installation, verification, build and deployment. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
+
+## v11.2.0 automatic Admin updates
+
+Restores the complete Admin update workflow after one-time installation of the root-owned automatic updater: fetch the latest stable v11 release, install frozen dependencies, audit/format/lint/type/unit checks, build, browser tests, package/verify, stopped-service backup, release switch and expected-version health. Separate unprivileged builds exclude application storage/settings/bootstrap variables. Browser input cannot choose commands or sources. Manual staged-only deployment remains an explicit offline option.
+
+An existing staged-only root service requires a one-time installer change; it cannot replace itself through the unprivileged web application. Routine application updates then need no terminal, build or staging. The default excludes prereleases/newer majors and retains v11 data compatibility.
+
+Deployment simulations execute the real shell switch/recovery logic with real SQLite backup/restore and filesystem links, while identities/systemd/remote-build infrastructure are simulated. They cover unchanged live service on build failure, successful deployment and wrong-version health rollback preserving original data. These checks do not establish actual Debian systemd/Nginx host acceptance. Validation passed all 103 unit/API tests, production audit, formatting, lint, TypeScript and production build, plus all 17 system-Chromium browser tests. A real unprivileged automatic build against the latest published v11 tag completed Git resolution/clone, frozen dependency installation, verification, production build, 17 browser tests and runtime packaging; only tool paths/cache locations were adapted for this workspace. Actual privileged systemd/Nginx lifecycle acceptance remains a deployment-host check.
 
 ## v11.1.0 optional remote catalogue
 

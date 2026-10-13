@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+[[ $(id -u) == 0 ]] || { echo 'Run this one-time installer as root.' >&2; exit 1; }
+TEMPLATES=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+VERIFIER_SOURCE=$TEMPLATES/../../scripts/runtime-integrity.mjs
+if [[ ! -f $VERIFIER_SOURCE ]]; then VERIFIER_SOURCE=$TEMPLATES/../runtime-integrity.mjs; fi
+[[ -f $VERIFIER_SOURCE ]] || { echo 'Use an approved source checkout or complete transferred LXC bundle.' >&2; exit 1; }
+[[ -x /usr/bin/node && $(/usr/bin/node -p 'process.versions.node.split(".")[0]') == 24 ]] || { echo 'Install system-wide Node 24 using the Debian guide first.' >&2; exit 1; }
+# Never replace a broker while it is running an update.
+if [[ -f /var/lib/dm-command-table-updater/latest.json ]]; then
+  /usr/bin/node -e 'const fs=require("node:fs"); if(JSON.parse(fs.readFileSync("/var/lib/dm-command-table-updater/latest.json","utf8")).status==="running") throw Error("Wait for the current update to finish before installing.");'
+fi
+exec 8>/run/lock/dm-command-table-update.lock
+flock -n 8 || { echo 'An update is running. Retry after it finishes.' >&2; exit 1; }
+apt-get update
+apt-get install -y git curl ca-certificates chromium build-essential python3 util-linux
+if [[ ! -x /usr/bin/pnpm ]] || [[ $(/usr/bin/pnpm --version) != 11.25.0 ]]; then
+  /usr/bin/npm install --global --prefix /usr pnpm@11.25.0
+fi
+if ! id dmct-build >/dev/null 2>&1; then
+  useradd --system --user-group --home-dir /var/cache/dm-command-table-build --shell /usr/sbin/nologin dmct-build
+fi
+install -d -o dmct-build -g dmct-build -m 0755 /var/cache/dm-command-table-build
+install -d -o root -g root -m 0755 /usr/local/lib/dm-command-table
+if systemctl cat dm-command-table-updater.service >/dev/null 2>&1; then
+  systemctl stop dm-command-table-updater.service
+fi
+install -o root -g root -m 0644 "$TEMPLATES/build-update.mjs" /usr/local/lib/dm-command-table/build-update.mjs
+install -o root -g root -m 0644 "$TEMPLATES/update-broker.mjs" /usr/local/lib/dm-command-table/update-broker.mjs
+install -o root -g root -m 0644 "$VERIFIER_SOURCE" /usr/local/lib/dm-command-table/runtime-integrity.mjs
+install -o root -g root -m 0755 "$TEMPLATES/update-dm-command-table" /usr/local/sbin/update-dm-command-table
+install -o root -g root -m 0644 "$TEMPLATES/dm-command-table-updater.service" /etc/systemd/system/dm-command-table-updater.service
+systemctl daemon-reload
+flock -u 8
+exec 8>&-
+systemctl enable --now dm-command-table-updater.service
+systemctl is-active dm-command-table-updater.service
+echo 'Automatic Admin updates are enabled. Use Update application to install the latest stable v11 release.'

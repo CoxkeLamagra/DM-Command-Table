@@ -4,8 +4,16 @@ set -euo pipefail
 cd /
 step() { printf '@@STEP %s\n' "$1"; }
 step prerequisites
-[[ $# == 0 ]] || { echo 'This offline updater accepts no arguments. Stage the approved runtime on the host.' >&2; exit 1; }
+[[ $# -le 1 ]] || { echo 'Provide at most one root-configured update target.' >&2; exit 1; }
+TARGET=${1:-latest}
+[[ $TARGET =~ ^(latest|staged|origin/main|v[0-9]+\.[0-9]+\.[0-9]+|[a-f0-9]{40})$ ]] || { echo 'Invalid update target.' >&2; exit 1; }
 [[ -x /usr/bin/node ]] || { echo 'Install the system-wide Node runtime.' >&2; exit 1; }
+if [[ $TARGET != staged ]]; then
+  for tool in /usr/bin/git /usr/bin/pnpm /usr/bin/chromium; do
+    [[ -x $tool ]] || { echo "Missing update prerequisite: $tool. Run the GUI updater installer once." >&2; exit 1; }
+  done
+  id dmct-build >/dev/null || { echo 'Run the GUI updater installer to create dmct-build.' >&2; exit 1; }
+fi
 exec 9>/run/lock/dm-command-table-update.lock
 flock -n 9 || { echo 'An update is already running.' >&2; exit 1; }
 BASE=/opt/dm-command-table
@@ -13,18 +21,28 @@ CURRENT=$BASE/current
 CANDIDATE=$BASE/incoming/runtime
 SERVICE=dm-command-table.service
 VERIFIER=/usr/local/lib/dm-command-table/runtime-integrity.mjs
-step verify
-# Use the independently installed root-owned verifier, never candidate code as root.
-/usr/bin/node "$VERIFIER" "$CANDIDATE" --trusted-staging
 OLD=$(readlink -f "$CURRENT")
 [[ -d $OLD ]] || { echo 'Install an initial offline runtime first.' >&2; exit 1; }
+step current
 OLD_METADATA=$(/usr/bin/node "$VERIFIER" "$OLD" --trusted-staging)
 OLD_VERSION=$(printf '%s' "$OLD_METADATA" | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>console.log(JSON.parse(s).applicationVersion))')
+if [[ $TARGET != staged ]]; then
+  install -d -o root -g root -m 0755 "$BASE/builds"
+  BUILD=$(mktemp -d "$BASE/builds/update-XXXXXXXX")
+  chown dmct-build:dmct-build "$BUILD"
+  runuser -u dmct-build -- /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/var/cache/dm-command-table-build LANG=C.UTF-8 CI=1 NEXT_TELEMETRY_DISABLED=1 /usr/bin/node /usr/local/lib/dm-command-table/build-update.mjs "$BUILD" "$TARGET"
+  CANDIDATE=$BUILD/runtime
+else
+  [[ -d $CANDIDATE ]] || { echo 'No staged runtime exists. Use the default automatic update or stage a package for offline installation.' >&2; exit 1; }
+  /usr/bin/node "$VERIFIER" "$CANDIDATE" --trusted-staging
+fi
 # Root owns releases and current; dmct only reads code and writes application data.
 install -d -o root -g root -m 0755 "$BASE/releases"
 RELEASE=$(mktemp -d "$BASE/releases/release-XXXXXXXX")
-step package
+step stage
 cp -a "$CANDIDATE/." "$RELEASE/"
+chown -hR root:root "$RELEASE"
+chmod -R a+rX,go-w "$RELEASE"
 chmod 0755 "$RELEASE"
 NEW_METADATA=$(/usr/bin/node "$VERIFIER" "$RELEASE" --trusted-staging)
 NEW_VERSION=$(printf '%s' "$NEW_METADATA" | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>console.log(JSON.parse(s).applicationVersion))')
@@ -68,8 +86,8 @@ recover() {
   exit 1
 }
 step backup
-systemctl stop "$SERVICE"
 trap recover ERR
+systemctl stop "$SERVICE"
 if [[ -f ${DM_COMMAND_TABLE_DB_PATH:-/var/lib/dm-command-table/dm-command-table.sqlite} ]]; then
   BACKUP=$(runuser -u dmct --preserve-environment -- /usr/bin/node "$OLD/scripts/backup-local.mjs")
 fi
@@ -82,4 +100,9 @@ health "$NEW_VERSION"
 trap - ERR
 echo "Running $RELEASE. Pre-update backup: ${BACKUP:-fresh installation}"
 step cleanup
-echo 'Staged package, prior releases and backups retained for host-managed retention.'
+if [[ -n ${BUILD:-} ]]; then
+  # The build directory was uniquely created by this invocation; releases and
+  # backups remain available for rollback and host-managed retention.
+  rm -rf -- "$BUILD"
+fi
+echo 'Application update completed. Prior releases and backups retained.'

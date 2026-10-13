@@ -16,13 +16,15 @@ Content routes keep session/prepared-encounter saves transactional and expected 
 
 Rich text is sanitized at persistence/render boundaries. Screenshot reads authorize even conditional requests and stream through one file handle. Campaign-package imports validate the exact referenced asset inventory before image decoding, stage assets transactionally and clean up failures. Backup hashes use bounded chunks rather than whole-file buffers.
 
-## Offline executable updates
+## Administrator-triggered executable updates
 
-The browser can request only start/status through an administrator-only API. A separate root-owned broker executes a fixed updater with no browser-selected arguments, credentials or environment. The fixed candidate path is `/opt/dm-command-table/incoming/runtime`. Its ancestor directories and contents must be root-owned and not writable by other users. An independently installed verifier checks the package baseline, exact file inventory, SHA-256 checksums and contained relative dependency links before the service is stopped.
+The administrator-only browser API accepts start/status, not repository names, paths, commands or environments. An independent root-owned broker invokes a fixed updater with a validated root-configured target. Default `latest` resolves the newest stable v11 tag from the fixed project Git repository; prereleases and newer majors are excluded. Pinning is host configuration, not browser input.
 
-The manifest detects transfer corruption; it is not a publisher signature. Root must approve the source/build and stage the artifact. Candidate application code never executes as root for verification. Runtime releases are root-owned; `dmct` writes only application data. Successful updates and failed-candidate recovery retain prior code, backups and logs. The broker's systemd network policy limits IP access to localhost; the application uses the local Unix socket.
+Git/dependency installation, checks, build, browser regression and packaging execute as `dmct-build` in a fresh checkout. Application storage/settings/bootstrap variables are excluded from build subprocesses; no candidate application code executes as root. The old service keeps running until preparation and root verification of the copied immutable artifact succeed. Runtime releases are root-owned, while `dmct` only writes application data.
 
-Do not replace staging or broker/updater/verifier files while an update runs. Root installation and executable-artifact approval are operational prerequisites. Same-baseline packages are eligible for local updates; different baselines require separate installations.
+The independently installed verifier checks the baseline, file inventory/hashes and contained links. Manifests detect corruption; automatic mode's executable-source trust comes from the fixed project repository, not a manifest signature. A stopped-service backup and expected-version health check guard the release switch. Failed deployment restores the prior code and data to separate storage; original data, failures, backups and prior releases remain available. Preparation failures never stop the application. Manual root-approved staged packages remain an explicit offline option.
+
+Existing staged-only installations need a one-time root installer because the web app cannot replace root-owned helpers. The installer provisions prerequisites and removes the broker's former localhost-only egress restriction so its Git/build subprocesses can reach source/package hosts. Application privileges and Unix-socket access restrictions remain unchanged. Do not replace installed helpers during an update. Routine application updates run entirely from Admin; privileged helper changes remain host maintenance.
 
 ## Limits
 

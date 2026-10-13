@@ -1,3 +1,4 @@
+import { validateTarget } from "./build-update.mjs";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import {
@@ -15,9 +16,9 @@ import { pathToFileURL } from "node:url";
 export function createUpdateBroker({
   socketPath,
   statePath,
-  target = "/opt/dm-command-table/incoming/runtime",
+  target = "latest",
   launch = () =>
-    spawn("/usr/local/sbin/update-dm-command-table", [], {
+    spawn("/usr/local/sbin/update-dm-command-table", [target], {
       cwd: "/",
       env: {
         PATH: "/usr/sbin:/usr/bin:/sbin:/bin",
@@ -27,8 +28,7 @@ export function createUpdateBroker({
       stdio: ["ignore", "pipe", "pipe"],
     }),
 }) {
-  if (target !== "/opt/dm-command-table/incoming/runtime")
-    throw new Error("Use the fixed host-staged offline runtime directory.");
+  if (target !== "staged") validateTarget(target);
   let job = null;
   try {
     job = JSON.parse(readFileSync(statePath, "utf8"));
@@ -96,7 +96,7 @@ export function createUpdateBroker({
             continue;
           }
           const match = line.match(
-            /^@@STEP (prerequisites|verify|package|backup|switch|health|cleanup|rollback)$/,
+            /^@@STEP (prerequisites|current|fetch|install|verify|test|build|browser|package|stage|backup|switch|health|cleanup|rollback)$/,
           );
           if (!match) continue;
           for (const step of job.steps)
@@ -191,6 +191,7 @@ if (
   const broker = createUpdateBroker({
     socketPath: "/run/dm-command-table-updater/control.sock",
     statePath: "/var/lib/dm-command-table-updater/latest.json",
+    target: process.env.DM_COMMAND_TABLE_UPDATE_TARGET || "latest",
   });
   await broker.listen();
 }

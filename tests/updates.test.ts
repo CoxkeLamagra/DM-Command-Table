@@ -131,7 +131,7 @@ test("broker socket serves bounded local requests", async (context) => {
     });
     assert.deepEqual(JSON.parse(response), {
       available: true,
-      target: "/opt/dm-command-table/incoming/runtime",
+      target: "latest",
       job: null,
     });
   } finally {

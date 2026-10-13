@@ -6,8 +6,15 @@ import { requestJson } from "../shared/api-client";
 import type { UpdateState } from "@/domain/updates";
 
 const labels: Record<string, string> = {
-  prerequisites: "Check local runtime",
-  verify: "Verify host-staged package",
+  prerequisites: "Check update prerequisites",
+  current: "Verify installed runtime",
+  stage: "Prepare verified immutable release",
+  fetch: "Download the approved release",
+  install: "Install locked dependencies",
+  test: "Run unit and API tests",
+  build: "Build application",
+  browser: "Run browser regression tests",
+  verify: "Verify release and source checks",
   package: "Prepare local release",
   backup: "Stop application and back up local data",
   switch: "Switch to the new release",
@@ -96,13 +103,18 @@ export function UpdatePanel() {
             Application updates
           </h2>
           <p className="mt-1 text-sm text-stone-400">
-            Install the package staged by the server administrator, back up
-            local data, then restart the application. No Internet connection is
-            used.
+            {state?.target === "staged"
+              ? "Install the host-staged offline package, back up local data and restart."
+              : "Download, build and test the approved release, back up local data, then restart. No manual build or staging is required."}
           </p>
           {state?.available && (
             <p className="mt-1 text-sm text-stone-400">
-              Update source: {state.target}
+              Update source:{" "}
+              {state.target === "latest"
+                ? "Latest stable v11 release"
+                : state.target === "staged"
+                  ? "Host-staged offline package"
+                  : state.target}
             </p>
           )}
         </div>

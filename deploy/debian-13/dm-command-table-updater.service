@@ -1,12 +1,14 @@
 [Unit]
 Description=DM Command Table local update broker
-After=local-fs.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
 Group=dmct
 WorkingDirectory=/
+Environment=DM_COMMAND_TABLE_UPDATE_TARGET=latest
 ExecStart=/usr/bin/node /usr/local/lib/dm-command-table/update-broker.mjs
 Restart=on-failure
 RestartSec=5
@@ -16,8 +18,6 @@ StateDirectory=dm-command-table-updater
 StateDirectoryMode=0700
 UMask=0077
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-IPAddressDeny=any
-IPAddressAllow=localhost
 # Keep this independent of dm-command-table.service so updates survive its restart.
 # The updater needs systemctl, runuser and write access to releases/configuration.
 

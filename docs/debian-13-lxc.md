@@ -1,8 +1,8 @@
 # Debian 13 LXC installation and recovery
 
-This guide starts with a bare Debian 13 LXC and ends with a running application, local administrator account, scheduled backups and optional administrator-triggered updates. Debian 13 LXC is the primary deployment target.
+This guide starts with a bare Debian 13 LXC and ends with a running application, local administrator account, scheduled backups and optional automatic administrator-triggered updates. Debian 13 LXC is the primary deployment target.
 
-The default path builds the approved release inside the LXC. Initial OS/tool/dependency installation and browser downloads need Internet access. Once packaged, the application and its updater run locally without external services. A separate-build-machine alternative is included below for keeping build tools off the runtime host. Bundled npm libraries are retained.
+The default path builds the approved release inside the LXC. Initial OS/tool/dependency installation and browser downloads need Internet access. Once packaged, ordinary application use is local; automatic updates contact source/package hosts only when started. A separate-build-machine alternative is included below for keeping build tools off the runtime host. Bundled npm libraries are retained.
 
 ## 1. Prepare the container and root shell
 
@@ -98,7 +98,7 @@ From the build directory, clone the source and select the release explicitly. A 
 cd /var/cache/dm-command-table-build
 runuser -u dmct-build -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git source
 cd /var/cache/dm-command-table-build/source
-runuser -u dmct-build -- git checkout --detach v11.1.0
+runuser -u dmct-build -- git checkout --detach v11.2.0
 runuser -u dmct-build -- git rev-parse HEAD
 runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
 runuser -u dmct-build -- /usr/bin/pnpm verify
@@ -202,7 +202,7 @@ systemctl is-active nginx.service dm-command-table.service
 systemctl list-timers dm-command-table-backup.timer --no-pager
 ```
 
-Both health requests must return `status: ready` and version `11.1.0`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
+Both health requests must return `status: ready` and version `11.2.0`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
 
 Use `ip -brief address` to find the LAN address, then open `http://<container-LAN-IP>/` from your computer. Register the first administrator with the private bootstrap token. Keep self-registration disabled unless you intentionally enable it through Administration. Create a campaign/session, upload a screenshot, save and reload to verify the browser-facing installation.
 
@@ -281,24 +281,24 @@ Configure LAN DNS (or each client's hosts file) for this hostname, trust the cer
 
 To avoid retaining build tools/checkouts on the runtime LXC, provision Debian prerequisites and system-wide Node as above, then build on a trusted compatible Linux machine of the same architecture. That machine needs the same Node/pnpm/native build tools and browser prerequisites from sections 2–5. Do not use a Windows/macOS package or native dependencies from an incompatible Linux platform.
 
-On the build machine, use the section 5 commands to check out `v11.1.0`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
+On the build machine, use the section 5 commands to check out `v11.2.0`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
 
 ```bash
 mkdir -p dist/lxc-bundle
 cp -a dist/runtime dist/lxc-bundle/runtime
 cp -a deploy/debian-13 dist/lxc-bundle/deploy
 cp scripts/runtime-integrity.mjs dist/lxc-bundle/runtime-integrity.mjs
-tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.1.0-lxc.tar.gz .
-(cd dist; sha256sum dm-command-table-v11.1.0-lxc.tar.gz > dm-command-table-v11.1.0-lxc.tar.gz.sha256)
+tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.2.0-lxc.tar.gz .
+(cd dist; sha256sum dm-command-table-v11.2.0-lxc.tar.gz > dm-command-table-v11.2.0-lxc.tar.gz.sha256)
 ```
 
 Transfer both files from the approved build. Verify the checksum from that trusted transfer before extracting into a new staging directory. Checksums alone do not establish who produced the bundle. On the runtime host:
 
 ```bash
 cd /path/to/transferred-files
-sha256sum --check dm-command-table-v11.1.0-lxc.tar.gz.sha256
+sha256sum --check dm-command-table-v11.2.0-lxc.tar.gz.sha256
 install -d -o root -g root -m 0700 /root/dmct-install
-tar -xzf dm-command-table-v11.1.0-lxc.tar.gz -C /root/dmct-install
+tar -xzf dm-command-table-v11.2.0-lxc.tar.gz -C /root/dmct-install
 cd /root/dmct-install
 ```
 
@@ -308,66 +308,58 @@ A host with no Internet access at all must receive Debian/Node packages and thei
 
 ## Updates from Administration
 
-Install the optional independent root-owned broker and offline updater once. For an in-LXC build, first return to `/var/cache/dm-command-table-build/source`. For a transferred bundle, replace the first `cd` below with `cd /root/dmct-install` and replace `deploy/debian-13/` below with `deploy/`. These files are not in `/opt/dm-command-table/current`.
+After one-time installation of the automatic updater, **Update application** handles the complete update. It downloads the latest stable v11 release from the fixed project repository, installs frozen dependencies, performs audit/format/lint/type/unit checks, builds the production runtime, runs browser tests using Debian Chromium, packages and verifies the result, then backs up data, switches releases and checks readiness. Failed preparation leaves the running application untouched. A failed deployment restores the previous release and its matching stopped-service backup.
+
+### One-time setup or upgrade from the staged-only updater
+
+Run these commands once as root using an approved source checkout. On an existing installation, the root-owned staged-only updater cannot replace itself through the unprivileged web application; this installer replaces that service once. It does not require a manual application build. After installation, use the Admin button even if the currently running application is still v11.1.0.
 
 ```bash
 cd /var/cache/dm-command-table-build/source
-install -o root -g root -m 0644 deploy/debian-13/update-broker.mjs /usr/local/lib/dm-command-table/update-broker.mjs
-install -o root -g root -m 0755 deploy/debian-13/update-dm-command-table /usr/local/sbin/update-dm-command-table
-install -o root -g root -m 0644 deploy/debian-13/dm-command-table-updater.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now dm-command-table-updater.service
-```
-
-Before every update, build, test and approve a new package. For an in-LXC build, use the following commands; replace `v11.1.0` with the actual reviewed release tag when a newer release is available. Returning to this tag simply rebuilds the same version. Do not reset or overwrite local source changes.
-
-```bash
-cd /var/cache/dm-command-table-build/source
-DMCT_RELEASE_TAG=v11.1.0
 runuser -u dmct-build -- git fetch --tags origin
-runuser -u dmct-build -- git checkout --detach "$DMCT_RELEASE_TAG"
-runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
-runuser -u dmct-build -- /usr/bin/pnpm verify
-runuser -u dmct-build -- /usr/bin/env DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium /usr/bin/pnpm test:browser
-DMCT_CANDIDATE=/var/cache/dm-command-table-build/runtime-$(date +%Y%m%d-%H%M%S)
-test ! -e "$DMCT_CANDIDATE"
-runuser -u dmct-build -- /usr/bin/pnpm package:runtime "$DMCT_CANDIDATE"
-/usr/bin/node scripts/runtime-integrity.mjs "$DMCT_CANDIDATE"
+runuser -u dmct-build -- git checkout --detach v11.2.0
+bash deploy/debian-13/install-gui-updater
 ```
 
-For a separate build machine, prepare/transfer/verify a newly approved bundle using the alternative installation steps, then set `DMCT_CANDIDATE` to the absolute path of its unpacked `runtime/` directory. Keep Chromium current through signed Debian package updates. For the pinned-browser alternative, repeat the Playwright installation commands from section 5 after dependency updates when needed.
+For a fresh installation where section 5 already selected this release, only the installer command is needed. With a complete transferred LXC bundle, run `bash /root/dmct-install/deploy/install-gui-updater` instead. The installer checks system-wide Node 24, installs Git/curl/Chromium/native build tools and pnpm 11.25.0, creates the separate build account when missing, installs the root-owned broker/build helper/updater/verifier and enables the service. It refuses to replace a running update. The application itself remains running during installation. Do not modify source checkout files before running the installer.
 
-Stage the candidate while holding the updater's lock, so an update cannot run during copying. First check the Administration panel for a running job; if locking fails, wait for that update to finish. Preserve an existing incoming package instead of overwriting it:
+The updater service needs outbound HTTPS access to GitHub and the npm registry (and GitHub release/CDN hosts required by dependencies), plus working DNS. Its former localhost-only network restriction is removed by this installer because it prevented automatic downloads. Custom systemd/network restrictions may still need host-specific adjustment. No GitHub token is required for this public repository, and no application credentials are passed to builds. Ordinary application operation remains local; remote Bestiary access is separately optional.
+
+### Routine updates: Admin button only
+
+Open **Administration → Application updates**, save open edits and confirm **Update application**. The default source is **Latest stable v11 release**. No terminal, manual dependency installation, build or runtime staging is needed for routine updates. The source is resolved to an exact Git commit and recorded in the log. The existing application keeps serving while preparation runs, then briefly stops for the consistent backup and release switch.
+
+Progress includes prerequisites, fetch, install, verification, unit tests, production build, browser tests, packaging, backup, switch, readiness and cleanup/rollback. Browser closure and temporary application unavailability do not interrupt the independent broker. The page polls and reconnects; reload after success. Duplicate starts attach to the existing job. The final 64 KiB of output, administrator ID, timestamps, exit status and step results remain local.
+
+Source builds use a new isolated checkout owned by `dmct-build`; the updater never resets your installation checkout or builds as root. Application storage/settings/bootstrap credentials are excluded from build subprocesses. The root-owned verifier checks the copied immutable release before the old service stops. Runtime code is root-owned, while `dmct` only writes local application data. Successful temporary build directories are removed; failed builds, prior releases and backups are retained for diagnosis and host-managed retention.
+
+The fixed repository is `CoxkeLamagra/DM-Command-Table`. Browser requests accept only start/status, never a repository, executable, path, branch or environment override. Root can select `latest` (default, stable v11 tags), `origin/main`, a stable release tag or full commit SHA with a service drop-in:
+
+```ini
+[Service]
+Environment=DM_COMMAND_TABLE_UPDATE_TARGET=latest
+```
+
+To change that setting, use `systemctl edit dm-command-table-updater.service`, then `systemctl daemon-reload` and `systemctl restart dm-command-table-updater.service` only when idle. Latest excludes prereleases and newer major-version tags; a new major baseline requires its own reviewed installation. The socket remains root-owned with group `dmct` and mode `0660`, and broker state remains root-private. Docker stays host-managed; do not install this privileged broker inside a Docker application container.
+
+### CLI and offline alternative
+
+The root CLI `update-dm-command-table` performs the same automatic update; an optional validated target argument can pin an approved release. CLI jobs use the same lock but show logs in the terminal rather than as broker jobs.
+
+Offline hosts can retain manual package preparation: build and test elsewhere using the alternative installation workflow above, transfer/approve the complete runtime and stage it at `/opt/dm-command-table/incoming/runtime` with root ownership and no group/other write permissions. Stage only while no update is running and preserve any previous incoming package. Verify with the independently installed verifier, then use:
 
 ```bash
-exec 8>/run/lock/dm-command-table-update.lock
-flock -n 8
-if [ -e /opt/dm-command-table/incoming/runtime ] || [ -L /opt/dm-command-table/incoming/runtime ]; then
-  mv /opt/dm-command-table/incoming/runtime "/opt/dm-command-table/incoming/runtime.previous-$(date +%Y%m%d-%H%M%S)"
-fi
-cp -a "$DMCT_CANDIDATE" /opt/dm-command-table/incoming/runtime
-chown -R root:root /opt/dm-command-table/incoming/runtime
-chmod -R a+rX,go-w /opt/dm-command-table/incoming/runtime
 /usr/bin/node /usr/local/lib/dm-command-table/runtime-integrity.mjs /opt/dm-command-table/incoming/runtime --trusted-staging
-flock -u 8
-exec 8>&-
+update-dm-command-table staged
 ```
 
-The incoming path and ancestors must be real, root-owned directories without group/other write permission. Staged files must also be root-owned and immutable to other accounts. If staging fails, leave the job unstarted, inspect the error and repair the approved package; do not disable integrity checks.
+Root may set `DM_COMMAND_TABLE_UPDATE_TARGET=staged` for a deliberately staged-only Admin workflow. That mode still requires manual package preparation; it is not the default automatic workflow. Runtime/broker packages must already be installed before using this alternative.
 
-Open **Administration → Application updates**, save open edits, then confirm **Update application**. The fixed source is the staged directory. The browser cannot select paths, upload executable packages, specify commands or change environment values. Root staging supplies executable-code approval; application administrators trigger installation of that approved package. Neither the broker nor updater fetches source or installs dependencies. The systemd broker permits only localhost IP traffic.
+### Failure and rollback
 
-The panel retains prerequisite, verification, packaging, backup, switch, health, cleanup and rollback progress, administrator ID, timestamps, exit status and the final 64 KiB of output. Duplicate starts attach to the running job. The browser can close or reconnect during restart; the broker remains alive independently. Reload the application after success.
+A dependency, audit, lint/type/unit/browser test or build failure occurs before stopping the application. Inspect its step/log rather than bypassing checks. The updater retains the failed build directory for diagnosis. After the old service stops, any backup/switch/startup/readiness failure triggers recovery. Candidate health must report both `ready` and the expected application version. A failed candidate restores its stopped-service backup to a separate directory, updates storage paths and switches back to the prior code. Original data and failed releases are retained.
 
-The socket is `/run/dm-command-table-updater/control.sock`, root-owned with group `dmct` and mode `0660`, inside a `0750` directory. State is root-private under `/var/lib/dm-command-table-updater`. The web service remains unprivileged. Only install approved updater/broker/verifier files; an application update never replaces them automatically. Disable the broker when idle with `systemctl disable --now dm-command-table-updater.service` if GUI updates are unwanted. Docker and hosts without it retain host-managed replacement.
-
-## CLI updates and rollback
-
-Run `update-dm-command-table` as root with no arguments. It uses the same fixed staged package and lock as the GUI. Both current and candidate manifests must match `offline-runtime-baseline`; earlier releases need a separate fresh installation. The updater verifies the staged package and its copy before stopping the service, backs up committed database/image state using the previous release, atomically switches `current`, and checks local readiness.
-
-On a switch/startup/readiness failure it stops the candidate, restores the backup into a separate directory, updates storage paths and returns to the previous release. Original data, candidate files, staging, prior releases and backups are retained. A recovered failed deployment remains a failed job, with completed rollback. CLI logs are shown in the terminal rather than as broker jobs. Host-managed retention is deliberate.
-
-If the broker restarts mid-update, the job becomes interrupted. Inspect service health, `current`, logs and data before retrying. Never replace the incoming directory, broker or installed scripts during an update. An unexpected `current.next` path requires inspection rather than automatic deletion.
+The broker reports a recovered deployment as failed with a completed rollback. If the broker restarts mid-update, the job is interrupted; inspect health/current release/logs before retrying. Never replace installed helper files during a running update. An unexpected `current.next` path requires inspection instead of automatic deletion. Major baseline changes and privileged helper/service changes remain host configuration changes; routine application releases use the automatic workflow.
 
 ## Backups and recovery
 
@@ -416,7 +408,7 @@ ss -ltnp 'sport = :3000'
 
 Missing Node, inaccessible runtime files, incorrect storage permissions and proxy/cookie mismatches are host setup issues. The updater requires root-owned executable directories; old service-owned installation layouts must be replaced with a separately prepared fresh installation. Review [operations](operations.md) for settings, storage checks and maintenance.
 
-Source/unit/browser/package checks do not establish systemd/Nginx update lifecycle acceptance. Validate installation, successful update, failed health rollback and recovery on a disposable Debian LXC before using the updater on live data.
+Source/unit/browser/package checks and deployment simulations do not establish systemd/Nginx update lifecycle acceptance. Validate installation, successful update, failed health rollback and recovery on a disposable Debian LXC before using the updater on live data.
 
 ## Optional online monster imports
 

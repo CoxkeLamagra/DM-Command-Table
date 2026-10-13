@@ -2,6 +2,13 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.2.0 — 2026-10-13
+
+- Restore automatic Admin updates: fetch the latest stable v11 release, install frozen dependencies, verify/test/build, run Chromium regressions, package, verify, back up and deploy with expected-version health and rollback.
+- Use a separate unprivileged build account and fresh checkout without application storage/settings/bootstrap variables; preserve the active application on preparation failures.
+- Add a one-time installer to upgrade the root-owned staged-only broker/updater and provision system prerequisites. Routine application updates need no manual build/staging; retain explicit staged mode for offline hosts.
+- Show complete update progress and retain bounded logs/reconnection. Add build/deployment regression checks and update installation, architecture, operations and API documentation. Existing v11 data remains compatible.
+
 ## 11.1.0 — 2026-10-13
 
 - Restore explicit optional remote catalogue connection, name/source search, monster previews, multi-selection and import from dnd5e.lamagra.link alongside offline local JSON imports.
