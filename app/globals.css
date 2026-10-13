@@ -147,3 +147,14 @@ body {
   padding-bottom: 0.5rem;
   min-height: 44px;
 }
+
+/* Informational notifications must not block saves underneath their overlay.
+   Keep their explicit close/action buttons usable by pointer and keyboard. */
+.workspace-notifications,
+.workspace-notifications [data-sonner-toast] {
+  pointer-events: none;
+}
+.workspace-notifications [data-close-button],
+.workspace-notifications [data-button] {
+  pointer-events: auto;
+}

@@ -133,15 +133,44 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     page.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Captain after save");
   await page.unroute("**/sessions/*/save");
+  // Reproduce a notification covering the save control without forcing clicks
+  // or waiting for dismissal; the next save must remain a real pointer action.
+  const saveButton = section.getByRole("button", {
+    name: "Save session & encounters",
+    exact: true,
+  });
+  await saveButton.scrollIntoViewIfNeeded();
+  const bounds = await saveButton.boundingBox();
+  expect(bounds).not.toBeNull();
+  const notification = page.locator('[data-sonner-toast][data-front="true"]');
+  await expect(notification).toBeVisible();
+  await notification.evaluate((element, box) => {
+    Object.assign((element as HTMLElement).style, {
+      position: "fixed",
+      transform: "none",
+      bottom: "auto",
+      right: "auto",
+      left: `${box!.x + box!.width / 2 - 100}px`,
+      top: `${box!.y + box!.height / 2 - 30}px`,
+      width: "200px",
+      height: "60px",
+    });
+  }, bounds);
   await section
     .getByRole("button", { name: "Save session & encounters", exact: true })
-    .click();
+    .click({ timeout: 2000 });
   await expect(
     section.getByRole("button", {
       name: "Save session & encounters",
       exact: true,
     }),
   ).toBeEnabled();
+  const currentNotification = page.locator(
+    '[data-sonner-toast][data-front="true"]',
+  );
+  const notificationElement = await currentNotification.elementHandle();
+  await currentNotification.locator("[data-close-button]").click();
+  await expect.poll(() => notificationElement!.isVisible()).toBe(false);
   await page.getByRole("button", { name: "Campaign", exact: true }).click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByRole("button", { name: /Test session/ }).click();

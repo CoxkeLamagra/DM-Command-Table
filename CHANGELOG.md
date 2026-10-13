@@ -2,6 +2,12 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.0.2 — 2026-10-13
+
+- Prevent informational notifications from intercepting clicks on underlying Save controls. Retain actionable notification buttons and add an explicit dismiss button.
+- Exercise saving with a notification positioned over the Save button, without forced clicks or waiting for expiry, and verify manual dismissal.
+- Keep the v11 database baseline and existing data compatible.
+
 ## 11.0.1 — 2026-10-13
 
 - Support `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH` for running the unchanged browser regression suite with a local Chromium executable; retain Playwright's pinned browser by default.

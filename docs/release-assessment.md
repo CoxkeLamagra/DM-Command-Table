@@ -4,6 +4,10 @@ Version 11.0.0 introduces the fresh-install baseline. This refactor retains loca
 
 Catalogue search/import uses local JSON rather than an external source. Administrator application updates retain GUI controls, progress, logs, auditing and recovery while installing a fixed root-approved host-staged package. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
 
+## v11.0.2 notification fix
+
+The success notification could cover a Save control. When the pointer stayed over it during a retry, its auto-dismiss timer paused and the save remained blocked. Informational notification bodies now allow pointer clicks through to the workspace, while explicit close/action buttons remain interactive. An added close control supports manual dismissal. The prepared-encounter browser regression deliberately places a live toast over Save and uses an ordinary click with a two-second deadline, then checks dismissal and persisted edits; it neither forces clicks nor waits for notification expiry. The patch keeps existing v11 data compatible. Verification passed all 94 unit/API tests, production audit, formatting, lint, TypeScript and production build. All 16 system-Chromium browser tests passed, including the deliberate notification-over-Save regression and manual dismissal.
+
 ## v11.0.1 installation patch
 
 The patch adds a browser-test-only local Chromium executable override, `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH`. The Debian guide now defaults to signed Debian Chromium packages rather than requiring a Chrome-for-Testing download. CI and other environments retain Playwright's pinned browser when the variable is unset. The existing browser assertions and application production configuration are unchanged.

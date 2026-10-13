@@ -289,7 +289,12 @@ export function Shell() {
 
   return (
     <div className="min-h-screen bg-[#0b0d12] text-[#f5f0e5]">
-      <Toaster theme="dark" position="bottom-right" />
+      <Toaster
+        theme="dark"
+        position="bottom-right"
+        className="workspace-notifications"
+        closeButton
+      />
       <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-white/10 bg-[#0b0d12]/95 px-4 backdrop-blur lg:hidden">
         <Button
           size="icon"
