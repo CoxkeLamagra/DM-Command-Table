@@ -9,7 +9,7 @@ import {
   RichTextContent,
   RichTextEditor,
 } from "@/features/rich-text/rich-text";
-import { uploadScreenshot } from "@/features/shared/api-client";
+import { uploadScreenshot } from "@/features/shared/api";
 import type { PreparedCombatant, Combatant } from "@/domain/types";
 
 export function PreparedCombatantEditor({

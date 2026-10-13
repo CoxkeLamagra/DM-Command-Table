@@ -1,7 +1,7 @@
 "use client";
 import { isDraftDirty } from "@/features/shared/draft-state";
 
-import { deleteRecords } from "../shared/api-client";
+import { deleteRecords } from "../shared/api";
 
 import { useEffect, useMemo, useState } from "react";
 import { Heart, Plus, Save, Trash2 } from "lucide-react";
@@ -29,7 +29,7 @@ import {
   listMonsters,
   updateMonster,
   uploadScreenshot,
-} from "../shared/api-client";
+} from "../shared/api";
 import { Empty, Section } from "@/features/shared/record-section";
 import type { Monster } from "@/domain/types";
 import { BestiaryImport } from "./bestiary-import";

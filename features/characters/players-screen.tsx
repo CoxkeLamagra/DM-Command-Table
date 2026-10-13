@@ -1,7 +1,7 @@
 "use client";
 import { isDraftDirty } from "@/features/shared/draft-state";
 
-import { deleteRecords } from "../shared/api-client";
+import { deleteRecords } from "../shared/api";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
@@ -33,7 +33,7 @@ import {
   listPlayers,
   updatePlayer,
   uploadScreenshot,
-} from "../shared/api-client";
+} from "../shared/api";
 import { Empty, Section } from "@/features/shared/record-section";
 import type { Player } from "@/domain/types";
 

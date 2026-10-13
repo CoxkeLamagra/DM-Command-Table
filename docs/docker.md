@@ -4,11 +4,11 @@ Docker is the secondary deployment target. It runs the same self-contained stand
 
 ## Prepare and transfer an image
 
-Build an approved source revision on a trusted build machine. Initial builds can download base images and npm dependencies; this is separate from runtime operation. Check out `v11.2.0` for this release and record the exact source commit alongside the image.
+Build an approved source revision on a trusted build machine. Initial builds can download base images and npm dependencies; this is separate from runtime operation. Check out `v11.4.0` for this release and record the exact source commit alongside the image.
 
 ```sh
-docker build -t dm-command-table:11.2.0 .
-docker save -o dm-command-table-11.2.0.tar dm-command-table:11.2.0
+docker build -t dm-command-table:11.4.0 .
+docker save -o dm-command-table-11.4.0.tar dm-command-table:11.4.0
 ```
 
 Alternatively, build from an already prepared self-contained runtime without invoking a package manager. Load the approved Node base image locally first (`node:24.21.0-bookworm-slim`), then use the runtime directory as the entire build context:
@@ -16,8 +16,8 @@ Alternatively, build from an already prepared self-contained runtime without inv
 ```sh
 pnpm package:runtime
 node scripts/runtime-integrity.mjs dist/runtime
-docker build --network none --pull=false -f "$PWD/Dockerfile.runtime" -t dm-command-table:11.2.0 dist/runtime
-docker save -o dm-command-table-11.2.0.tar dm-command-table:11.2.0
+docker build --network none --pull=false -f "$PWD/Dockerfile.runtime" -t dm-command-table:11.4.0 dist/runtime
+docker save -o dm-command-table-11.4.0.tar dm-command-table:11.4.0
 ```
 
 `Dockerfile.runtime` copies only the supplied package and uses the prepared base image. Runtime preparation and base-image approval happen before an offline image build; no registry or package-manager access is needed by its build steps.
@@ -25,20 +25,20 @@ docker save -o dm-command-table-11.2.0.tar dm-command-table:11.2.0
 Transfer the approved image and the repository's `compose.yaml` and `.env.example` using trusted local media. On the offline host:
 
 ```sh
-docker load -i dm-command-table-11.2.0.tar
+docker load -i dm-command-table-11.4.0.tar
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
 ```
 
-Enter the generated bootstrap token privately in `.env`; the first production administrator account requires it. Use fresh storage for this baseline, separate from earlier installations. Do not delete or reuse an older volume to resolve schema-format errors.
+Enter the generated bootstrap token privately in `.env`; the first production administrator account requires it. Use fresh storage for a new v11 installation. Do not delete or reuse an older volume to resolve schema-format errors.
 
 Create `compose.local.yaml` beside `compose.yaml`:
 
 ```yaml
 services:
   dm-command-table:
-    image: dm-command-table:11.2.0
+    image: dm-command-table:11.4.0
     pull_policy: never
 ```
 
@@ -62,7 +62,7 @@ docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml exec -T dm-
 docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml exec -T dm-command-table node scripts/restore-local.mjs /data/backups/BACKUP
 ```
 
-Build/test the candidate elsewhere, transfer and load its approved image locally, then change `image` in `compose.local.yaml`. Run the same `up --no-build --pull never --wait` command. Check readiness, accounts, campaigns, prepared encounters, Combat and images. Only packages using the current fresh baseline can use its data. Earlier versions require a separate fresh installation. Retain the previous image and matching backup for recovery; Docker has no automatic rollback equivalent to the Debian updater.
+Build/test the candidate elsewhere, transfer and load its approved image locally, then change `image` in `compose.local.yaml`. Run the same `up --no-build --pull never --wait` command. Check readiness, accounts, campaigns, prepared encounters, Combat and images. Only verified packages using the supported v11 baseline can share its data. Retain the previous image and matching backup for recovery; Docker has no automatic rollback equivalent to the Debian updater.
 
 ## Backup and maintenance
 
@@ -88,14 +88,14 @@ Add the restored paths to the service's `environment` in `compose.local.yaml`:
 ```yaml
 services:
   dm-command-table:
-    image: dm-command-table:11.2.0
+    image: dm-command-table:11.4.0
     pull_policy: never
     environment:
       DM_COMMAND_TABLE_DB_PATH: /data/recovered/dm-command-table.sqlite
       DM_COMMAND_TABLE_UPLOAD_PATH: /data/recovered/uploads
 ```
 
-Start with the same offline `up` command and verify login, campaign records and embedded images. Restore refuses existing destinations and preserves original data. A backup from an earlier baseline must be restored with its original application version.
+Start with the same offline `up` command and verify login, campaign records and embedded images. Restore refuses existing destinations and preserves original data. Restore a verified v11 backup with matching application code.
 
 ## Diagnose and acceptance
 

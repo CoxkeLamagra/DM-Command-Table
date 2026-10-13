@@ -7,13 +7,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-const databasePath = path.resolve(
-  process.env.DM_COMMAND_TABLE_DB_PATH || "data/dm-command-table.sqlite",
-);
-const uploads = path.resolve(
-  process.env.DM_COMMAND_TABLE_UPLOAD_PATH ||
-    path.join(path.dirname(databasePath), "uploads"),
-);
+import { storagePaths } from "./storage-config.mjs";
+const { database: databasePath, uploads } = storagePaths();
 const quarantine = path.join(path.dirname(uploads), "media-quarantine");
 mkdirSync(uploads, { recursive: true, mode: 0o700 });
 const moved = [];

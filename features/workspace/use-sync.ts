@@ -1,8 +1,8 @@
 "use client";
-import { ApiError } from "@/domain/types";
+import { ApiError } from "@/features/shared/api";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCampaign, CLIENT_INSTANCE_ID } from "../shared/api-client";
+import { getCampaign, CLIENT_INSTANCE_ID } from "../shared/api";
 
 type MutationDetail = { campaignId: string | null; source: "local" | "remote" };
 

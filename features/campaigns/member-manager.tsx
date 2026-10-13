@@ -24,7 +24,7 @@ import {
   listCampaignMembers,
   revokeCampaignAccess,
   transferCampaignOwnership,
-} from "../shared/api-client";
+} from "../shared/api";
 import type { CampaignMember, Campaign } from "@/domain/types";
 
 export function MemberManager({

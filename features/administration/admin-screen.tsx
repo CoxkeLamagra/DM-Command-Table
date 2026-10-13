@@ -18,7 +18,7 @@ import {
   setServerSettings,
   updateManagedAccount,
   uploadScreenshot,
-} from "../shared/api-client";
+} from "../shared/api";
 import type {
   ManagedUser,
   Screenshot,

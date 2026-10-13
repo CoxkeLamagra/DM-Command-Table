@@ -20,7 +20,7 @@ import {
   RichTextEditor,
 } from "@/features/rich-text/rich-text";
 import { DetailSection, Stat } from "@/features/shared/ui";
-import { uploadScreenshot } from "@/features/shared/api-client";
+import { uploadScreenshot } from "@/features/shared/api";
 import type { Combatant } from "@/domain/types";
 
 export function CombatantEditor({

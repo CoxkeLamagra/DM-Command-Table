@@ -12,7 +12,6 @@ services:
       DM_COMMAND_TABLE_SECURE_COOKIES: "${DM_COMMAND_TABLE_SECURE_COOKIES:-auto}"
       DM_COMMAND_TABLE_TRUST_PROXY: "${DM_COMMAND_TABLE_TRUST_PROXY:-false}"
       DM_COMMAND_TABLE_BOOTSTRAP_TOKEN: "${DM_COMMAND_TABLE_BOOTSTRAP_TOKEN:-}"
-      DM_COMMAND_TABLE_REGISTRATION_MODE: "${DM_COMMAND_TABLE_REGISTRATION_MODE:-first-user}"
       DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB: "${DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB:-100}"
       DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB: "${DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB:-1024}"
       DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT: "${DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT:-100}"
@@ -20,7 +19,13 @@ services:
     volumes:
       - dm-command-table-data:/data
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3

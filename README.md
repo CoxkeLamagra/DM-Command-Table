@@ -1,355 +1,62 @@
 # DM Command Table
 
-DM Command Table is a browser-based workspace for preparing and running tabletop RPG campaigns. It combines campaign management, reusable player and monster records, live encounter tracking, session notes, and story planning in one responsive interface.
+DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **11.4.0**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing v11 accounts and campaign data remain usable.
 
-On desktop, the left menu can collapse to icons only using **Collapse menu**, then reopen using **Expand menu**. Icons retain hover labels, and the browser remembers your preference. Mobile navigation opens with full labels.
+Accounts, campaigns, Players/NPCs, Bestiary records, Stories/Sessions, prepared encounters, combat, search, screenshots and backups live on your server. Bundled libraries support offline operation. Opening Import monsters connects automatically to `dnd5e.lamagra.link`; local JSON imports remain available offline. Debian GUI updates contact GitHub and package registries only when you start an update.
 
-This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
+## Fresh Debian 13 LXC
 
-The current release is **11.3.2**, using the v11 database baseline. First v11 installations need a new data directory; upgrades within v11 retain their data. Pre-v11 databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
-
-Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same self-contained standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md), [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
-
-The runtime works offline. Accounts, campaigns, screenshots, search and backups stay on your server. Bestiary catalogue search supports local JSON files and an automatic connection when opening the import window to [dnd5e.lamagra.link](https://dnd5e.lamagra.link/bestiary.html). The browser contacts that host when you open **Bestiary → Import monsters**; accounts and campaign data are not sent to it. After the one-time Debian updater installation, Administrator GUI updates fetch the latest stable v11 release, install locked dependencies, verify/build/test it, package it, back up data and deploy with rollback. No manual build or staging is needed. Updates require server access to GitHub and package registries only when explicitly started; a manual staged mode remains available for offline hosts. Bundled npm libraries are retained. Preparing dependencies or building an image on a separate build machine can use package registries; running the packaged application requires no Internet access. Development and build commands disable Next.js telemetry.
-
-## Fresh Debian 13 LXC installation
-
-Use the [complete install script and bare-LXC quick start](docs/debian-13-lxc.md#recommended-complete-installation-script). It installs prerequisites, builds/tests the application, configures Nginx and backups, and activates automatic GUI updates. On completion it prints the initial setup token in the LXC console so you can register the first administrator. Existing installations use Admin updates rather than the fresh installer.
-
-## Features
-
-### Campaigns and sharing
-
-- Create, switch between, and delete multiple campaigns.
-- Store normalized campaign records in SQLite on the local application server.
-- Export and import campaign records as portable JSON, or choose **Export with images** for a self-contained campaign package. Full server backups additionally preserve accounts and undo history.
-- Copy a campaign as a complete independent campaign, including its players and progress.
-- Copy a campaign as a reusable template that keeps campaign content, Bestiary records, Stories, Sessions, prepared encounters, and Story–Session links while excluding players and resetting progress.
-- Share campaigns with another registered DM Command Table user by username.
-- Assign **Editor** access for collaboration or **Viewer** access for read-only use.
-- Detect same-browser changes immediately and poll revisions for changes from other devices.
-- Manage the campaign name and general campaign notes from a dedicated **Campaign** screen.
-- Use **Campaign actions** for access management, copying/templates, imports, exports, archiving and deletion. **Save** remains directly available.
-- Continue an active session or prepare the earliest planned session directly from Campaign. Undated sessions follow dated sessions.
-- Review a chronological campaign timeline generated automatically from session entries.
-- Keep the Campaign screen focused with a 70% Campaign-details and 30% Timeline layout, with Session-note previews limited to 2,000 characters.
-- Select a timeline entry to open and focus its corresponding session note.
-
-Campaigns are private by default. Only the owner can share or delete a campaign. Owners and editors can save changes; viewers cannot modify campaign data.
-
-### Local user administration
-
-- The first locally registered account automatically becomes an administrator.
-- Administrators can open **Administration** to review all registered accounts.
-- With the optional Debian update service installed, administrators can update the application from **Administration**, follow executed steps and view the retained update log. See [GUI update setup](docs/debian-13-lxc.md#updates-from-administration).
-- Change usernames and display names, reset passwords, or delete accounts.
-- Grant or remove administrator access for other users.
-- Manage server-wide cookie security, session lifetime, screenshot upload and storage limits, Combat undo retention, and audit retention from the Web UI.
-- Enable or disable self-registration from the Web UI.
-- Create additional accounts directly from the Web UI.
-- Password resets invalidate all active sessions for the affected account.
-- Deleting an account also permanently deletes campaigns owned by that account.
-
-An administrator cannot delete their own account or remove their own administrator access. These safeguards ensure that the server always retains at least one administrator.
-
-### Combat tracker
-
-- Give each encounter its own editable name.
-- On smaller screens, switch between Initiative and Details; selecting a combatant or advancing its turn opens Details while retaining edits. Wide screens keep the split view.
-- Add ad-hoc players, monsters, or NPCs.
-- Use one Add combatants picker for the Campaign roster, Bestiary, and Single-use records. Keep selections across searches and source tabs, filter Players/NPCs, and enter monster quantities before adding.
-- Add reusable Players and NPCs from the campaign roster, retaining their type, HP, AC, and notes.
-- Add monsters from the campaign bestiary with their linked stat blocks.
-- Assign optional numbers to Monsters and NPCs so identically named combatants remain easy to distinguish.
-- Track initiative, turn order, rounds, armor class, current and maximum HP, and conditions.
-- Apply damage or healing by amount, with an immediate Undo HP change control.
-- Keep Save and Next turn visible while scrolling. Reset and clear operations live in Encounter actions and explain their effects before confirmation.
-- Highlight combatants at `0 HP` as downed and automatically skip them when advancing to the next turn.
-- Reset the round counter without removing combatants.
-- Remove all monster combatants while keeping players and NPCs ready for the next encounter.
-- Clear the entire encounter to start with an empty combat tracker.
-- View race, class, and level information for linked campaign players.
-
-### Players / NPCs
-
-Campaign records have an editable Player or NPC type. Prepared encounters can import editable copies of campaign Players and NPCs. Changes to those copies do not modify the roster. Single-use Players and NPCs remain available in Combat and prepared encounters.
-
-New Players and NPCs start as drafts. Save creates the roster record with all entered fields; cancelling leaves no placeholder behind. Narrow roster rows show race/class/level beneath the name while wider screens retain the full columns.
-
-- Save reusable Player and NPC records per campaign, with green Player and blue NPC type tags.
-- Record name, race, class, level, optional HP, optional AC, and notes.
-- Open and edit players directly from the searchable list.
-- Delete individual players.
-- Add saved players to an encounter without entering their information again.
-
-Player and NPC management is available from the dedicated **Players / NPCs** navigation entry.
-
-If HP or AC is not set, the combat tracker uses `10` when that player is added to an encounter.
-
-### Bestiary
-
-- Create monsters manually and assign a name.
-- Record type, challenge rating, AC, HP, speed, ability scores, actions and traits, spellcasting details, and spell slots.
-- Open a monster's full stat block and edit every field.
-- Open and edit monsters directly from the searchable list.
-- Delete individual monsters.
-- Open the import window to connect automatically to the remote catalogue, search by name or source, preview and select multiple monsters for import.
-- Open a local 5etools-compatible JSON catalogue (up to 10 MiB and 10,000 entries).
-- Search the loaded catalogue by name or source and compare source, CR, type, HP, and AC before importing. Files are read in the browser; only selected records are sent to this server.
-- Search the campaign Bestiary with typeahead filtering across monster names, types, CR, sources, abilities, spells, and notes.
-- Select and import multiple monsters in one operation.
-- Detect an existing monster with the same name and source, then choose whether to replace it or discard that individual import.
-- Convert imported records to the DM Command Table format and save a campaign-local copy.
-
-Imported monster data belongs to the current campaign and remains editable after import.
-
-### Campaign planning
-
-- Create dated session preparation and recap notes.
-- Assign **Planned**, **Active now**, or **Happened** status to Sessions and Story beats.
-- Search Session and Story content with typeahead filtering.
-- Search campaign records with result-type filters for Sessions, Stories, Players, NPCs, and Bestiary monsters. Highlight matches and open the exact result directly.
-- Choose comfortable or compact list spacing from the sidebar; the preference is remembered in this browser.
-- Start with compact collapsed Sessions and Story beats, expand individual entries as needed, or expand and collapse every entry at once.
-- Prepare multiple named encounters inside each session.
-- Open Session play view to use notes, linked story details, prepared encounters and searchable Player/NPC references together. Roster HP is a campaign reference; use Combat for live HP.
-- Switch between Notes, Encounters, and Linked stories tabs without losing drafts. Save session & encounters saves the whole preparation workspace, including hidden tabs.
-- Review collapsed encounters with colour-coded type counts, monster quantities, a combatant preview, and a notes excerpt.
-- Add one or more instances of Bestiary monsters to every prepared encounter.
-- Assign automatic or custom monster numbers such as **Goblin #1** and **Goblin #2**.
-- Prepared encounters start collapsed; expand/collapse each separately or all encounters in a session at once.
-- Add NPCs and custom combatants without the Bestiary, then edit names, types, initiative, HP, maximum HP, AC, and rich-text stat blocks and notes.
-- Use Edit details on a Bestiary entry to create encounter-specific copies without modifying the Bestiary. Custom details are saved and carried into Combat.
-- Players are unique by name (case-insensitive, ignoring surrounding spaces); duplicate Monsters and NPCs are allowed.
-- Review a load preview before confirming: all current combatants being replaced, incoming records and duplicate Player entries being merged and the 10,000-combatant limit. Cancel leaves Combat unchanged; refresh retrieves its latest revision.
-- Load a prepared encounter into Combat by replacing the entire current roster and resetting to round 1.
-- Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
-- Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
-- Link Sessions to Story beats from a compact dropdown, review linked Session dates and statuses, and open a linked Session by selecting its name.
-- Paste or upload screenshots into every rich-text notes field, including Campaign, Session, Story, Player, and Monster records.
-- Format rich text with lists, bold, italic, underline, and text colors.
-- Reuse uploaded screenshots from the local library; images scale automatically to the available browser width.
-
-### Live combat tracking
-
-Each combatant has independent temporary HP, concentration, death-save successes/failures and resource counters. **Damage** consumes temporary HP first; **Heal** respects maximum HP and clears death-save counters when HP becomes positive. **Undo HP change** restores both HP and the affected runtime state. Direct HP inputs are manual overrides. Temporary HP is set explicitly and does not stack automatically. Concentration damage prompts display a check DC; roll and clear concentration manually. Death-save counters do not automatically roll, stabilize or kill a creature.
-
-Bestiary creatures capture a stat-block snapshot when added or loaded into Combat. Later Bestiary edits or deletion do not alter that snapshot. Spell-slot counters start from the captured slot totals. **Add legendary actions** creates three uses, configurable afterward, recovering at the start of that creature’s next turn. Add other counters for legendary resistance, abilities or limited-use items; choose manual recovery or own-turn recovery and use/restore individual counters. Duplicate creatures spend resources independently. Round reset does not restore resources. Rest recovery remains manual.
-
-Conditions can tick at the start or end of the affected creature’s own turn, or remain until dismissed. A timed condition expires at its selected boundary unless **Requires save** is enabled; then it flags a saving throw and remains until you resolve it. Choose **Save succeeded: clear** or **Save failed: keep**. A failed persistent save can be prompted again at the next selected boundary. Blank durations remain active. Use **Mark save due** to request an earlier or manual save, and expand **Override timing or duration** for manual adjustments. Skipped creatures do not receive a start-of-turn tick; leaving the active creature’s turn resolves its end-of-turn effects.
-
-Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; loading replaces the entire combat roster with fresh incoming copies. The fresh schema includes all runtime and condition fields from initialization.
-
-### Draft recovery and turn preferences
-
-Unsaved edits in Campaign, Players/NPCs, Bestiary, Stories, Sessions, prepared encounters and Combat are recoverable after refresh in the same browser. Choose Restore draft, Download draft or Discard draft before continuing edits. Drafts retain their original record revisions, so newer server changes require reconciliation. Browser drafts expire after seven days and are removed for the account on explicit sign-out. They are a recovery aid; Save still writes authoritative data to the local server. Browser storage failures display a warning.
-
-Combat’s **At 0 HP** setting can skip everyone (the default), keep Player turns, or keep all turns. The preference is scoped to the account and campaign in this browser and is applied by the server to each turn/reset command. Death saves and other effects remain manually resolved.
-
-## Storage architecture
-
-DM Command Table uses a local-server model with no external database service:
-
-1. The browser communicates only with the self-hosted Node.js application.
-2. The application stores normalized campaign data in server-local SQLite.
-3. SQLite runs in WAL mode with foreign-key checks and a five-second busy timeout.
-4. The interface detects connectivity loss and never silently overwrites unsaved editor contents.
-5. Uploaded screenshots are stored in an `uploads` directory beside the SQLite database.
-6. JSON export provides portable campaign data, while server backups preserve uploaded screenshots.
-
-The SQLite database contains local accounts, password hashes, login sessions, campaign ownership, normalized campaign records, and Viewer or Editor memberships. The default location is:
-
-```text
-./data/dm-command-table.sqlite
-```
-
-Set `DM_COMMAND_TABLE_DB_PATH` to use a different location. The directory is created automatically, and the fresh schema is initialized when the database is opened. Earlier database baselines are rejected without migrating their records.
-
-By default, screenshots are written to an `uploads` directory beside the database. Set `DM_COMMAND_TABLE_UPLOAD_PATH` to override that location.
-
-> A local monster catalogue is an import source, not a campaign database. Imported monsters are copied into the local campaign data.
-
-## Authentication
-
-DM Command Table provides its own server-local account system:
-
-- Register the first administrator with a server-configured bootstrap token.
-- Keep later registration disabled by default, or explicitly enable it while onboarding additional users.
-- Passwords are salted and hashed with Node.js `scrypt`; plaintext passwords are never stored.
-- Login sessions use random server-side tokens. Only a SHA-256 hash of each token is stored in SQLite.
-- The browser receives an HttpOnly, `SameSite=Lax` session cookie that expires after 30 days by default (configurable in Administration).
-- Signing out deletes the active server-side session.
-- New accounts start without campaign records; create a campaign or import a campaign package to begin.
-- Authentication, account administration, campaign writes and imports, password changes, and screenshot operations use SQLite-backed rate limits that survive application restarts.
-- Campaign imports are schema-validated, size-limited, sanitized, and committed atomically.
-- Screenshot storage has per-account and server-wide quotas with atomic allocation.
-- Combat undo history and campaign audit events use configurable retention limits.
-
-Accounts and sessions exist only in the configured SQLite database. No external identity provider or account database is contacted.
-
-For a plain-HTTP private network deployment, keep:
+Use a dedicated amd64/arm64 container with systemd, networking, at least 2 CPU cores, 4 GiB RAM and 12 GiB disk plus data/backup space. Run as root:
 
 ```bash
-DM_COMMAND_TABLE_SECURE_COOKIES=false
+set -euo pipefail
+apt-get update
+apt-get install -y ca-certificates curl
+curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v11.4.0/deploy/debian-13/install-dm-command-table \
+  -o /root/install-dm-command-table
+bash /root/install-dm-command-table
 ```
 
-The default value, `auto`, marks cookies secure when `DM_COMMAND_TABLE_TRUST_PROXY=true` and the reverse proxy reports HTTPS through `X-Forwarded-Proto`. You can set `DM_COMMAND_TABLE_SECURE_COOKIES=true` to require secure cookies unconditionally. Use `false` only for a trusted plain-HTTP private network.
+The script installs prerequisites, tests/builds the application, configures Nginx and scheduled backups, and enables automatic GUI updates. On completion it prints an **initial install token** in the LXC console. Open `http://<LXC-IP>/`, choose **Register**, and enter that token to create the first administrator. Public registration then closes automatically.
 
-Production startup requires `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` before the first account can be created. Generate a random value, enter it in the first-account registration form, and remove or rotate it after setup. `DM_COMMAND_TABLE_REGISTRATION_MODE` defines the initial registration state and defaults to `first-user`, which prevents later public registration. After the administrator exists, use **Administration** to enable or disable self-registration or create additional accounts directly.
+For a failed installation before runtime deployment, run the corrected script with `--resume`; it accepts only empty runtime/data paths and matching installer accounts, preserving prior build checkouts. Existing configured applications use **Administration → Update application**. See the [complete LXC guide](docs/debian-13-lxc.md) for prerequisites, HTTPS, manual installation and recovery. [Docker](docs/docker.md) is also supported.
 
-Uploaded images are decoded and re-encoded as WebP before storage. Each account has a 100 MiB quota by default; change it with `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`. Users can access their own screenshots and screenshots referenced by campaigns they can access. Administrators retain access to the complete screenshot-management library.
+## Development and clean builds
 
-The application sends a Content Security Policy, frame protection, MIME-sniffing protection, a restrictive permissions policy, and a referrer policy. Public deployments must use HTTPS; secure session cookies are enabled in auto mode when proxy trust is enabled and the reverse proxy reports HTTPS. Add HSTS at the HTTPS reverse proxy after confirming that the hostname is served exclusively over HTTPS.
-
-## Technology
-
-- React 19 and TypeScript
-- Next.js 16 on Node.js
-- Tailwind CSS 4 with shadcn-based UI components
-- Node's built-in SQLite driver
-- SQLite FTS5 for local campaign search
-
-## Requirements
-
-- Node.js 22.13 or newer
-- pnpm 11.25.0, pinned in `package.json`
-- A writable directory for the SQLite database
-
-## Local development
-
-Install the locked dependencies:
+Use Node **24 LTS** (24.19.0 or newer; `.node-version` pins 24.21.0) and **pnpm 11.25.0**. Install pnpm with a normal public tool mask, then use the frozen lockfile:
 
 ```bash
+(umask 022; npm install --global --umask=0022 pnpm@11.25.0)
 pnpm install --frozen-lockfile
-```
-
-On an existing checkout, choose separate fresh database/uploads/backup paths in `.env.local` for this baseline (for example `data/v11/`); retain earlier data and backups. Startup rejects older database metadata.
-
-Optionally copy the environment example:
-
-```bash
 cp .env.example .env.local
-```
-
-Start the development server:
-
-```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The database and tables are created automatically on the first API request.
-
-## Production build
-
-Create the production build:
+Development listens on port 3000; SQLite initializes automatically. Production requires the initial bootstrap token and exported storage environment. Operational commands do not load Next.js `.env.local`.
 
 ```bash
-pnpm build
-```
-
-Export the production environment in your shell before starting the server. `pnpm start` runs the standalone artifact; it does not load `.env.local` for operational scripts. Use absolute storage paths to keep application and backup commands pointed at the same data.
-
-Start the Node.js server:
-
-```bash
-pnpm start
-```
-
-The server listens on port `3000` by default. Make sure the process can write to the directories configured by `DM_COMMAND_TABLE_DB_PATH` and `DM_COMMAND_TABLE_UPLOAD_PATH`.
-
-## Debian 13 LXC deployment
-
-For a complete bare-metal-style LXC installation with Node.js 24 LTS, systemd, Nginx, persistent SQLite storage, backups, and a one-command GitHub update workflow, see:
-
-- [Deploy DM Command Table in a Debian 13 LXC](docs/debian-13-lxc.md)
-
-Reusable configuration templates are available under `deploy/debian-13/`.
-
-## Docker deployment
-
-Docker is the secondary deployment target. See [Docker installation, updates and recovery](docs/docker.md) for the pinned release checkout, private bootstrap token, persistent volume, proxy configuration and backup commands. Compose binds port 3000 to loopback by default; the database and screenshots live in its named `/data` volume.
-
-## Server data backup
-
-Create a consistent, timestamped SQLite snapshot together with its referenced screenshot files:
-
-```bash
-pnpm backup
-```
-
-Operational scripts read exported environment variables, not Next.js `.env.local`. See [operations](docs/operations.md) for the configuration reference and environment-loading commands.
-
-The destination defaults to `./data/backups` and can be changed with `DM_COMMAND_TABLE_BACKUP_PATH`. The command holds a SQLite write reservation while capturing the committed database and copying only its recorded screenshots. Saves can briefly wait during large backups. SHA-256 checksums, database integrity and foreign-key checks verify the backup before completion. Backup directories and files receive restrictive permissions. For Docker Compose:
-
-```bash
-docker compose exec dm-command-table node scripts/backup-local.mjs
-```
-
-Validate SQLite integrity and ensure every screenshot database row has a matching local file (and vice versa):
-
-```bash
-pnpm check:storage
-```
-
-Verify a completed backup, or restore it into a new empty directory:
-
-```bash
-node scripts/restore-local.mjs /path/to/backup
-node scripts/restore-local.mjs /path/to/backup /path/to/new-restored-data
-```
-
-The restore command refuses existing destinations. Stop the application before switching its database and uploads paths to the restored files. A JSON campaign export contains screenshot references but does not include binary image files; retain a full server backup as well.
-
-## Development verification
-
-```bash
+pnpm clean
 pnpm verify
 pnpm exec playwright install chromium
 pnpm test:browser
+pnpm package:runtime
+node scripts/runtime-integrity.mjs dist/runtime
 ```
 
-On Debian, you can use the signed distribution browser instead of downloading Playwright's pinned Chromium:
+`verify` runs the production dependency audit, repository formatting, ESLint, TypeScript, unit/API tests and production build. Browser tests use disposable data on port 3100. Debian can use its signed Chromium package with `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium pnpm test:browser`.
 
-```bash
-apt-get install -y chromium
-DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium pnpm test:browser
-```
+`clean` removes generated build/test output and TypeScript caches, preserving application data, environment files, dependencies and source. Packaging requires a new destination; the default is `dist/runtime`. Development/build entry points disable Next.js telemetry.
 
-Install the OS package as root and run tests as your build account. The override affects tests only; CI retains the pinned browser when it is unset. See the [LXC guide](docs/debian-13-lxc.md) for complete setup.
+## Application and documentation
 
-Browser tests use a temporary local database and disposable test account, without touching application data. The test server runs on port 3100; build first with `pnpm build`. CI runs verification and browser regression tests on Node.js 22 and 24.
+- [User guide](docs/user-guide.md): campaign, preparation, combat, import and administration workflows.
+- [Architecture](docs/architecture.md): module ownership, persistence, revisions and runtime packaging.
+- [API reference](docs/api.md): authenticated endpoints and payload boundaries.
+- [Operations](docs/operations.md): configuration, backups, storage checks and maintenance.
+- [Debian 13 LXC](docs/debian-13-lxc.md): complete installation, GUI updates, HTTPS and recovery.
+- [Docker](docs/docker.md): image preparation, persistent storage and offline runtime deployment.
+- [Security/runtime properties](docs/security-efficiency-review.md), [release validation](docs/release-assessment.md) and [v11 changelog](CHANGELOG.md).
 
-Session Save writes the session and its prepared encounter edits in one transaction. Encounter drafts remain available when their Session is collapsed or filtered out. Leaving Sessions with unsaved changes asks for confirmation. Ability scores, actions and spell details remain in the existing rich-text stat block field.
+Prepared loading replaces the entire combat roster and uses the last prepared Player entry for each trimmed, case-insensitive name. Monsters and NPCs may repeat. Revisions protect saves and Undo recovers previous combat state.
 
-## Architecture and API
-
-See [architecture](docs/architecture.md) for the source layers, local storage model, revision handling and runtime packaging, and [API reference](docs/api.md) for the authenticated endpoints. [Release assessment](docs/release-assessment.md) records current validation and platform limits.
-
-## Data and privacy
-
-- Campaign data is stored in the self-hosted application's server-local SQLite file.
-- No external database service is used by this version.
-- Passwords and sessions are stored only in the server-local SQLite database.
-- Screenshot files remain in the configured server-local uploads directory and are only listed or served to their uploader, an administrator, or a user who can access a campaign that references them.
-- Campaigns are private unless the owner explicitly grants access to another registered username.
-- Exported JSON files contain the complete campaign payload, including players, monsters, prepared encounters, active combat, notes, and story data.
-- Imported monster records are copied into the campaign; the application does not depend on the original catalogue file after import.
-- SQLite files, environment files, dependencies, and build output are excluded from version control.
-
-## Current limitations
-
-- Collaboration does not provide presence indicators or live cursor sharing; revision checks prevent silent stale writes.
-- SQLite is intended for one application instance with persistent local storage. Multiple application instances must not write independent copies of the database.
-- Campaign sharing uses registered local usernames and owner-managed Editor/Viewer memberships.
-- Optional remote catalogue search needs browser access to dnd5e.lamagra.link; local JSON import and other application workflows work offline.
-- Plain campaign JSON exports contain image references. Use **Export with images** for campaign portability, and verified server backups for complete disaster recovery.
-
-## Release history
-
-See [CHANGELOG.md](CHANGELOG.md). The version shown in the lower-left corner identifies the installed application.
-
-## License
-
-No open-source license has been assigned. All rights are reserved unless the repository owner adds a license.
-
-Security and operational details are documented in [architecture](docs/architecture.md), [API](docs/api.md), [operations](docs/operations.md), and [the current technical review](docs/security-efficiency-review.md). Password changes invalidate old sessions, pending credential checks are revalidated, and expensive password/package work returns a retryable busy response when its local capacity is full. No external database, identity or media service is introduced.
+This is a hobby project. No open-source license has been assigned; all rights are reserved unless the repository owner adds one. Retained third-party UI/styles include their upstream notice in `vendor/`.

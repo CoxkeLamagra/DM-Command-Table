@@ -10,7 +10,6 @@ Keep one application instance and persistent local storage. Debian LXC is primar
 | `DM_COMMAND_TABLE_UPLOAD_PATH`                | `uploads` beside the database        | Local screenshot directory                                                          |
 | `DM_COMMAND_TABLE_BACKUP_PATH`                | `backups` beside the database        | Verified backup destination                                                         |
 | `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN`            | empty                                | Required for initial administrator registration in production                       |
-| `DM_COMMAND_TABLE_REGISTRATION_MODE`          | `first-user`                         | Initial registration mode; `open` enables additional registration                   |
 | `DM_COMMAND_TABLE_TRUST_PROXY`                | `false`                              | Accept forwarded client address and HTTPS scheme from a trusted proxy               |
 | `DM_COMMAND_TABLE_SECURE_COOKIES`             | `auto`                               | `true` always secure, `false` never secure, `auto` uses HTTPS only with proxy trust |
 | `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`        | `100`                                | Per-account media quota in MiB                                                      |
@@ -23,7 +22,7 @@ Keep one application instance and persistent local storage. Debian LXC is primar
 | `DMCT_BIND_ADDRESS`                           | `127.0.0.1`                          | Compose host port bind; not an application setting                                  |
 | `NEXT_TELEMETRY_DISABLED`                     | `1` in deployment templates          | Disable Next.js telemetry                                                           |
 
-Administration stores registration and server settings in SQLite. Saved cookie, quota, undo and audit settings take precedence over their environment defaults. Session lifetime defaults to 30 days and upload size to 8 MiB; both are changed in Administration, not via an environment variable. Screenshot upload size can be 1–50 MiB; set proxy body limits accordingly. Campaign package imports have their own size limit.
+The first account becomes administrator and closes public registration. Administration stores registration and server settings in SQLite. Saved cookie, quota, undo and audit settings take precedence over their environment defaults. Session lifetime defaults to 30 days and upload size to 8 MiB; both are changed in Administration, not via an environment variable. Screenshot upload size can be 1–50 MiB; set proxy body limits accordingly. Campaign package imports have their own size limit.
 
 The development server uses Next.js environment loading. Standalone startup and Node maintenance scripts should receive exported variables. On LXC, systemd and the updater read `/etc/dm-command-table.env`. Compose interpolates `.env` into the service environment. Keep these files private; do not assume a source `.env.local` configures production commands.
 
@@ -94,7 +93,7 @@ Prepared encounters may expand to at most 10,000 combatants, including prepared 
 
 ## Local resource limits
 
-The application uses a fresh schema-version-1 baseline named `offline-runtime-baseline`. Use separate fresh database and uploads paths for the first v11 installation; upgrades within v11 retain existing paths and data. Earlier installations and their backups remain separate; startup refuses their schema metadata. Never delete existing data to resolve a format error.
+The application uses a fresh schema-version-1 baseline named `offline-runtime-baseline`. Use separate fresh database and uploads paths for the first v11 installation; upgrades within v11 retain existing paths and data. Unsupported schema identities are rejected without conversion. Never delete existing data to resolve a format error.
 
 Runtime hosts need no Internet access. Catalogue imports can read local browser files or optionally fetch from dnd5e.lamagra.link in the browser, and Debian GUI updates optionally fetch/build/test approved releases before installing them. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
 
@@ -102,7 +101,7 @@ Password derivation capacity is four concurrent operations per server process ac
 
 Screenshot bytes stream with backpressure and private conditional caching. Every cache validation is authorized against current access. SQL statements are reused but returned records and permissions are never cached. Backup checksums use 64 KiB chunks so a large SQLite file is not copied wholesale into process memory merely for hashing; backups and restores still verify the same SHA-256 values.
 
-Use `pnpm verify` and CI's Node 22/24 browser and Docker checks before accepting a source update. Host-specific systemd/Nginx and restore acceptance still require your own LXC. Review [the technical assessment](security-efficiency-review.md) for exact coverage and limits.
+Use `pnpm verify` and CI's Node 24 browser and Docker checks before accepting a source update. Host-specific systemd/Nginx and restore acceptance still require your own LXC. Review [the technical assessment](security-efficiency-review.md) for exact coverage and limits.
 
 ## Automatic and offline updates
 
@@ -119,3 +118,7 @@ Only the browser needs HTTPS access to `dnd5e.lamagra.link`; the Node server doe
 ## Fresh LXC installation
 
 The [complete Debian 13 installer](debian-13-lxc.md#recommended-complete-installation-script) provisions the application, proxy, backup timer and automatic GUI updater from a bare dedicated container. It prints the initial administrator token only after application/proxy/updater/storage/backup checks pass, and retains it in root-only `/etc/dm-command-table.env`. Use that token to register the first administrator, then clear it and restart the application. Existing installations use Admin updates; the fresh installer refuses prior or partial application paths and accounts by default. The `--resume` option permits only pre-deployment failures with empty runtime/data directories and matching installer accounts; it preserves old build checkouts and refuses existing data/configuration/services. See the Debian guide for pnpm permission-error recovery. Failed installations retain diagnostic files and do not print a completion token.
+
+## Clean builds
+
+Use Node 24 (24.19.0 or newer; `.node-version` pins 24.21.0) and pnpm 11.25.0. `pnpm clean` removes generated build/test output and TypeScript caches without deleting source, environment files, application data or dependencies. Follow with `pnpm install --frozen-lockfile`, `pnpm verify`, browser regressions and `pnpm package:runtime`. Formatting and lint ignore generated output, so a previously packaged runtime never becomes part of source verification. The server and storage/backup/maintenance commands all use `scripts/storage-config.mjs`; exported absolute paths avoid working-directory ambiguity.

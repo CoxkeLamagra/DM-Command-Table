@@ -27,7 +27,7 @@ import {
   searchRemoteCatalogue,
   type RemoteMonsterRef,
 } from "./remote-catalogue";
-import { importMonster, updateMonster } from "../shared/api-client";
+import { importMonster, updateMonster } from "../shared/api";
 import type { Monster } from "@/domain/types";
 export function BestiaryImport({
   campaignId,

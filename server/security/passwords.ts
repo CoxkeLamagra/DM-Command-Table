@@ -29,8 +29,13 @@ export async function verifyPassword(
   stored: string,
 ): Promise<boolean> {
   if (password.length > 128) return false;
-  const [algorithm, saltValue, hashValue] = stored.split("$");
-  if (!["scrypt", "scrypt-v1"].includes(algorithm) || !saltValue || !hashValue)
+  const [algorithm, saltValue, hashValue, extra] = stored.split("$");
+  if (
+    algorithm !== "scrypt-v1" ||
+    !saltValue ||
+    !hashValue ||
+    extra !== undefined
+  )
     return false;
   try {
     const expected = Buffer.from(hashValue, "base64");
@@ -51,10 +56,6 @@ export async function verifyPassword(
     if (error instanceof PublicApiError) throw error;
     return false;
   }
-}
-
-export function passwordHashNeedsUpgrade(stored: string): boolean {
-  return !stored.startsWith("scrypt-v1$");
 }
 
 let activePasswordWork = 0;

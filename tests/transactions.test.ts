@@ -4,19 +4,19 @@ import { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../db/transaction.ts";
 test("nested transactions preserve rollback on Node runtimes without isTransaction", () => {
   const database = new DatabaseSync(":memory:");
-  const legacyDatabase = {
+  const trackedDatabase = {
     exec: database.exec.bind(database),
   } as DatabaseSync;
   database.exec("CREATE TABLE changes(value TEXT)");
-  runTransaction(legacyDatabase, () => {
+  runTransaction(trackedDatabase, () => {
     database.prepare("INSERT INTO changes VALUES(?)").run("outer");
     assert.throws(() =>
-      runTransaction(legacyDatabase, () => {
+      runTransaction(trackedDatabase, () => {
         database.prepare("INSERT INTO changes VALUES(?)").run("inner");
         throw new Error("rollback inner");
       }),
     );
-    runTransaction(legacyDatabase, () =>
+    runTransaction(trackedDatabase, () =>
       database.prepare("INSERT INTO changes VALUES(?)").run("nested"),
     );
   });

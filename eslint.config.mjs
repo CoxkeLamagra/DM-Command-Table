@@ -9,15 +9,19 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "dist/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
   ]),
   {
-    files: ["components/ui/**/*.{ts,tsx}", "hooks/use-mobile.ts"],
+    files: ["components/ui/**/*.{ts,tsx}"],
     rules: {
       // These files are vendored verbatim from shadcn@4.17.0. Keep the
-      // registry source intact while applying the stricter rules to Site code.
+      // registry source intact while applying the stricter rules to application code.
       "@typescript-eslint/no-unused-vars": "off",
       "react-hooks/purity": "off",
       "react-hooks/set-state-in-effect": "off",

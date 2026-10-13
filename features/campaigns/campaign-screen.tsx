@@ -28,11 +28,7 @@ import {
 import { useDraftRecovery } from "../shared/draft-recovery";
 import { MemberManager } from "./member-manager";
 import type { Campaign, Session } from "@/domain/types";
-import {
-  createSession,
-  listSessions,
-  uploadScreenshot,
-} from "../shared/api-client";
+import { createSession, listSessions, uploadScreenshot } from "../shared/api";
 
 export function CampaignScreen({
   campaign,

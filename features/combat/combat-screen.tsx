@@ -43,7 +43,7 @@ import {
   saveCombat,
   commandCombat,
   undoCombat,
-} from "../shared/api-client";
+} from "../shared/api";
 import type { Combat, Combatant, Monster, Player } from "@/domain/types";
 
 import { CombatantEditor } from "@/features/combat/combatant-editor";

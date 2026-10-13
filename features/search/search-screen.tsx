@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { highlightParts } from "@/features/shared/search-highlight";
-import { searchCampaign } from "../shared/api-client";
+import { searchCampaign } from "../shared/api";
 import type { SearchResult, Section } from "@/domain/types";
 
 const resultTypes = {

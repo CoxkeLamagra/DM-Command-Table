@@ -39,6 +39,7 @@ function fixture(mode: string) {
     "backup-local.mjs",
     "local-backup.mjs",
     "restore-local.mjs",
+    "storage-config.mjs",
   ])
     cpSync(path.join("scripts", file), path.join(old, "scripts", file));
   const db = new DatabaseSync(path.join(root, "data/live.sqlite"));

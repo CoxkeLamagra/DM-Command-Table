@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Player } from "@/domain/types";
-import { listPlayers } from "../shared/api-client";
+import { listPlayers } from "../shared/api";
 import { RichTextContent } from "../rich-text/rich-text";
 import { Input } from "@/components/ui/input";
 export function SessionRoster({ campaignId }: { campaignId: string }) {

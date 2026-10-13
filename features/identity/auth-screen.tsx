@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ShieldCheck, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { authenticate } from "../shared/api-client";
+import { authenticate } from "../shared/api";
 
 export function AuthScreen({
   initialSetup,

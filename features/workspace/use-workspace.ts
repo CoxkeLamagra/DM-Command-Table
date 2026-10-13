@@ -1,5 +1,5 @@
 "use client";
-import { exportPackage } from "../shared/api-client";
+import { exportPackage } from "../shared/api";
 import { CAMPAIGN_PACKAGE_LIMIT } from "../../domain/limits";
 
 import { useCallback, useEffect, useState } from "react";
@@ -14,9 +14,9 @@ import {
   listCampaigns as apiListCampaigns,
   logout as apiLogout,
   updateCampaign as apiUpdateCampaign,
-} from "../shared/api-client";
+} from "../shared/api";
 import type { Campaign, User } from "@/domain/types";
-import { ApiError } from "@/domain/types";
+import { ApiError } from "@/features/shared/api";
 
 export function useWorkspace() {
   const [user, setUser] = useState<User | null>(null);

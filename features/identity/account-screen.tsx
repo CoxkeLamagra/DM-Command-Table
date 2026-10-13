@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { updateAccount } from "../shared/api-client";
+import { updateAccount } from "../shared/api";
 import type { User } from "@/domain/types";
 export function AccountScreen({
   user,

@@ -30,7 +30,7 @@ import {
   listStory,
   updateStoryBeat,
   uploadScreenshot,
-} from "../shared/api-client";
+} from "../shared/api";
 import { StatusBadge, StatusSelect } from "../shared/progress-status";
 import { Empty, Section } from "@/features/shared/record-section";
 import type { Session, StoryBeat } from "@/domain/types";

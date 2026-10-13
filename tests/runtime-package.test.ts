@@ -38,6 +38,7 @@ function fixture() {
     "local-backup.mjs",
     "maintenance.mjs",
     "restore-local.mjs",
+    "storage-config.mjs",
     "browser-test-server.mjs",
     "package-runtime.mjs",
   ])
@@ -67,6 +68,7 @@ test("runtime packages preserve relative dependencies and remain self-contained"
       "local-backup.mjs",
       "maintenance.mjs",
       "restore-local.mjs",
+      "storage-config.mjs",
     ]);
     const dependency = path.join(destination, "node_modules/next");
     assert.equal(readlinkSync(dependency), ".pnpm/next");

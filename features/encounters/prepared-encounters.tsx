@@ -15,7 +15,7 @@ import { SaveStatus } from "@/features/shared/save-status";
 import { reconcileSaved } from "@/features/encounters/drafts";
 import { useDraftRecovery } from "../shared/draft-recovery";
 import { useUnsavedChanges } from "@/features/shared/unsaved-changes";
-import type { EncounterDraftController } from "../shared/api-client";
+import type { EncounterDraftController } from "./drafts";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ import {
   loadPreparedCombat,
   updatePreparedEncounter,
   uploadScreenshot,
-} from "../shared/api-client";
+} from "../shared/api";
 import type {
   PreparedCombatant,
   Combatant,

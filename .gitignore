@@ -17,7 +17,7 @@ next-env.d.ts
 *.log
 .DS_Store
 
-# Local editor/tool state and retired deployment scaffolding
+# Local editor/tool and hosting metadata
 /.sites-runtime/
 /.agents/
 /.codex/

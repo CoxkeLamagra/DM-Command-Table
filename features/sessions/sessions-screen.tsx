@@ -1,4 +1,5 @@
 "use client";
+import type { EncounterDraftController } from "../encounters/drafts";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -41,9 +42,8 @@ import {
   listStory,
   saveSessionTemplate,
   saveSessionPreparation,
-  type EncounterDraftController,
   uploadScreenshot,
-} from "../shared/api-client";
+} from "../shared/api";
 import { nextSession } from "../shared/next-session";
 import { SessionRoster } from "./session-roster";
 import { PreparedEncounters } from "../encounters/prepared-encounters";

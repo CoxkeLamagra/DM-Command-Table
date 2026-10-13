@@ -7,7 +7,6 @@ import {
   normaliseUsername,
   validateCredentials,
   verifyPassword,
-  passwordHashNeedsUpgrade,
 } from "../security/passwords.ts";
 import { PublicApiError } from "../http/errors.ts";
 import { getServerSettings } from "../administration/server-settings.ts";
@@ -22,12 +21,8 @@ const sessionCleanup = new WeakMap<DatabaseSync, number>();
 
 const COOKIE_NAME = "dmct_session";
 
-export type User = {
-  userId: string;
-  username: string;
-  displayName: string;
-  isAdmin: boolean;
-};
+import type { User } from "../../domain/types.ts";
+export type { User } from "../../domain/types.ts";
 
 type UserRow = Omit<User, "isAdmin"> & {
   isAdmin: number;
@@ -120,17 +115,7 @@ export async function authenticateUser(
     row?.passwordHash ?? DUMMY_PASSWORD_HASH,
   );
   if (!row?.passwordHash || !valid) return null;
-  let credential = row.passwordHash;
-  if (passwordHashNeedsUpgrade(credential)) {
-    const upgraded = await hashPassword(password);
-    const changed = statement(
-      database,
-      "UPDATE users SET password_hash=?,updated_at=? WHERE id=? AND password_hash=?",
-    ).run(upgraded, Date.now(), row.userId, credential);
-    if (!changed.changes) return null;
-    credential = upgraded;
-  }
-  return userForCredential(database, row.userId, credential);
+  return userForCredential(database, row.userId, row.passwordHash);
 }
 
 export async function getUser(database = getDatabase()): Promise<User | null> {

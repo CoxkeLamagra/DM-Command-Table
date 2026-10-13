@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { requestJson } from "../shared/api-client";
+import { requestJson } from "../shared/api";
 import type { UpdateState } from "@/domain/updates";
 
 const labels: Record<string, string> = {
