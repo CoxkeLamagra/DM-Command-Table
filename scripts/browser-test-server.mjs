@@ -22,6 +22,11 @@ database
     "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Browser tester','browser-test',?,1,?,?)",
   )
   .run(owner, await hashPassword("browser-test-pass"), now, now);
+database
+  .prepare(
+    "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Update tester','browser-updates',?,1,?,?)",
+  )
+  .run(crypto.randomUUID(), await hashPassword("browser-test-pass"), now, now);
 const campaign = createCampaignRepository(database).create(owner, {
   name: "Regression campaign",
 });

@@ -25,7 +25,7 @@ test("update endpoints require administrator access and reject unapproved comman
   await request.post("/api/auth", {
     data: {
       action: "login",
-      username: "browser-test",
+      username: "browser-updates",
       password: "browser-test-pass",
     },
   });
@@ -59,7 +59,7 @@ test("administrator sees disabled update control without the Debian service", as
   page,
 }) => {
   await page.goto("/");
-  await page.getByLabel("Username", { exact: true }).fill("browser-test");
+  await page.getByLabel("Username", { exact: true }).fill("browser-updates");
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
   await page.locator('form button[type="submit"]').click();
   await page
@@ -121,7 +121,7 @@ test("update panel shows progress, reconnects and retains completion logs", asyn
     });
   });
   await page.goto("/");
-  await page.getByLabel("Username", { exact: true }).fill("browser-test");
+  await page.getByLabel("Username", { exact: true }).fill("browser-updates");
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
   await page.locator('form button[type="submit"]').click();
   await page
