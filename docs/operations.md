@@ -94,9 +94,9 @@ Prepared encounters may expand to at most 10,000 combatants, including custom Pl
 
 ## Local resource limits
 
-The application uses a fresh schema-version-1 baseline named `offline-runtime-baseline`. Use separate fresh database and uploads paths for this version. Earlier installations and their backups remain separate; startup refuses their schema metadata. Never delete existing data to resolve a format error.
+The application uses a fresh schema-version-1 baseline named `offline-runtime-baseline`. Use separate fresh database and uploads paths for the first v11 installation; upgrades within v11 retain existing paths and data. Earlier installations and their backups remain separate; startup refuses their schema metadata. Never delete existing data to resolve a format error.
 
-Runtime hosts need no Internet access. Catalogue imports read local browser files, and Debian GUI updates install the fixed host-staged runtime directory. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
+Runtime hosts need no Internet access. Catalogue imports can read local browser files or optionally fetch from dnd5e.lamagra.link in the browser, and Debian GUI updates install the fixed host-staged runtime directory. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
 
 Password derivation capacity is four concurrent operations per server process across all credential paths. Package import/export capacity is two operations, admitted before request-body reading. Busy operations return 503 and should be retried; authentication rate limits still apply. Capacity limits are local safeguards, not remote services or a substitute for proxy/body limits.
 
@@ -107,3 +107,9 @@ Use `pnpm verify` and CI's Node 22/24 browser and Docker checks before accepting
 ## Offline update staging
 
 Follow [Debian GUI setup](debian-13-lxc.md#updates-from-administration) to stage and approve a package. `runtime-manifest.json` records the fresh baseline, version and exact runtime inventory. An independently installed verifier checks hashes and rejects external dependency links. The incoming path and release directories belong to root; the application account cannot change executable code. A checksum manifest is not a signature: approve the build source and artifact before staging. Keep prior releases and stopped-service backups until recovery is accepted; retention is host-managed.
+
+## Optional remote Bestiary catalogue
+
+Open **Bestiary → Import monsters → Connect to remote catalogue**, then type at least two characters of a monster name or source. Preview type, CR, AC and HP, select one or more results and import. Duplicate name/source records offer replacement or discard. Imported records are local campaign copies and remain usable if the catalogue becomes unavailable.
+
+Only the browser needs HTTPS access to `dnd5e.lamagra.link`; the Node server does not proxy downloads or require new secrets/services. Requests omit cookies and referrers. Opening the dialog or loading a local JSON file does not contact the remote site. If remote connection/search fails, retry or use a local JSON file. Check browser network/CORS errors and any reverse-proxy CSP overrides without disabling TLS or application security headers.

@@ -4,11 +4,11 @@ Docker is the secondary deployment target. It runs the same self-contained stand
 
 ## Prepare and transfer an image
 
-Build an approved source revision on a trusted build machine. Initial builds can download base images and npm dependencies; this is separate from runtime operation. Check out `v11.0.2` for this release and record the exact source commit alongside the image.
+Build an approved source revision on a trusted build machine. Initial builds can download base images and npm dependencies; this is separate from runtime operation. Check out `v11.1.0` for this release and record the exact source commit alongside the image.
 
 ```sh
-docker build -t dm-command-table:11.0.2 .
-docker save -o dm-command-table-11.0.2.tar dm-command-table:11.0.2
+docker build -t dm-command-table:11.1.0 .
+docker save -o dm-command-table-11.1.0.tar dm-command-table:11.1.0
 ```
 
 Alternatively, build from an already prepared self-contained runtime without invoking a package manager. Load the approved Node base image locally first (`node:24.21.0-bookworm-slim`), then use the runtime directory as the entire build context:
@@ -16,8 +16,8 @@ Alternatively, build from an already prepared self-contained runtime without inv
 ```sh
 pnpm package:runtime
 node scripts/runtime-integrity.mjs dist/runtime
-docker build --network none --pull=false -f "$PWD/Dockerfile.runtime" -t dm-command-table:11.0.2 dist/runtime
-docker save -o dm-command-table-11.0.2.tar dm-command-table:11.0.2
+docker build --network none --pull=false -f "$PWD/Dockerfile.runtime" -t dm-command-table:11.1.0 dist/runtime
+docker save -o dm-command-table-11.1.0.tar dm-command-table:11.1.0
 ```
 
 `Dockerfile.runtime` copies only the supplied package and uses the prepared base image. Runtime preparation and base-image approval happen before an offline image build; no registry or package-manager access is needed by its build steps.
@@ -25,7 +25,7 @@ docker save -o dm-command-table-11.0.2.tar dm-command-table:11.0.2
 Transfer the approved image and the repository's `compose.yaml` and `.env.example` using trusted local media. On the offline host:
 
 ```sh
-docker load -i dm-command-table-11.0.2.tar
+docker load -i dm-command-table-11.1.0.tar
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -38,7 +38,7 @@ Create `compose.local.yaml` beside `compose.yaml`:
 ```yaml
 services:
   dm-command-table:
-    image: dm-command-table:11.0.2
+    image: dm-command-table:11.1.0
     pull_policy: never
 ```
 
@@ -88,7 +88,7 @@ Add the restored paths to the service's `environment` in `compose.local.yaml`:
 ```yaml
 services:
   dm-command-table:
-    image: dm-command-table:11.0.2
+    image: dm-command-table:11.1.0
     pull_policy: never
     environment:
       DM_COMMAND_TABLE_DB_PATH: /data/recovered/dm-command-table.sqlite
@@ -105,3 +105,7 @@ docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml logs --tail
 ```
 
 For LAN connectivity, check host bind address, proxy and firewall. For HTTPS login, check proxy trust, forwarded scheme and cookie settings. Validate image build, startup, storage and restore on a disposable Docker host before deployment; source/browser tests alone do not establish container acceptance.
+
+## Optional online monster imports
+
+Local JSON imports and normal application use remain offline. To search the online Bestiary, the user's browser must reach `https://dnd5e.lamagra.link`. Choose **Bestiary → Import monsters → Connect to remote catalogue** explicitly; no server service, token or updater configuration is required. The downloaded monsters are saved as local campaign records. Keep local-file imports available when the remote catalogue is unreachable.

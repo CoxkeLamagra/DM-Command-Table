@@ -2,7 +2,13 @@
 
 Version 11.0.0 introduces the fresh-install baseline. This refactor retains local accounts, administrator account/settings/media management, campaign ownership/sharing/copy/templates/import/export, Players/NPCs, Bestiary, Stories/Sessions and links, prepared encounters, live combat/conditions/resources/undo, local search, rich text/screenshots, responsive navigation and backup/restore/maintenance.
 
-Catalogue search/import uses local JSON rather than an external source. Administrator application updates retain GUI controls, progress, logs, auditing and recovery while installing a fixed root-approved host-staged package. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
+Catalogue search/import defaults to local JSON. Version 11.1.0 also restores an optional remote source after explicit browser connection. Administrator application updates retain GUI controls, progress, logs, auditing and recovery while installing a fixed root-approved host-staged package. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
+
+## v11.1.0 optional remote catalogue
+
+Restores opt-in remote catalogue search and import with source/CR/type/AC/HP previews, multi-selection, duplicate replacement and local campaign copies. The browser fetches only from the fixed catalogue origin without credentials/referrers; source file names and payloads are validated. Local-file import still works with all external requests denied. Normal runtime and administrator updates remain local. Existing v11 data is compatible.
+
+Live catalogue access and CORS headers were checked, its current source-index formats were exercised, and a real Goblin/MM search returned monster data. Browser regression uses deterministic remote JSON fixtures to verify opt-in access and persisted imports, alongside the existing offline import test. Validation passed all 96 unit/API tests, production audit, formatting, lint, TypeScript and production build. All 17 system-Chromium browser tests passed, including remote connection/import, offline imports with external requests denied and the notification-over-Save regression.
 
 ## v11.0.2 notification fix
 

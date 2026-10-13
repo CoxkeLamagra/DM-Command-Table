@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,11 @@ import {
   searchCatalogue,
   catalogueIdentity,
 } from "./local-catalogue";
+import {
+  loadRemoteCatalogue,
+  searchRemoteCatalogue,
+  type RemoteMonsterRef,
+} from "./remote-catalogue";
 import { importMonster, updateMonster } from "../shared/api-client";
 import type { Monster } from "@/domain/types";
 export function BestiaryImport({
@@ -35,13 +40,83 @@ export function BestiaryImport({
 }) {
   const [open, setOpen] = useState(false);
   const [localCatalogue, setLocalCatalogue] = useState<FiveEToolsMonster[]>([]);
+  const [source, setSource] = useState<"local" | "remote">("local");
+  const [remoteCatalogue, setRemoteCatalogue] = useState<RemoteMonsterRef[]>(
+    [],
+  );
+  const [remoteResults, setRemoteResults] = useState<FiveEToolsMonster[]>([]);
+  const [connecting, setConnecting] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const loading = connecting || searching;
+  const [remoteError, setRemoteError] = useState("");
+  const connection = useRef<AbortController | null>(null);
+  const cache = useRef(new Map<string, FiveEToolsMonster[]>());
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<FiveEToolsMonster[]>([]);
   const [importing, setImporting] = useState(false);
-  const results = useMemo(
+  const localResults = useMemo(
     () => searchCatalogue(query, localCatalogue),
     [query, localCatalogue],
   );
+  const results = source === "remote" ? remoteResults : localResults;
+  useEffect(() => {
+    if (!open || source !== "remote") return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setSearching(false);
+      setRemoteResults([]);
+      if (!remoteCatalogue.length || query.trim().length < 2) return;
+      setSearching(true);
+      setRemoteError("");
+      void searchRemoteCatalogue(
+        query,
+        remoteCatalogue,
+        cache.current,
+        controller.signal,
+      )
+        .then((items) => {
+          if (!controller.signal.aborted) setRemoteResults(items);
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted)
+            setRemoteError(
+              error instanceof Error ? error.message : "Remote search failed.",
+            );
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearching(false);
+        });
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, source, query, remoteCatalogue]);
+  useEffect(() => () => connection.current?.abort(), []);
+  async function connect() {
+    connection.current?.abort();
+    const controller = new AbortController();
+    connection.current = controller;
+    setSource("remote");
+    setSelected([]);
+    setRemoteResults([]);
+    setQuery("");
+    setConnecting(true);
+    setRemoteError("");
+    try {
+      const catalogue = await loadRemoteCatalogue(controller.signal);
+      if (!controller.signal.aborted) setRemoteCatalogue(catalogue);
+    } catch (error) {
+      if (!controller.signal.aborted)
+        setRemoteError(
+          error instanceof Error
+            ? error.message
+            : "Remote catalogue could not be loaded.",
+        );
+    } finally {
+      if (!controller.signal.aborted) setConnecting(false);
+    }
+  }
   const key = catalogueIdentity;
   async function run() {
     if (importing) return;
@@ -115,7 +190,16 @@ export function BestiaryImport({
       <Button variant="outline" onClick={() => setOpen(true)}>
         <Download /> Import monsters
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(value) => {
+          if (!value) {
+            connection.current?.abort();
+            setConnecting(false);
+          }
+          setOpen(value);
+        }}
+      >
         <DialogContent className="max-h-[88vh] overflow-y-auto border-white/10 bg-[#151820] text-stone-100 sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Import monsters</DialogTitle>
@@ -134,7 +218,13 @@ export function BestiaryImport({
                       throw new Error(
                         "Catalogue files must be no larger than 10 MB.",
                       );
-                    setLocalCatalogue(parseCatalogue(await file.text()));
+                    const catalogue = parseCatalogue(await file.text());
+                    connection.current?.abort();
+                    setSource("local");
+                    setRemoteError("");
+                    setConnecting(false);
+                    setSearching(false);
+                    setLocalCatalogue(catalogue);
                     setSelected([]);
                     setQuery("");
                   } catch (error) {
@@ -145,11 +235,36 @@ export function BestiaryImport({
                 }}
               />
             </label>
+            <Button
+              variant="outline"
+              onClick={connect}
+              disabled={loading || importing}
+            >
+              Connect to remote catalogue
+            </Button>
             <p className="text-xs text-stone-400">
-              Choose a local catalogue, then search and preview monsters before
-              importing. Files are read in your browser; selected records are
-              saved on this server.
+              Local files work offline. Connecting searches dnd5e.lamagra.link
+              from your browser; only selected monsters are copied to this
+              server. Account and campaign data are not sent to the catalogue.
             </p>
+            {source === "remote" && (
+              <p className="text-sm">
+                Remote catalogue: {remoteCatalogue.length} monsters indexed
+              </p>
+            )}
+            {loading && (
+              <p role="status" className="text-sm">
+                {connecting
+                  ? "Connecting to remote catalogue…"
+                  : "Searching remote catalogue…"}
+              </p>
+            )}
+            {remoteError && (
+              <p role="alert" className="text-sm text-red-300">
+                {remoteError} You can retry connecting or import a local JSON
+                file.
+              </p>
+            )}
           </div>
           <Input
             autoFocus

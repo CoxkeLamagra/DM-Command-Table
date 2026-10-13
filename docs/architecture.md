@@ -1,6 +1,6 @@
 # Application architecture
 
-The application uses a single fresh SQLite baseline, `offline-runtime-baseline` (schema version 1). It preserves campaign ownership and sharing, administration, Players/NPCs, local Bestiary imports, Story/Session planning and templates, prepared encounters, single-use combatants, live combat resources, conditions and undo, search, screenshots and backups. The runtime makes no requests to external services.
+The application uses a single fresh SQLite baseline, `offline-runtime-baseline` (schema version 1). It preserves campaign ownership and sharing, administration, Players/NPCs, local Bestiary imports, Story/Session planning and templates, prepared encounters, single-use combatants, live combat resources, conditions and undo, search, screenshots and backups. The runtime needs no external services. Browser-side remote Bestiary search is optional and connects only after explicit user action.
 
 ## Structure
 
@@ -16,7 +16,7 @@ Prepared custom combatants are normalized rows rather than JSON blobs. Combat re
 
 Rich text is sanitized at persistence boundaries and when rendered or pasted. Local images retain campaign authorization after an uploader account is removed. Campaign packages include embedded images and remap their IDs on import; failed imports clean up staged uploads, and maintenance handles abandoned staging.
 
-The workspace supports addressable campaign/section/record URLs and browser navigation, dirty-draft reconciliation, separate authorization and server availability messages, and a mobile navigation focus trap. Editor components and shared record/draft helpers are extracted from large screens. Bestiary catalogue parsing, deduplication and search are pure functions in `features/bestiary/local-catalogue.ts`; the UI loads local files and retains multi-selection, previews and duplicate replacement. Browser CSP limits connections to the same origin.
+The workspace supports addressable campaign/section/record URLs and browser navigation, dirty-draft reconciliation, separate authorization and server availability messages, and a mobile navigation focus trap. Editor components and shared record/draft helpers are extracted from large screens. Bestiary catalogue parsing, deduplication and search are pure functions in `features/bestiary/local-catalogue.ts`; the UI loads local files and retains multi-selection, previews and duplicate replacement. Browser CSP permits the application origin and the fixed optional catalogue origin `https://dnd5e.lamagra.link`. `remote-catalogue.ts` validates source/file indexes, bounds accepted downloads, caches decoded files and aborts outdated searches; requests omit credentials and referrers. Local-file mode makes no external requests.
 
 ## Local security and resource limits
 

@@ -14,7 +14,7 @@ test("local catalogue search, preview, import and replacement work with external
   });
   const response = await page.goto("/");
   expect(response?.headers()["content-security-policy"]).toContain(
-    "connect-src 'self';",
+    "connect-src 'self' https://dnd5e.lamagra.link;",
   );
   await page.getByLabel("Username", { exact: true }).fill("browser-offline");
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
@@ -26,7 +26,7 @@ test("local catalogue search, preview, import and replacement work with external
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByRole("button", { name: "Connect to remote catalogue" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   const upload = () =>
     dialog.locator('input[type="file"]').setInputFiles({
       name: "local.json",

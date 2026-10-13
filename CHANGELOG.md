@@ -2,6 +2,13 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.1.0 — 2026-10-13
+
+- Restore explicit optional remote catalogue connection, name/source search, monster previews, multi-selection and import from dnd5e.lamagra.link alongside offline local JSON imports.
+- Validate catalogue source/file indexes and monster payloads, cache decoded files and cancel outdated requests; omit cookies and referrers when contacting the fixed catalogue host.
+- Keep imported monsters as editable local campaign copies, including existing duplicate replacement/discard behavior. Retain the v11 data baseline and local administrator update workflow.
+- Update catalogue usage, architecture, privacy, API and deployment documentation.
+
 ## 11.0.2 — 2026-10-13
 
 - Prevent informational notifications from intercepting clicks on underlying Save controls. Retain actionable notification buttons and add an explicit dismiss button.
