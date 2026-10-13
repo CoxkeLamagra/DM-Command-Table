@@ -40,7 +40,8 @@ export function LoadPreview({
           <DialogTitle>Load encounter preview</DialogTitle>
           <DialogDescription>
             Load “{prepared.name || "Prepared encounter"}” into Combat. The
-            round resets to 1 and the initiative order is rebuilt.
+            entire current roster is replaced. The round resets to 1 and the
+            initiative order is rebuilt.
           </DialogDescription>
         </DialogHeader>
         {unsaved && (
@@ -50,23 +51,8 @@ export function LoadPreview({
           </p>
         )}
         <section>
-          <h3 className="font-medium text-green-300">
-            Retain {preview.retained.length} Players / NPCs
-          </h3>
-          <p className="text-sm text-stone-300">
-            {preview.retained
-              .slice(0, 12)
-              .map(({ name }) => name)
-              .join(", ") || "None"}
-            {preview.retained.length > 12
-              ? ` and ${preview.retained.length - 12} more`
-              : ""}
-            . Their current HP and conditions remain.
-          </p>
-        </section>
-        <section>
           <h3 className="font-medium text-red-300">
-            Replace {preview.replaced.length} current monsters
+            Replace {preview.replaced.length} current combatants
           </h3>
           <p className="text-sm text-stone-300">
             {preview.replaced
@@ -89,15 +75,11 @@ export function LoadPreview({
             with no conditions.
           </p>
         </section>
-        {!!preview.duplicateNames.length && (
-          <p
-            role="alert"
-            className="rounded border border-amber-300/30 p-3 text-sm text-amber-200"
-          >
-            Possible duplicates:{" "}
-            {preview.duplicateNames.slice(0, 12).join(", ")}. Matching names
-            will be added as separate combatants; existing Players/NPCs remain.
-            Cancel and edit the encounter if these are the same characters.
+        {preview.mergedPlayers > 0 && (
+          <p className="text-sm text-stone-300">
+            {preview.mergedPlayers} duplicate Player entries will be replaced by
+            the last prepared entry with that name. Monsters and NPCs remain
+            separate.
           </p>
         )}
         <p className="font-medium">
@@ -106,7 +88,7 @@ export function LoadPreview({
         {preview.total > MAX_COMBATANTS && (
           <p role="alert" className="text-red-300">
             The result exceeds the 10,000-combatant limit. Reduce the encounter
-            or current roster before loading.
+            before loading.
           </p>
         )}
         <p className="text-xs text-stone-400">

@@ -142,7 +142,7 @@ test("zero HP policy handles all-downed groups, empty combat and round reset", (
     [],
   );
 });
-test("encounter preview matches load semantics and warns about retained names without modifying state", () => {
+test("encounter preview matches load semantics and replaces every current combatant without modifying state", () => {
   const current = combat([
     entry("Guide", "npc", 5, 10),
     entry("Goblin", "monster", 4, 5),
@@ -165,13 +165,16 @@ test("encounter preview matches load semantics and warns about retained names wi
         sortOrder: 0,
       },
     ],
-    combatants: [entry("guide", "npc", 10, 10)],
+    combatants: [
+      entry("guide", "npc", 10, 10),
+      entry("Hero", "player", 5, 10),
+      entry(" hero ", "player", 8, 10),
+    ],
   };
   const preview = previewPreparation(current, prepared);
-  assert.equal(preview.retained.length, 1);
-  assert.equal(preview.replaced.length, 1);
+  assert.equal(preview.replaced.length, 2);
   assert.equal(preview.total, 5);
-  assert.deepEqual(preview.duplicateNames, ["guide"]);
+  assert.equal(preview.mergedPlayers, 1);
   assert.equal(current.combatants[0].hitPoints, 5);
   assert.equal(prepared.monsters[0].quantity, 3);
 });

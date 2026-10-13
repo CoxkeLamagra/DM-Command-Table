@@ -363,16 +363,16 @@ test("prepared loading bounds expanded quantities before any combatant allocatio
     assert.equal(result.combatants[0].kind, "monster");
     allocations = 0;
     const survivor = entry(crypto.randomUUID(), 12);
-    assert.throws(
-      () =>
-        loadPreparation(
-          { ...combat, combatants: [survivor] },
-          bounded,
-          sources,
-          id,
-        ),
-      CombatCapacityError,
+    assert.equal(
+      loadPreparation(
+        { ...combat, combatants: [survivor] },
+        bounded,
+        sources,
+        id,
+      ).combatants.length,
+      10000,
     );
+    allocations = 0;
     assert.throws(
       () =>
         loadPreparation(
@@ -447,7 +447,7 @@ test("prepared loading bounds expanded quantities before any combatant allocatio
   }
 });
 
-test("editors can load prepared Players and NPCs while retaining existing combatants", async () => {
+test("editors can load prepared Players and NPCs while replacing all existing combatants", async () => {
   const { database, campaign, content, encounters } = fixture();
   try {
     const session = content.createSession(campaign.id, "owner", {
@@ -467,7 +467,18 @@ test("editors can load prepared Players and NPCs while retaining existing combat
       campaign.id,
       "owner",
       initial.revision,
-      { ...initial, combatants: [retained] },
+      {
+        ...initial,
+        combatants: [
+          retained,
+          { ...entry(crypto.randomUUID(), 14), name: "Old NPC" },
+          {
+            ...entry(crypto.randomUUID(), 13),
+            kind: "monster",
+            name: "Old monster",
+          },
+        ],
+      },
     );
     const prepared = encounters.createPrepared(
       campaign.id,
@@ -479,8 +490,30 @@ test("editors can load prepared Players and NPCs while retaining existing combat
         sortOrder: 0,
         monsters: [],
         combatants: [
-          entry(crypto.randomUUID(), 10),
-          { ...entry(crypto.randomUUID(), 12), kind: "player" },
+          { ...entry(crypto.randomUUID(), 10), name: "Guide" },
+          { ...entry(crypto.randomUUID(), 10), name: "Guide" },
+          {
+            ...entry(crypto.randomUUID(), 10),
+            kind: "monster",
+            name: "Goblin",
+          },
+          {
+            ...entry(crypto.randomUUID(), 10),
+            kind: "monster",
+            name: "Goblin",
+          },
+          {
+            ...entry(crypto.randomUUID(), 12, 5),
+            kind: "player",
+            name: "Hero",
+            sortOrder: 98,
+          },
+          {
+            ...entry(crypto.randomUUID(), 12, 8),
+            kind: "player",
+            name: " hero ",
+            sortOrder: 99,
+          },
         ],
       },
     );
@@ -498,16 +531,73 @@ test("editors can load prepared Players and NPCs while retaining existing combat
     );
     assert.equal(response.status, 200);
     const saved = encounters.getCombat(campaign.id, "owner");
-    assert.equal(saved.combatants.length, 3);
+    assert.equal(saved.combatants.length, 5);
     assert.equal(
       saved.combatants.filter(({ kind }) => kind === "player").length,
-      2,
+      1,
     );
     assert.equal(
       saved.combatants.filter(({ kind }) => kind === "npc").length,
-      1,
+      2,
     );
-    assert.equal(saved.combatants[0].id, retained.id);
+    assert.equal(
+      saved.combatants.some(({ id }) => id === retained.id),
+      false,
+    );
+    assert.equal(
+      saved.combatants.filter(({ kind }) => kind === "monster").length,
+      2,
+    );
+    assert.equal(
+      saved.combatants.find(({ kind }) => kind === "player")?.hitPoints,
+      8,
+    );
+    assert.equal(
+      saved.combatants.some(({ name }) => name.startsWith("Old ")),
+      false,
+    );
+    const player = saved.combatants.find(({ kind }) => kind === "player")!;
+    assert.throws(
+      () =>
+        encounters.saveCombat(campaign.id, "owner", saved.revision, {
+          ...saved,
+          combatants: [
+            ...saved.combatants,
+            { ...player, id: crypto.randomUUID(), name: "HERO" },
+          ],
+        }),
+      /unique names/,
+    );
+    assert.equal(
+      encounters.getCombat(campaign.id, "owner").revision,
+      saved.revision,
+    );
+    const undone = encounters.undoCombat(campaign.id, "owner", saved.revision);
+    assert.equal(undone.combatants.length, 3);
+    assert.equal(
+      undone.combatants.some(({ id }) => id === retained.id),
+      true,
+    );
+    const empty = await handleApi(
+      new Request(
+        `http://local/api/campaigns/${campaign.id}/combat/load-prepared`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            revision: undone.revision,
+            prepared: { ...prepared, combatants: [], monsters: [] },
+          }),
+        },
+      ),
+      database,
+      { userId: "editor", isAdmin: false },
+    );
+    assert.equal(empty.status, 200);
+    assert.equal(
+      encounters.getCombat(campaign.id, "owner").combatants.length,
+      0,
+    );
     assert.equal(saved.round, 1);
   } finally {
     database.close();

@@ -129,9 +129,23 @@ export class CombatCapacityError extends Error {
   }
 }
 
+export function uniquePlayers<
+  T extends { kind: Combatant["kind"]; name: string },
+>(entries: T[]): T[] {
+  const last = new Map<string, number>();
+  entries.forEach((entry, index) => {
+    if (entry.kind === "player")
+      last.set(entry.name.trim().toLowerCase(), index);
+  });
+  return entries.filter(
+    (entry, index) =>
+      entry.kind !== "player" ||
+      last.get(entry.name.trim().toLowerCase()) === index,
+  );
+}
+
 export function assertPreparedCapacity(
   prepared: Pick<PreparedEncounter, "monsters" | "combatants">,
-  retainedCount = 0,
 ): void {
   if (
     prepared.monsters.some(
@@ -140,8 +154,7 @@ export function assertPreparedCapacity(
   )
     throw new CombatCapacityError();
   const total =
-    retainedCount +
-    (prepared.combatants?.length ?? 0) +
+    uniquePlayers(prepared.combatants ?? []).length +
     prepared.monsters.reduce((sum, entry) => sum + entry.quantity, 0);
   if (!Number.isSafeInteger(total) || total > MAX_COMBATANTS)
     throw new CombatCapacityError();
@@ -160,10 +173,7 @@ export function loadPreparation(
   sources: MonsterSource[],
   id: () => string = () => crypto.randomUUID(),
 ): CombatEncounter {
-  const survivors = combat.combatants.filter(
-    (entry) => entry.kind !== "monster",
-  );
-  assertPreparedCapacity(prepared, survivors.length);
+  assertPreparedCapacity(prepared);
   const additions: Combatant[] = prepared.monsters.flatMap((entry) => {
     const source = sources.find((value) => value.id === entry.monsterId);
     if (!source) throw new Error("A prepared monster no longer exists.");
@@ -186,23 +196,26 @@ export function loadPreparation(
       revision: 1,
     }));
   });
-  const copies: Combatant[] = (prepared.combatants ?? []).map((entry) => ({
-    ...entry,
-    id: id(),
-    playerId: null,
-    monsterId: null,
-    conditions: [],
-    snapshot: null,
-    runtime: emptyRuntime(),
-    revision: 1,
-  }));
+  const copies: Combatant[] = uniquePlayers(prepared.combatants ?? []).map(
+    (entry) => ({
+      ...entry,
+      id: id(),
+      playerId: null,
+      monsterId: null,
+      conditions: [],
+      snapshot: null,
+      runtime: emptyRuntime(),
+      revision: 1,
+    }),
+  );
   return normalizeCombat({
     ...combat,
     name: prepared.name || "Prepared encounter",
     round: 1,
     turn: 0,
-    combatants: [...survivors, ...additions, ...copies].map(
-      (entry, sortOrder) => ({ ...entry, sortOrder }),
-    ),
+    combatants: [...additions, ...copies].map((entry, sortOrder) => ({
+      ...entry,
+      sortOrder,
+    })),
   });
 }

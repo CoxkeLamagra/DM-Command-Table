@@ -90,7 +90,7 @@ Login attempts are limited to 10 per source and normalized username, 30 per sour
 
 Client addresses are read only when `DM_COMMAND_TABLE_TRUST_PROXY=true`. Use this behind a trusted reverse proxy that overwrites forwarded client-address headers, as in the Debian installation guide, and keep the application port private. With proxy trust disabled, requests share the `direct-client` source budget; users behind the same proxy-visible address also share a source budget.
 
-Prepared encounters may expand to at most 10,000 combatants, including custom Players/NPCs and any Players/NPCs retained in the current combat. Oversized encounters are rejected before expansion. Loading a prepared encounter requires campaign editor or owner access.
+Prepared encounters may expand to at most 10,000 combatants, including prepared Players/NPCs; the entire current combat roster is removed. Oversized encounters are rejected before expansion. Loading a prepared encounter requires campaign editor or owner access. Repeated Player names are compared case-insensitively after trimming and use the last prepared entry. Monsters and NPCs can repeat. Loading an empty preparation clears Combat; Undo restores the previous roster.
 
 ## Local resource limits
 

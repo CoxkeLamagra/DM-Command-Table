@@ -124,7 +124,7 @@ test("turn boundaries expire outgoing/end and incoming/start conditions, retain 
   assert.equal(single.round, 2);
   assert.equal(single.combatants[0].conditions.length, 1);
 });
-test("prepared monster copies capture independent snapshots/resources while retained roster runtime survives", () => {
+test("prepared monster copies capture independent snapshots/resources and replace the entire previous roster", () => {
   const hero = entry();
   hero.runtime!.temporaryHitPoints = 4;
   const prepared: PreparedEncounter = {
@@ -162,11 +162,12 @@ test("prepared monster copies capture independent snapshots/resources while reta
   wizards[0].snapshot!.spellSlots[0] = 0;
   assert.equal(wizards[1].runtime!.resources[0].remaining, 4);
   assert.equal(wizards[1].snapshot!.spellSlots[0], 4);
+  assert.equal(result.combatants.length, 2);
   assert.equal(
-    result.combatants.find((value) => value.id === hero.id)?.runtime
-      ?.temporaryHitPoints,
-    4,
+    result.combatants.some((value) => value.id === hero.id),
+    false,
   );
+  assert.equal(hero.runtime!.temporaryHitPoints, 4);
 });
 test("runtime validation rejects impossible counters and unsafe numeric inputs", () => {
   assert.equal(

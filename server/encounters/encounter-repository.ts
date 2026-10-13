@@ -9,6 +9,7 @@ import { createBestiaryRepository } from "../bestiary/bestiary-repository.ts";
 import {
   assertPreparedCapacity,
   orderedCombatants,
+  uniquePlayers,
 } from "../../domain/combat.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import {
@@ -504,6 +505,10 @@ function replaceCombatants(
 ): void {
   if (new Set(combatants.map((entry) => entry.id)).size !== combatants.length)
     throw new PublicApiError("Combatant IDs must be unique.");
+  if (uniquePlayers(combatants).length !== combatants.length)
+    throw new PublicApiError(
+      "Players must have unique names in combat. Duplicate names are allowed only for Monsters and NPCs.",
+    );
   const prior = getCombat(database, encounterId).combatants;
   const byId = new Map(prior.map((entry) => [entry.id, entry]));
   const inputById = new Map(combatants.map((entry) => [entry.id, entry]));

@@ -2,6 +2,12 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.3.1 — 2026-10-13
+
+- Replace the entire current combat roster when loading a prepared encounter, including existing Players/NPCs; loading an empty encounter clears Combat.
+- Keep one Player per trimmed, case-insensitive name using the last prepared entry. Preserve duplicate Monsters and NPCs and reject duplicate Player names on direct combat saves.
+- Update the load preview and capacity checks to match replacement semantics. Retain revision checks, fresh combat resources and Undo recovery; add regression coverage and update documentation.
+
 ## 11.3.0 — 2026-10-13
 
 - Add a standalone fresh Debian 13 LXC installer that provisions signed OS prerequisites, Node 24, pinned pnpm, separate build/runtime accounts, locked dependencies, verified application runtime, Nginx and scheduled backups.

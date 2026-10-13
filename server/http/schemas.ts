@@ -1,3 +1,4 @@
+import { uniquePlayers } from "../../domain/combat.ts";
 import { MAX_COMBATANTS } from "../../domain/limits.ts";
 import { z } from "zod";
 
@@ -190,11 +191,11 @@ export const preparedEncounterFields = z.object({
 
 export function preparedEncounterFits(input: {
   monsters: { quantity: number }[];
-  combatants?: unknown[];
+  combatants?: { kind: "player" | "npc" | "monster"; name: string }[];
 }): boolean {
   return (
     input.monsters.reduce((sum, entry) => sum + entry.quantity, 0) +
-      (input.combatants?.length ?? 0) <=
+      uniquePlayers(input.combatants ?? []).length <=
     MAX_COMBATANTS
   );
 }

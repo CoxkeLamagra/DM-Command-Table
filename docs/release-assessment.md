@@ -4,6 +4,10 @@ Version 11.0.0 introduces the fresh-install baseline. This refactor retains loca
 
 Catalogue search/import connects automatically to the remote source when opening the import window as of 11.2.1; local JSON remains available offline. Administrator application updates retain GUI controls, progress, logs, auditing and recovery; version 11.2.0 automates trusted source fetch, dependency installation, verification, build and deployment. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
 
+## v11.3.1 prepared roster replacement
+
+Loading replaces every current combatant, including Players/NPCs, with fresh prepared copies. Repeated Player names are trimmed and compared case-insensitively; the last entry supplies the combat details. Monsters and NPCs remain separate. The preview and capacity checks share these rules; direct combat saves reject duplicate Player names atomically. Regression coverage includes all-type replacement, player overwrite, duplicate NPCs/monsters, empty loads, the full 10,000 limit without counting the old roster and Undo recovery. Existing v11 data remains compatible. Production audit, formatting, lint, TypeScript, all 109 unit/API tests, the production build and all 17 system-Chromium browser tests passed.
+
 ## v11.3.0 complete Debian installer
 
 A standalone root script provisions fresh Debian 13 LXC prerequisites, signed Node 24, pinned pnpm, separate build/runtime accounts, locked application dependencies and a tested/verified runtime. It installs Nginx, scheduled backups and automatic GUI updates, checks readiness as the runtime account and returns the initial administrator token only after all checks succeed. It refuses preexisting or partial installations and concurrent runs, keeps the token in root-only configuration and retains diagnostic files on failure.

@@ -186,6 +186,20 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     .getByRole("button", { name: "Load in Combat", exact: true })
     .first()
     .click();
+  const loadPreview = page.getByRole("dialog", {
+    name: "Load encounter preview",
+  });
+  await expect(
+    loadPreview.getByRole("heading", {
+      name: /^Replace \d+ current combatants$/,
+    }),
+  ).toBeVisible();
+  await expect(
+    loadPreview.getByText(/entire current roster is replaced/),
+  ).toBeVisible();
+  await expect(
+    loadPreview.getByRole("heading", { name: /^Retain/ }),
+  ).toHaveCount(0);
   await page
     .getByRole("dialog", { name: "Load encounter preview" })
     .getByRole("button", { name: "Confirm load", exact: true })

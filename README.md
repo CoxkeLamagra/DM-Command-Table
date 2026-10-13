@@ -6,7 +6,7 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current release is **11.3.0**, using the v11 database baseline. First v11 installations need a new data directory; upgrades within v11 retain their data. Pre-v11 databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
+The current release is **11.3.1**, using the v11 database baseline. First v11 installations need a new data directory; upgrades within v11 retain their data. Pre-v11 databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
 
 Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same self-contained standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md), [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
 
@@ -120,8 +120,9 @@ Imported monster data belongs to the current campaign and remains editable after
 - Prepared encounters start collapsed; expand/collapse each separately or all encounters in a session at once.
 - Add NPCs and custom combatants without the Bestiary, then edit names, types, initiative, HP, maximum HP, AC, and rich-text stat blocks and notes.
 - Use Edit details on a Bestiary entry to create encounter-specific copies without modifying the Bestiary. Custom details are saved and carried into Combat.
-- Review a load preview before confirming: retained Players/NPCs, replaced monsters, incoming records, possible duplicate names and the 10,000-combatant limit. Cancel leaves Combat unchanged; refresh retrieves its latest revision.
-- Load a prepared encounter into Combat while preserving existing players and NPCs, replacing current monsters, and resetting to round 1.
+- Players are unique by name (case-insensitive, ignoring surrounding spaces); duplicate Monsters and NPCs are allowed.
+- Review a load preview before confirming: all current combatants being replaced, incoming records and duplicate Player entries being merged and the 10,000-combatant limit. Cancel leaves Combat unchanged; refresh retrieves its latest revision.
+- Load a prepared encounter into Combat by replacing the entire current roster and resetting to round 1.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
 - Link Sessions to Story beats from a compact dropdown, review linked Session dates and statuses, and open a linked Session by selecting its name.
@@ -137,7 +138,7 @@ Bestiary creatures capture a stat-block snapshot when added or loaded into Comba
 
 Conditions can tick at the start or end of the affected creature’s own turn, or remain until dismissed. A timed condition expires at its selected boundary unless **Requires save** is enabled; then it flags a saving throw and remains until you resolve it. Choose **Save succeeded: clear** or **Save failed: keep**. A failed persistent save can be prompted again at the next selected boundary. Blank durations remain active. Use **Mark save due** to request an earlier or manual save, and expand **Override timing or duration** for manual adjustments. Skipped creatures do not receive a start-of-turn tick; leaving the active creature’s turn resolves its end-of-turn effects.
 
-Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; incoming copies start fresh while retained Players/NPCs keep their live state. The fresh schema includes all runtime and condition fields from initialization.
+Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; loading replaces the entire combat roster with fresh incoming copies. The fresh schema includes all runtime and condition fields from initialization.
 
 ### Draft recovery and turn preferences
 

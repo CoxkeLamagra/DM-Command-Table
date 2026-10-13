@@ -19,6 +19,8 @@ import { runMigrations } from "../db/migrations.ts";
 import { registerUser, registrationStatus } from "../server/identity/auth.ts";
 import { checkInstallation } from "../deploy/debian-13/check-installation.mjs";
 
+const installVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
+
 // Run the actual standalone installer in a disposable filesystem. OS packages,
 // identities, systemd and the expensive remote build are simulated; copying,
 // links, permissions, token generation and refusal to overwrite are real.
@@ -96,7 +98,7 @@ function installFixture(mode: string) {
   stub(
     "node",
     preamble +
-      `if(args[0]==='-p'){console.log('24');process.exit(0);}if(args[0]==='scripts/package-runtime.mjs'){fs.mkdirSync(args[1]+'/scripts',{recursive:true});fs.writeFileSync(args[1]+'/server.js','// fixture');fs.writeFileSync(args[1]+'/runtime-manifest.json',JSON.stringify({applicationVersion:'11.3.0'}));fs.writeFileSync(args[1]+'/scripts/check-local-storage.mjs','');process.exit(0);}if(args[0]?.endsWith('/runtime-integrity.mjs'))process.exit(0);if(args[0]?.endsWith('/check-installation.mjs')){fs.appendFileSync(root+'/commands','readiness-check\\n');process.exit(${mode === "health-failure" ? 1 : 0});}const r=cp.spawnSync(${JSON.stringify(process.execPath)},args,{stdio:'inherit'});process.exit(r.status??1);`,
+      `if(args[0]==='-p'){console.log('24');process.exit(0);}if(args[0]==='scripts/package-runtime.mjs'){fs.mkdirSync(args[1]+'/scripts',{recursive:true});fs.writeFileSync(args[1]+'/server.js','// fixture');fs.writeFileSync(args[1]+'/runtime-manifest.json',JSON.stringify({applicationVersion:${JSON.stringify(installVersion)}}));fs.writeFileSync(args[1]+'/scripts/check-local-storage.mjs','');process.exit(0);}if(args[0]?.endsWith('/runtime-integrity.mjs'))process.exit(0);if(args[0]?.endsWith('/check-installation.mjs')){fs.appendFileSync(root+'/commands','readiness-check\\n');process.exit(${mode === "health-failure" ? 1 : 0});}const r=cp.spawnSync(${JSON.stringify(process.execPath)},args,{stdio:'inherit'});process.exit(r.status??1);`,
   );
   let script = readFileSync("deploy/debian-13/install-dm-command-table", "utf8")
     .replace(
