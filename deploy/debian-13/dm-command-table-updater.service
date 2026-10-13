@@ -1,0 +1,23 @@
+[Unit]
+Description=DM Command Table local update broker
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=dmct
+WorkingDirectory=/
+Environment=DM_COMMAND_TABLE_UPDATE_TARGET=origin/main
+ExecStart=/usr/bin/node /usr/local/lib/dm-command-table/update-broker.mjs
+Restart=on-failure
+RestartSec=5
+RuntimeDirectory=dm-command-table-updater
+RuntimeDirectoryMode=0750
+StateDirectory=dm-command-table-updater
+StateDirectoryMode=0700
+UMask=0077
+# Keep this independent of dm-command-table.service so updates survive its restart.
+# The updater needs systemctl, runuser and write access to releases/configuration.
+
+[Install]
+WantedBy=multi-user.target

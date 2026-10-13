@@ -68,6 +68,8 @@ Remove an obsolete build using `git worktree remove` as `dmct` after inspecting 
 
 ## Troubleshooting
 
+For optional [GUI updates](debian-13-lxc.md#updates-from-administration), inspect `systemctl status dm-command-table-updater.service` and `journalctl -u dm-command-table-updater.service`. The application must be able to connect to `/run/dm-command-table-updater/control.sock` as group `dmct`. The latest job is kept separately in root-only `/var/lib/dm-command-table-updater/latest.json`, surviving application restarts. Do not restart the broker mid-update; an interrupted job requires manual health/release inspection. The GUI's retained output covers only updates it starts; CLI runs use the same update lock but do not create GUI jobs.
+
 | Symptom                                      | Check                                                                                                              |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Node/pnpm missing under `runuser`            | System-wide `/usr/bin/node` and `/usr/bin/pnpm`; avoid root-only nvm                                               |

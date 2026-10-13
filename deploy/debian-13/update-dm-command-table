@@ -4,6 +4,8 @@ set -euo pipefail
 # runuser preserves the caller's working directory. pnpm inspects it even for
 # --version, so leave root-only directories before invoking the service user.
 cd /
+step() { printf '@@STEP %s\n' "$1"; }
+step prerequisites
 for tool in /usr/bin/node /usr/bin/pnpm; do
   [[ -x $tool ]] || { echo "Missing system-wide runtime: $tool. Follow the Node/pnpm setup in docs/debian-13-lxc.md." >&2; exit 1; }
   runuser -u dmct -- "$tool" --version >/dev/null
@@ -14,6 +16,7 @@ BASE=/opt/dm-command-table
 SOURCE=$BASE/source
 CURRENT=$BASE/current
 SERVICE=dm-command-table.service
+step fetch
 [[ -z $(runuser -u dmct -- git -C "$SOURCE" status --porcelain) ]] || { echo 'Source checkout is dirty.' >&2; exit 1; }
 runuser -u dmct -- git -C "$SOURCE" fetch --tags origin
 TARGET=$(runuser -u dmct -- git -C "$SOURCE" rev-parse "${1:-origin/main}^{commit}")
@@ -22,7 +25,14 @@ RELEASE=$BASE/releases/$(date +%s)-${TARGET:0:12}
 mkdir -p "$BASE/builds" "$BASE/releases"
 chown dmct:dmct "$BASE/builds" "$BASE/releases"
 runuser -u dmct -- git -C "$SOURCE" worktree add --detach "$BUILD" "$TARGET"
-runuser -u dmct -- /usr/bin/env NEXT_TELEMETRY_DISABLED=1 bash -c 'cd "$1" && /usr/bin/pnpm install --frozen-lockfile && /usr/bin/pnpm build && /usr/bin/pnpm test && /usr/bin/node scripts/package-runtime.mjs "$2"' _ "$BUILD" "$RELEASE"
+step install
+runuser -u dmct -- /usr/bin/pnpm --dir "$BUILD" install --frozen-lockfile
+step build
+runuser -u dmct -- /usr/bin/env NEXT_TELEMETRY_DISABLED=1 /usr/bin/pnpm --dir "$BUILD" build
+step test
+runuser -u dmct -- /usr/bin/pnpm --dir "$BUILD" test
+step package
+runuser -u dmct -- bash -c 'cd "$1" && /usr/bin/node scripts/package-runtime.mjs "$2"' _ "$BUILD" "$RELEASE"
 printf '%s\n' "$TARGET" > "$RELEASE/REVISION"
 OLD=$(readlink -f "$CURRENT" || true)
 set -a
@@ -39,6 +49,7 @@ switch_release() {
   ln -s "$1" "$BASE/current.next"
   mv -Tf "$BASE/current.next" "$CURRENT"
 }
+step backup
 systemctl stop "$SERVICE"
 # Capture the exact last committed state after stopping; a live backup before stop could lose intervening saves on rollback.
 trap 'systemctl start "$SERVICE" || true' ERR
@@ -46,14 +57,18 @@ BACKUP=''
 if [[ -f ${DM_COMMAND_TABLE_DB_PATH:-/var/lib/dm-command-table/dm-command-table.sqlite} ]]; then
   BACKUP=$(runuser -u dmct --preserve-environment -- /usr/bin/node "$RELEASE/scripts/backup-local.mjs")
 fi
+step switch
 switch_release "$RELEASE"
 trap - ERR
+step health
 if systemctl start "$SERVICE" && health; then
   echo "Running $TARGET. Pre-update backup: ${BACKUP:-fresh installation}"
+  step cleanup
   runuser -u dmct -- git -C "$SOURCE" worktree remove "$BUILD"
   exit 0
 fi
 echo 'Candidate failed health checks; recovering the prior release.' >&2
+step rollback
 systemctl stop "$SERVICE" || true
 if [[ -n $OLD && -d $OLD ]]; then
   if [[ -n $BACKUP ]]; then
@@ -66,6 +81,7 @@ if [[ -n $OLD && -d $OLD ]]; then
   switch_release "$OLD"
   systemctl start "$SERVICE"
   health || { echo 'Recovery also failed. Inspect logs and preserved data.' >&2; exit 1; }
+  printf '@@DONE rollback\n'
   echo 'Previous release restored.' >&2
 fi
 exit 1
