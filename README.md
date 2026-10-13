@@ -39,6 +39,7 @@ Campaigns are private by default. Only the owner can share or delete a campaign.
 
 - The first locally registered account automatically becomes an administrator.
 - Administrators can open **Administration** to review all registered accounts.
+- With the optional Debian update service installed, administrators can update the application from **Administration**, follow executed steps and view the retained update log. See [GUI update setup](docs/debian-13-lxc.md#updates-from-administration).
 - Change usernames and display names, reset passwords, or delete accounts.
 - Grant or remove administrator access for other users.
 - Manage server-wide cookie security, session lifetime, screenshot upload and storage limits, Combat undo retention, and audit retention from the Web UI.

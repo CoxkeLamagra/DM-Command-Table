@@ -4,6 +4,8 @@ All notable DM Command Table releases are documented here.
 
 ## Unreleased
 
+- Add optional administrator-triggered Debian LXC updates with executed-step status, bounded local logs and reconnection after application restart. Use a separate root-owned Unix-socket service with a fixed update target; retain backup and rollback behavior without granting the web service root privileges. Document setup and Docker host-managed updates.
+
 - Fix the Debian updater's runtime checks when launched from root's home directory, and document recovery and updater reinstallation.
 
 ## 10.1.0 — 2026-10-12

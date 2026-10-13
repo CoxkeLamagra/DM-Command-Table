@@ -44,6 +44,8 @@ Prepared encounters are nested under Sessions; there is no top-level `C/encounte
 
 ## Identity, administration and media
 
+`GET /api/admin/updates` requires a current administrator session and returns `{ available, target?, job }`. An unavailable local broker returns `{ available: false, job: null }`. `POST /api/admin/updates` accepts only `{ "action": "start" }`, checks origin and current administrator rights, records the request in the local audit history and limits starts to six attempts per administrator/source per hour. A reachable broker returns 202 with the current job; an unavailable broker returns 503. Duplicate starts attach to the running job. Browser-supplied targets or commands are rejected with 400. Status and logs use private, uncached responses. The broker's root-configured target and latest job are defined in `domain/updates.ts`; it runs independently of application restarts. See [Debian GUI setup](debian-13-lxc.md#updates-from-administration).
+
 | Method                   | Route                  | Purpose                                                                                |
 | ------------------------ | ---------------------- | -------------------------------------------------------------------------------------- |
 | GET                      | `/api/auth`            | Current user and registration/setup state                                              |

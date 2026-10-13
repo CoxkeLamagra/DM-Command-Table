@@ -85,6 +85,8 @@ Use both files for subsequent commands while that recovered directory is active.
 
 ## Diagnose
 
+The Administration update panel is unavailable in Docker. Continue using the host-side Compose update procedure; do not mount the Docker socket or install the Debian root update broker inside the container.
+
 ```sh
 docker compose ps
 docker compose logs --tail 100 dm-command-table

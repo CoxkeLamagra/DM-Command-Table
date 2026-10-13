@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { UpdatePanel } from "./update-panel";
 import { Plus, Save, Shield, Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -109,6 +110,7 @@ export function AdminScreen({ current }: { current: User }) {
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5">
       <h1 className="font-serif text-3xl">Administration</h1>
+      <UpdatePanel />
 
       <section className="rounded-xl border border-white/10 bg-[#13161d] p-5">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">

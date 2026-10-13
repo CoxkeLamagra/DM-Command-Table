@@ -88,6 +88,38 @@ If the candidate fails, the updater restores the matching backup into a new dire
 
 The v9 baseline is intentionally incompatible with earlier versions. Deploy it into a fresh data directory; this updater is for subsequent releases using the new baseline. Earlier JSON exports are not a supported migration contract.
 
+## Updates from Administration
+
+GUI updates are optional and require a one-time root setup from an approved source checkout containing this feature. The existing `v10.1.0` tag predates GUI update support. Deploy the application build containing the feature and install the matching updater and broker from that same checkout:
+
+```bash
+cd /opt/dm-command-table/source
+install -d -o root -g root -m 0755 /usr/local/lib/dm-command-table
+install -o root -g root -m 0644 deploy/debian-13/update-broker.mjs /usr/local/lib/dm-command-table/update-broker.mjs
+install -o root -g root -m 0755 deploy/debian-13/update-dm-command-table /usr/local/sbin/update-dm-command-table
+install -o root -g root -m 0644 deploy/debian-13/dm-command-table-updater.service /etc/systemd/system/dm-command-table-updater.service
+systemctl daemon-reload
+systemctl enable --now dm-command-table-updater.service
+systemctl status dm-command-table-updater.service --no-pager
+```
+
+Open **Administration → Application updates**. Save all open edits first, then confirm **Update application**. The default target is `origin/main`, the same as the CLI updater; the updater resolves it to a concrete commit. The browser cannot supply shell commands, branches, arguments or environment variables. A root administrator can pin a release tag or full 40-character commit using `systemctl edit dm-command-table-updater.service`:
+
+```ini
+[Service]
+Environment=DM_COMMAND_TABLE_UPDATE_TARGET=v10.1.0
+```
+
+Choose a target containing GUI update support if you want to retain this UI. Reload systemd and restart the update service to apply a target change, only when no update is running. Targets are restricted to `origin/main`, `vMAJOR.MINOR.PATCH` or a full commit SHA.
+
+The panel reports prerequisite, source, dependency, build, test, packaging, backup, release-switch, readiness and cleanup steps. Failure logs include any attempted recovery. The update continues when the browser closes or the application restarts; the page polls and reconnects after temporary unavailability. Reload the application after success to load the new frontend. Only the latest job is retained, with its administrator ID, timestamps, exit status, step results and final 64 KiB of output. Other administrators see the same job; duplicate starts attach to it.
+
+The broker runs separately as root because the existing updater manages systemd, backups and release links. The web service stays `dmct` with `NoNewPrivileges=true`; no sudo rule is needed. The socket is `/run/dm-command-table-updater/control.sock`, root-owned with group `dmct` and mode `0660`, inside a `0750` directory. State is under `/var/lib/dm-command-table-updater` with root-only directory access. Root-owned installed scripts and this socket must not be exposed to other services. The broker inherits no application secrets and accepts only start/status requests. It accesses GitHub only when an administrator starts an update; accounts, campaign data and logs stay local.
+
+If the broker itself restarts mid-update, the job is marked **interrupted**; inspect application health, the current release and systemd logs before retrying. Do not restart or replace the broker during an update. If the application remains unavailable after a failed deployment, use CLI recovery and `journalctl -u dm-command-table-updater.service -u dm-command-table.service`. Updates started directly from the CLI retain the existing lock, but their logs do not appear as broker jobs; a GUI attempt during a CLI update fails with the lock message.
+
+Disable GUI updates with `systemctl disable --now dm-command-table-updater.service` when idle. Docker and hosts without this service show an unavailable update control; update Docker on its host without mounting a Docker socket or granting container privileges.
+
 ## Backups and recovery
 
 The daily timer runs `scripts/backup-local.mjs` and then maintenance. Backups include a SQLite snapshot, image files, and checksums. Monitor timer status and available disk space. Backups are retained; choose a retention policy appropriate to your disk and keep an additional offline copy.
