@@ -1,31 +1,29 @@
-# v10.1.0 security and efficiency review
+# Local runtime security and efficiency notes
 
-Reviewed 2026-10-12. The target is the v10.0.0 application after the batch 3/4 rollback. Changes preserve the existing feature set, schema 2, local SQLite/media/identity storage, Debian 13 LXC as primary deployment and Docker as secondary. This is a source review with regression and runtime validation; no live penetration test was performed. The automated Codex Security skill's supporting resources were unavailable, so this is not presented as a completed automated scan.
+This document describes the current fresh-install refactor. It is a source-backed engineering description, not a completed security scan or penetration-test claim. See [release assessment](release-assessment.md) for executed checks and platform limits.
 
-## Findings and implemented changes
+## Trust and data boundaries
 
-| Finding | Change | Evidence |
-| --- | --- | --- |
-| Login verification awaits scrypt while password resets may change the stored credential; session creation also awaits cookie settings | Compare the stored hash after verification/upgrades and again immediately before inserting a session; keep credential evidence outside serialized user objects | Tests invalidate an in-flight login and a pending session grant after a reset |
-| A self-service password change could overwrite a concurrent reset after verifying the earlier hash | Conditional update against the verified hash inside the session-revocation transaction | Concurrent reset remains unchanged; successful change revokes old grants/sessions |
-| Administrator account work can complete after hashing even if the actor was demoted meanwhile | Recheck administrator rights inside the account mutation boundary | Tests reject pending account creation and reset after demotion |
-| Non-login password operations did not share sign-in's work-capacity guard | Bound all password derivations to four concurrent jobs; retain sign-in admission limits | Excess work returns 503; capacity is released and usable afterward |
-| Resaving an image resource removed its only reference before checking visibility | Resolve visibility first and replace references transactionally | Images remain readable after uploader deletion; failed replacements retain earlier references |
-| Screenshot reads buffered and copied whole files; short-lived cache entries could skip new authorization checks | Stream one file handle with backpressure and private conditional ETags; authorize before 304 | Tests verify exact bytes, cache validation and denial after sharing revocation, plus abort behavior |
-| Image-package import processed assets before validating the campaign; export size was checked after accumulating everything | Validate normalized campaign/asset relationships first, bound route admission to two operations before body reading, and check export size incrementally | Malformed/unused-asset packages leave no staged writes; busy work never enters its body operation |
-| Repositories repeatedly prepared identical SQL; compound rate limiting used nested transactions | Connection-scoped LRU for at most 256 prepared statements; one atomic compound-budget transaction | Cache isolation/eviction and fresh-row tests; existing authorization/conflict and rate-limit suites |
-| Backup checksum hashing read entire database/image files into memory | Read 64 KiB chunks while retaining SHA-256 and file-close guarantees | Existing WAL/image/tamper/restore regression tests retain the backup contract |
+SQLite stores local accounts, campaign authorization, settings, rate limits, search and history. Screenshot bytes, verified backups and runtime packages remain on local storage. There are no hosted database, identity, media, search or catalogue requests. Browser CSP limits connections to the same origin. Development/build entry points and deployment templates disable telemetry. Bundled libraries remain necessary to run the application; their locked preparation is distinct from offline runtime operation.
 
-The credential and privilege races require overlapping requests during asynchronous work. Image-reference loss is a correctness/availability defect. Package/derivation changes reduce authenticated resource-exhaustion exposure. Prepared-statement and checksum changes improve bounded resource use; they are not claims that every runtime path is faster.
+The fresh baseline contains all combat runtime, snapshot and condition columns directly. Earlier migration identities are rejected before executing migration SQL. No historical data rewrite is retained. Preserve old storage and use matching old code for its backups; startup errors are never an instruction to delete data.
 
-## Validation contract
+## Preserved safeguards
 
-Local `pnpm verify` passes dependency audit, formatting, lint, type checks, 87 unit/API regressions and a production build. Production HTTP smoke checks cover login, password change, session invalidation, protected screenshot upload/stream/cache, campaign package export/import and backup/runtime behavior. CI additionally runs verification and Chromium browser regressions on Node 22/24 and Docker startup, authentication-boundary, persistent storage and backup checks before merging.
+Prepared SQL statements use a bounded per-connection LRU; returned records, bindings and authorization are always evaluated afresh. Authentication budgets are charged transactionally. Password verification and session grants recheck credential evidence after asynchronous work. Administrator account mutations recheck current rights. Password work has a four-operation process limit; package import/export has a two-operation limit admitted before body reading. Busy requests return 503; persistent rate limits return 429.
 
-No new database migration is introduced. Normal v9/v10 schema-2 data remains usable. Installations that previously deployed reverted batch 3/4 schemas still require a matching pre-batch-3 restore, as documented for v10.0.0.
+Content routes keep session/prepared-encounter saves transactional and expected revisions protect against stale changes. The split API handlers use one shared HTTP error boundary and shared schemas. Owners control sharing/deletion; editors modify content; viewers read. Account administration, server settings, quotas, audit, undo retention and screenshot management remain local.
 
-## Limits and deployment acceptance
+Rich text is sanitized at persistence/render boundaries. Screenshot reads authorize even conditional requests and stream through one file handle. Campaign-package imports validate the exact referenced asset inventory before image decoding, stage assets transactionally and clean up failures. Backup hashes use bounded chunks rather than whole-file buffers.
 
-A clean dependency audit means no advisories were reported for the locked production dependencies at verification time; it is not a guarantee of absence of vulnerabilities. Review focused on local authentication/account boundaries, authorization, request limits, media access, campaign portability, SQLite hot paths and backup hashing. This is not an exhaustive formal proof or browser/host penetration test.
+## Offline executable updates
 
-Browser and Docker execution depend on CI when unavailable locally. Actual Debian LXC systemd/Nginx lifecycle and independent disaster recovery must be checked on the deployment host. Existing optional remote catalogue access remains opt-in; no campaign data is sent to an external database, media store or identity provider. Reverted batch 3/4 functionality is not reintroduced.
+The browser can request only start/status through an administrator-only API. A separate root-owned broker executes a fixed updater with no browser-selected arguments, credentials or environment. The fixed candidate path is `/opt/dm-command-table/incoming/runtime`. Its ancestor directories and contents must be root-owned and not writable by other users. An independently installed verifier checks the package baseline, exact file inventory, SHA-256 checksums and contained relative dependency links before the service is stopped.
+
+The manifest detects transfer corruption; it is not a publisher signature. Root must approve the source/build and stage the artifact. Candidate application code never executes as root for verification. Runtime releases are root-owned; `dmct` writes only application data. Successful updates and failed-candidate recovery retain prior code, backups and logs. The broker's systemd network policy limits IP access to localhost; the application uses the local Unix socket.
+
+Do not replace staging or broker/updater/verifier files while an update runs. Root installation and executable-artifact approval are operational prerequisites. Same-baseline packages are eligible for local updates; different baselines require separate installations.
+
+## Limits
+
+SQLite supports one application instance per data directory. Revisions do not provide live cursor/presence collaboration. Backups and release retention are host-managed. LXC service/proxy/update/rollback acceptance and Docker image lifecycle acceptance require disposable hosts. Browser validation here uses system Chromium; other browsers and actual deployment TLS remain separate acceptance work.

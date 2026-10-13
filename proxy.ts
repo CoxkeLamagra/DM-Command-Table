@@ -5,7 +5,7 @@ export function proxy(request: NextRequest) {
   const policy = [
     "default-src 'self'",
     "base-uri 'self'",
-    "connect-src 'self' https://dnd5e.lamagra.link",
+    "connect-src 'self'",
     "font-src 'self' data:",
     "form-action 'self'",
     "frame-ancestors 'none'",

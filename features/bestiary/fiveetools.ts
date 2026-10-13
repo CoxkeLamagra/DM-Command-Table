@@ -14,10 +14,6 @@ export type ConvertedMonster = {
   slots: number[];
 };
 
-export const BESTIARY_BASE = "https://dnd5e.lamagra.link";
-
-export type RemoteMonsterRef = { name: string; source: string; file: string };
-
 export type FiveEToolsMonster = {
   name: string;
   source: string;
@@ -48,7 +44,7 @@ export function monsterIdentity(
   return `${monster.name.trim().toLowerCase()}::${(monster.source ?? "").trim().toLowerCase()}`;
 }
 
-export function cleanRemoteText(value: unknown): string {
+export function cleanCatalogueText(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") {
     return value
@@ -61,22 +57,22 @@ export function cleanRemoteText(value: unknown): string {
       );
   }
   if (Array.isArray(value))
-    return value.map(cleanRemoteText).filter(Boolean).join("\n");
+    return value.map(cleanCatalogueText).filter(Boolean).join("\n");
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
-    const body = cleanRemoteText(
+    const body = cleanCatalogueText(
       record.entries ?? record.entry ?? record.items ?? "",
     );
-    return record.name ? `${cleanRemoteText(record.name)} — ${body}` : body;
+    return record.name ? `${cleanCatalogueText(record.name)} — ${body}` : body;
   }
   return String(value);
 }
 
-export function formatRemoteEntries(value: unknown[] | undefined): string {
-  return value?.map(cleanRemoteText).filter(Boolean).join("\n\n") ?? "";
+export function formatCatalogueEntries(value: unknown[] | undefined): string {
+  return value?.map(cleanCatalogueText).filter(Boolean).join("\n\n") ?? "";
 }
 
-export function getRemoteSummary(remote: FiveEToolsMonster) {
+export function getMonsterSummary(remote: FiveEToolsMonster) {
   const sizes: Record<string, string> = {
     T: "Tiny",
     S: "Small",
@@ -99,11 +95,11 @@ export function getRemoteSummary(remote: FiveEToolsMonster) {
   return { type, ac, hp, cr: String(cr) };
 }
 
-export function convertRemoteMonster(
+export function convertCatalogueMonster(
   remote: FiveEToolsMonster,
   createId: () => string,
 ): ConvertedMonster {
-  const summary = getRemoteSummary(remote);
+  const summary = getMonsterSummary(remote);
   const speed =
     Object.entries(remote.speed ?? {})
       .filter(([, value]) => value !== false)
@@ -127,11 +123,11 @@ export function convertRemoteMonster(
     ["Mythic Actions", remote.mythic],
   ]
     .map(([title, entries]) => {
-      const body = formatRemoteEntries(entries as unknown[] | undefined);
+      const body = formatCatalogueEntries(entries as unknown[] | undefined);
       return body ? `${title}\n${body}` : "";
     })
     .filter(Boolean);
-  const spellcasting = formatRemoteEntries(remote.spellcasting);
+  const spellcasting = formatCatalogueEntries(remote.spellcasting);
   const slots = Array.from({ length: 5 }, (_, index) => {
     const level = String(index + 1);
     for (const block of remote.spellcasting ?? []) {

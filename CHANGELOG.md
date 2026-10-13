@@ -2,6 +2,15 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.0.0 — 2026-10-13
+
+- Refactor campaign resource routing into focused content, Bestiary, combat and search handlers, retaining transactional saves and authorization boundaries.
+- Consolidate live combat resources, snapshots and condition timing directly into a fresh SQLite baseline. Reject earlier database formats without migrating them; new installations require separate fresh storage.
+- Replace external catalogue connections with validated local-file catalogue search, previews, multi-selection and duplicate replacement. Limit browser connections to the application origin and disable telemetry in development/build entry points.
+- Retain administrator update controls, progress, logs, backups and rollback using a root-approved, host-staged standalone runtime. Verify package inventories, checksums and contained dependency links; remove Git fetches and package installation from the updater.
+- Add a runtime-only Docker build path using a prepared package and cached Node base image without package-manager or build-step network access.
+- Keep bundled libraries and all account, admin, campaign, planning, combat, media and backup workflows. Update current architecture, API, deployment, operations and assessment documentation.
+
 ## 10.2.0 — 2026-10-13
 
 - Add optional administrator-triggered Debian LXC updates with executed-step status, bounded local logs and reconnection after application restart. Use a separate root-owned Unix-socket service with a fixed update target; retain backup and rollback behavior without granting the web service root privileges. Document setup and Docker host-managed updates.

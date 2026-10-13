@@ -87,13 +87,13 @@ test("update panel shows progress, reconnects and retains completion logs", asyn
   const job = {
     id: "job-1",
     status: "running",
-    target: "origin/main",
+    target: "/opt/dm-command-table/incoming/runtime",
     actor: "admin",
     startedAt: Date.now(),
     finishedAt: null,
     exitCode: null,
-    steps: [{ id: "build", status: "running" }],
-    log: "Building application\n",
+    steps: [{ id: "verify", status: "running" }],
+    log: "Verifying local package\n",
   };
   await page.route("**/api/admin/updates", async (route) => {
     if (route.request().method() === "POST") started = true;
@@ -104,7 +104,7 @@ test("update panel shows progress, reconnects and retains completion logs", asyn
     await route.fulfill({
       json: {
         available: true,
-        target: "origin/main",
+        target: "/opt/dm-command-table/incoming/runtime",
         job: started
           ? completed
             ? {
@@ -112,7 +112,7 @@ test("update panel shows progress, reconnects and retains completion logs", asyn
                 status: "succeeded",
                 finishedAt: Date.now(),
                 exitCode: 0,
-                steps: [{ id: "build", status: "succeeded" }],
+                steps: [{ id: "verify", status: "succeeded" }],
                 log: "Completed <script>literal log text</script>",
               }
             : job
@@ -133,7 +133,7 @@ test("update panel shows progress, reconnects and retains completion logs", asyn
     .getByRole("button", { name: "Update application", exact: true })
     .click();
   await expect(
-    panel.getByText("Build application", { exact: true }),
+    panel.getByText("Verify host-staged package", { exact: true }),
   ).toBeVisible();
   await expect(
     panel.getByRole("button", { name: "Update running…", exact: true }),

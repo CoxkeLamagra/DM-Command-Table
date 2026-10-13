@@ -21,7 +21,7 @@ test("broker rejects command/target injection, coalesces starts and persists bou
         process.execPath,
         [
           "-e",
-          'process.stdout.write("@@STEP build\\n"); setTimeout(() => { process.stdout.write("x".repeat(70000)+"\\n@@STEP health\\n"); setTimeout(()=>process.exit(0), 100); }, 100);',
+          'process.stdout.write("@@STEP verify\\n"); setTimeout(() => { process.stdout.write("x".repeat(70000)+"\\n@@STEP health\\n"); setTimeout(()=>process.exit(0), 100); }, 100);',
         ],
         { stdio: ["ignore", "pipe", "pipe"] },
       );
@@ -52,7 +52,7 @@ test("broker rejects command/target injection, coalesces starts and persists bou
     assert.equal(result.job?.exitCode, 0);
     assert.ok(result.job!.log.length <= 65536);
     assert.deepEqual(result.job?.steps, [
-      { id: "build", status: "succeeded" },
+      { id: "verify", status: "succeeded" },
       { id: "health", status: "succeeded" },
     ]);
     assert.equal(
@@ -78,7 +78,7 @@ test("broker records failure and detects interrupted jobs after its own restart"
     launch: () =>
       spawn(
         process.execPath,
-        ["-e", 'process.stdout.write("@@STEP test\\n"); process.exit(1)'],
+        ["-e", 'process.stdout.write("@@STEP verify\\n"); process.exit(1)'],
         { stdio: ["ignore", "pipe", "pipe"] },
       ),
   });
@@ -94,7 +94,7 @@ test("broker records failure and detects interrupted jobs after its own restart"
       result = broker.handle({ action: "status" });
     }
     assert.equal(result.job?.status, "failed");
-    assert.deepEqual(result.job?.steps, [{ id: "test", status: "failed" }]);
+    assert.deepEqual(result.job?.steps, [{ id: "verify", status: "failed" }]);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -131,7 +131,7 @@ test("broker socket serves bounded local requests", async (context) => {
     });
     assert.deepEqual(JSON.parse(response), {
       available: true,
-      target: "origin/main",
+      target: "/opt/dm-command-table/incoming/runtime",
       job: null,
     });
   } finally {

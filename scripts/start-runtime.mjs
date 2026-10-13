@@ -6,6 +6,7 @@ const child = spawn(process.execPath, [".next/standalone/server.js"], {
   stdio: "inherit",
   env: {
     ...process.env,
+    NEXT_TELEMETRY_DISABLED: "1",
     HOSTNAME: process.env.DM_COMMAND_TABLE_BIND_ADDRESS || "127.0.0.1",
   },
 });

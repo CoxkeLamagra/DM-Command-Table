@@ -489,12 +489,7 @@ export function Shell() {
             <LogOut />
             <span className={labelClass}>Sign out</span>
           </Button>
-          <a
-            className="mt-2 block text-xs text-stone-400 hover:text-amber-300"
-            href="https://github.com/CoxkeLamagra/DM-Command-Table"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <div className="mt-2 block text-xs text-stone-400">
             <span className={labelClass}>Version {APPLICATION_VERSION}</span>
             {sidebarCollapsed && (
               <span
@@ -504,7 +499,7 @@ export function Shell() {
                 v{APPLICATION_VERSION}
               </span>
             )}
-          </a>
+          </div>
         </div>
       </aside>
       {menuOpen && (

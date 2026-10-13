@@ -1,3 +1,5 @@
+import { writeRuntimeManifest } from "./runtime-integrity.mjs";
+import { readFileSync } from "node:fs";
 import {
   cpSync,
   existsSync,
@@ -49,6 +51,8 @@ try {
     }
   }
   checkLinks(destination);
+  const metadata = JSON.parse(readFileSync("package.json", "utf8"));
+  writeRuntimeManifest(destination, metadata.version);
   console.log(destination);
 } catch (error) {
   rmSync(destination, { recursive: true, force: true });

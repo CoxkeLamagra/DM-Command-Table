@@ -42,6 +42,10 @@ function fixture() {
     "package-runtime.mjs",
   ])
     writeFileSync(path.join(directory, "scripts", filename), "// fixture");
+  writeFileSync(
+    path.join(directory, "package.json"),
+    JSON.stringify({ version: "11.0.0" }),
+  );
   return directory;
 }
 test("runtime packages preserve relative dependencies and remain self-contained", () => {

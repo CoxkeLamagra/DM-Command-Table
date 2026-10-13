@@ -193,6 +193,16 @@ repository.saveCombat(
     [runtimeMage],
   ),
 );
+// Keep offline catalogue regression traffic separate from other users' login budgets.
+const offlineUser = crypto.randomUUID();
+database
+  .prepare(
+    "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Offline tester','browser-offline',?,0,?,?)",
+  )
+  .run(offlineUser, await hashPassword("browser-test-pass"), now, now);
+createCampaignRepository(database).create(offlineUser, {
+  name: "Offline catalogue campaign",
+});
 database.close();
 const child = spawn(process.execPath, [".next/standalone/server.js"], {
   stdio: "inherit",

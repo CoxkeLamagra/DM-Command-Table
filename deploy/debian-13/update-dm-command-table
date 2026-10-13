@@ -1,87 +1,85 @@
 #!/bin/bash
 set -euo pipefail
 [[ $(id -u) == 0 ]] || { echo 'Run as root.' >&2; exit 1; }
-# runuser preserves the caller's working directory. pnpm inspects it even for
-# --version, so leave root-only directories before invoking the service user.
 cd /
 step() { printf '@@STEP %s\n' "$1"; }
 step prerequisites
-for tool in /usr/bin/node /usr/bin/pnpm; do
-  [[ -x $tool ]] || { echo "Missing system-wide runtime: $tool. Follow the Node/pnpm setup in docs/debian-13-lxc.md." >&2; exit 1; }
-  runuser -u dmct -- "$tool" --version >/dev/null
-done
+[[ $# == 0 ]] || { echo 'This offline updater accepts no arguments. Stage the approved runtime on the host.' >&2; exit 1; }
+[[ -x /usr/bin/node ]] || { echo 'Install the system-wide Node runtime.' >&2; exit 1; }
 exec 9>/run/lock/dm-command-table-update.lock
 flock -n 9 || { echo 'An update is already running.' >&2; exit 1; }
 BASE=/opt/dm-command-table
-SOURCE=$BASE/source
 CURRENT=$BASE/current
+CANDIDATE=$BASE/incoming/runtime
 SERVICE=dm-command-table.service
-step fetch
-[[ -z $(runuser -u dmct -- git -C "$SOURCE" status --porcelain) ]] || { echo 'Source checkout is dirty.' >&2; exit 1; }
-runuser -u dmct -- git -C "$SOURCE" fetch --tags origin
-TARGET=$(runuser -u dmct -- git -C "$SOURCE" rev-parse "${1:-origin/main}^{commit}")
-BUILD=$BASE/builds/$(date +%s)-${TARGET:0:12}
-RELEASE=$BASE/releases/$(date +%s)-${TARGET:0:12}
-mkdir -p "$BASE/builds" "$BASE/releases"
-chown dmct:dmct "$BASE/builds" "$BASE/releases"
-runuser -u dmct -- git -C "$SOURCE" worktree add --detach "$BUILD" "$TARGET"
-step install
-runuser -u dmct -- /usr/bin/pnpm --dir "$BUILD" install --frozen-lockfile
-step build
-runuser -u dmct -- /usr/bin/env NEXT_TELEMETRY_DISABLED=1 /usr/bin/pnpm --dir "$BUILD" build
-step test
-runuser -u dmct -- /usr/bin/pnpm --dir "$BUILD" test
+VERIFIER=/usr/local/lib/dm-command-table/runtime-integrity.mjs
+step verify
+# Use the independently installed root-owned verifier, never candidate code as root.
+/usr/bin/node "$VERIFIER" "$CANDIDATE" --trusted-staging
+OLD=$(readlink -f "$CURRENT")
+[[ -d $OLD ]] || { echo 'Install an initial offline runtime first.' >&2; exit 1; }
+OLD_METADATA=$(/usr/bin/node "$VERIFIER" "$OLD" --trusted-staging)
+OLD_VERSION=$(printf '%s' "$OLD_METADATA" | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>console.log(JSON.parse(s).applicationVersion))')
+# Root owns releases and current; dmct only reads code and writes application data.
+install -d -o root -g root -m 0755 "$BASE/releases"
+RELEASE=$(mktemp -d "$BASE/releases/release-XXXXXXXX")
 step package
-runuser -u dmct -- bash -c 'cd "$1" && /usr/bin/node scripts/package-runtime.mjs "$2"' _ "$BUILD" "$RELEASE"
-printf '%s\n' "$TARGET" > "$RELEASE/REVISION"
-OLD=$(readlink -f "$CURRENT" || true)
+cp -a "$CANDIDATE/." "$RELEASE/"
+chmod 0755 "$RELEASE"
+NEW_METADATA=$(/usr/bin/node "$VERIFIER" "$RELEASE" --trusted-staging)
+NEW_VERSION=$(printf '%s' "$NEW_METADATA" | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>console.log(JSON.parse(s).applicationVersion))')
 set -a
 source /etc/dm-command-table.env
 set +a
 health() {
   for attempt in {1..30}; do
-    if curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null; then return 0; fi
+    if curl --fail --silent --max-time 2 http://127.0.0.1:3000/api/health | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>{try {const v=JSON.parse(s); if(v.status!=="ready" || v.version!==process.argv[1]) process.exit(1);} catch {process.exit(1);}})' "$1"; then return 0; fi
     sleep 1
   done
   return 1
 }
 switch_release() {
+  [[ ! -e $BASE/current.next && ! -L $BASE/current.next ]] || { echo 'Stale release-switch path; inspect before retrying.' >&2; return 1; }
   ln -s "$1" "$BASE/current.next"
   mv -Tf "$BASE/current.next" "$CURRENT"
 }
+BACKUP=''
+SWITCHED=false
+recover() {
+  trap - ERR
+  step rollback
+  systemctl stop "$SERVICE" || true
+  if [[ $SWITCHED == true ]]; then
+    if [[ -n $BACKUP ]]; then
+      RESTORED=$(mktemp -d /var/lib/dm-command-table/restored-XXXXXXXX)
+      chown dmct:dmct "$RESTORED"
+      # Restore refuses an existing destination, so use a child of the reserved directory.
+      runuser -u dmct --preserve-environment -- /usr/bin/node "$OLD/scripts/restore-local.mjs" "$BACKUP" "$RESTORED/data"
+      cp -p /etc/dm-command-table.env "/etc/dm-command-table.env.failed-$(date +%s)"
+      sed -i '/^DM_COMMAND_TABLE_DB_PATH=/d; /^DM_COMMAND_TABLE_UPLOAD_PATH=/d' /etc/dm-command-table.env
+      printf '\nDM_COMMAND_TABLE_DB_PATH=%s/data/dm-command-table.sqlite\nDM_COMMAND_TABLE_UPLOAD_PATH=%s/data/uploads\n' "$RESTORED" "$RESTORED" >> /etc/dm-command-table.env
+    fi
+    switch_release "$OLD"
+  fi
+  systemctl start "$SERVICE"
+  health "$OLD_VERSION" || { echo 'Recovery failed. Inspect logs and preserved data.' >&2; exit 1; }
+  printf '@@DONE rollback\n'
+  echo 'Previous release restored; candidate and backups retained.' >&2
+  exit 1
+}
 step backup
 systemctl stop "$SERVICE"
-# Capture the exact last committed state after stopping; a live backup before stop could lose intervening saves on rollback.
-trap 'systemctl start "$SERVICE" || true' ERR
-BACKUP=''
+trap recover ERR
 if [[ -f ${DM_COMMAND_TABLE_DB_PATH:-/var/lib/dm-command-table/dm-command-table.sqlite} ]]; then
-  BACKUP=$(runuser -u dmct --preserve-environment -- /usr/bin/node "$RELEASE/scripts/backup-local.mjs")
+  BACKUP=$(runuser -u dmct --preserve-environment -- /usr/bin/node "$OLD/scripts/backup-local.mjs")
 fi
 step switch
 switch_release "$RELEASE"
-trap - ERR
+SWITCHED=true
 step health
-if systemctl start "$SERVICE" && health; then
-  echo "Running $TARGET. Pre-update backup: ${BACKUP:-fresh installation}"
-  step cleanup
-  runuser -u dmct -- git -C "$SOURCE" worktree remove "$BUILD"
-  exit 0
-fi
-echo 'Candidate failed health checks; recovering the prior release.' >&2
-step rollback
-systemctl stop "$SERVICE" || true
-if [[ -n $OLD && -d $OLD ]]; then
-  if [[ -n $BACKUP ]]; then
-    RESTORED=/var/lib/dm-command-table/restored-$(date +%s)
-    runuser -u dmct --preserve-environment -- /usr/bin/node "$RELEASE/scripts/restore-local.mjs" "$BACKUP" "$RESTORED"
-    cp -p /etc/dm-command-table.env "/etc/dm-command-table.env.failed-$(date +%s)"
-    sed -i '/^DM_COMMAND_TABLE_DB_PATH=/d; /^DM_COMMAND_TABLE_UPLOAD_PATH=/d' /etc/dm-command-table.env
-    printf '\nDM_COMMAND_TABLE_DB_PATH=%s/dm-command-table.sqlite\nDM_COMMAND_TABLE_UPLOAD_PATH=%s/uploads\n' "$RESTORED" "$RESTORED" >> /etc/dm-command-table.env
-  fi
-  switch_release "$OLD"
-  systemctl start "$SERVICE"
-  health || { echo 'Recovery also failed. Inspect logs and preserved data.' >&2; exit 1; }
-  printf '@@DONE rollback\n'
-  echo 'Previous release restored.' >&2
-fi
-exit 1
+systemctl start "$SERVICE"
+health "$NEW_VERSION"
+trap - ERR
+echo "Running $RELEASE. Pre-update backup: ${BACKUP:-fresh installation}"
+step cleanup
+echo 'Staged package, prior releases and backups retained for host-managed retention.'

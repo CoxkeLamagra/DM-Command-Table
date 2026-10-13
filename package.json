@@ -1,13 +1,13 @@
 {
   "name": "dm-command-table",
-  "version": "10.2.0",
+  "version": "11.0.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && node scripts/copy-runtime-assets.mjs",
+    "dev": "node scripts/next-command.mjs dev",
+    "build": "node scripts/next-command.mjs build && node scripts/copy-runtime-assets.mjs",
     "start": "node scripts/start-runtime.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test": "node --experimental-strip-types --test tests/*.test.ts",

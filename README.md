@@ -6,13 +6,11 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current release is **v10.2.0**, using the **v9 architecture**. Existing v9 installations retain their data and migrate locally to schema 2. v10.2.0 retains batches 1 and 2; batches 3 and 4 are excluded. If you deployed their schema changes, restore a matching pre-batch-3 backup before using this release. The v9 baseline does not upgrade pre-v9 database formats; deploy those installations with a separate fresh data directory and keep their verified backups.
+The current release is **11.0.0**, a fresh-install baseline. Start with a new data directory; earlier databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
 
-Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same packaged standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md) and [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
+Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same self-contained standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md), [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
 
-Campaign data, accounts, screenshots, search, and backups remain on your server. Bestiary JSON files import offline. Connecting to the external monster catalogue is an explicit optional action. Next.js telemetry is disabled in the deployment templates.
-
-The v10.2.0 release includes the security/efficiency refactor documented in [the technical review](docs/security-efficiency-review.md). It retains existing features and schema 2, and adds administrator GUI updates for Debian LXC.
+The runtime works offline. Accounts, campaigns, screenshots, search and backups stay on your server. Bestiary catalogue search uses local JSON files. Administrator GUI updates install a runtime package staged on the host; they never fetch source or dependencies. Bundled npm libraries are retained. Preparing dependencies or building an image on a separate build machine can use package registries; running the packaged application requires no Internet access. Development and build commands disable Next.js telemetry.
 
 ## Features
 
@@ -91,8 +89,8 @@ If HP or AC is not set, the combat tracker uses `10` when that player is added t
 - Open a monster's full stat block and edit every field.
 - Open and edit monsters directly from the searchable list.
 - Delete individual monsters.
-- Import monsters from the 5etools-compatible JSON catalogue hosted at [dnd5e.lamagra.link](https://dnd5e.lamagra.link/bestiary.html).
-- Search the remote catalogue with typeahead results and compare source, CR, type, HP, and AC before importing.
+- Open a local 5etools-compatible JSON catalogue (up to 10 MiB and 10,000 entries).
+- Search the loaded catalogue by name or source and compare source, CR, type, HP, and AC before importing. Files are read in the browser; only selected records are sent to this server.
 - Search the campaign Bestiary with typeahead filtering across monster names, types, CR, sources, abilities, spells, and notes.
 - Select and import multiple monsters in one operation.
 - Detect an existing monster with the same name and source, then choose whether to replace it or discard that individual import.
@@ -134,7 +132,7 @@ Bestiary creatures capture a stat-block snapshot when added or loaded into Comba
 
 Conditions can tick at the start or end of the affected creature’s own turn, or remain until dismissed. A timed condition expires at its selected boundary unless **Requires save** is enabled; then it flags a saving throw and remains until you resolve it. Choose **Save succeeded: clear** or **Save failed: keep**. A failed persistent save can be prompted again at the next selected boundary. Blank durations remain active. Use **Mark save due** to request an earlier or manual save, and expand **Override timing or duration** for manual adjustments. Skipped creatures do not receive a start-of-turn tick; leaving the active creature’s turn resolves its end-of-turn effects.
 
-Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; incoming copies start fresh while retained Players/NPCs keep their live state. Existing v9 databases migrate on startup and capture currently linked Bestiary details; details changed before the migration cannot be reconstructed.
+Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; incoming copies start fresh while retained Players/NPCs keep their live state. The fresh schema includes all runtime and condition fields from initialization.
 
 ### Draft recovery and turn preferences
 
@@ -159,11 +157,11 @@ The SQLite database contains local accounts, password hashes, login sessions, ca
 ./data/dm-command-table.sqlite
 ```
 
-Set `DM_COMMAND_TABLE_DB_PATH` to use a different location. The directory is created automatically, and migrations run when the database is opened.
+Set `DM_COMMAND_TABLE_DB_PATH` to use a different location. The directory is created automatically, and the fresh schema is initialized when the database is opened. Earlier database baselines are rejected without migrating their records.
 
 By default, screenshots are written to an `uploads` directory beside the database. Set `DM_COMMAND_TABLE_UPLOAD_PATH` to override that location.
 
-> The remote monster catalogue is an import source, not a campaign database. Imported monsters are copied into the local campaign data.
+> A local monster catalogue is an import source, not a campaign database. Imported monsters are copied into the local campaign data.
 
 ## Authentication
 
@@ -218,6 +216,8 @@ Install the locked dependencies:
 ```bash
 pnpm install --frozen-lockfile
 ```
+
+On an existing checkout, choose separate fresh database/uploads/backup paths in `.env.local` for this baseline (for example `data/v11/`); retain earlier data and backups. Startup rejects older database metadata.
 
 Optionally copy the environment example:
 
@@ -308,7 +308,7 @@ Session Save writes the session and its prepared encounter edits in one transact
 
 ## Architecture and API
 
-See [architecture](docs/architecture.md) for the source layers, local storage model, revision handling and runtime packaging, and [API reference](docs/api.md) for the authenticated endpoints. [Release assessment](docs/release-assessment.md) records the cleanup decisions and validation limits for v9.1.0.
+See [architecture](docs/architecture.md) for the source layers, local storage model, revision handling and runtime packaging, and [API reference](docs/api.md) for the authenticated endpoints. [Release assessment](docs/release-assessment.md) records current validation and platform limits.
 
 ## Data and privacy
 
@@ -318,7 +318,7 @@ See [architecture](docs/architecture.md) for the source layers, local storage mo
 - Screenshot files remain in the configured server-local uploads directory and are only listed or served to their uploader, an administrator, or a user who can access a campaign that references them.
 - Campaigns are private unless the owner explicitly grants access to another registered username.
 - Exported JSON files contain the complete campaign payload, including players, monsters, prepared encounters, active combat, notes, and story data.
-- Imported monster records are copied into the campaign; the application does not depend on the remote source after import.
+- Imported monster records are copied into the campaign; the application does not depend on the original catalogue file after import.
 - SQLite files, environment files, dependencies, and build output are excluded from version control.
 
 ## Current limitations
@@ -326,12 +326,12 @@ See [architecture](docs/architecture.md) for the source layers, local storage mo
 - Collaboration does not provide presence indicators or live cursor sharing; revision checks prevent silent stale writes.
 - SQLite is intended for one application instance with persistent local storage. Multiple application instances must not write independent copies of the database.
 - Campaign sharing uses registered local usernames and owner-managed Editor/Viewer memberships.
-- Optional remote catalogue imports depend on that source; local JSON imports work offline.
+- Catalogue contents must be supplied as local JSON files; the application does not download them.
 - Plain campaign JSON exports contain image references. Use **Export with images** for campaign portability, and verified server backups for complete disaster recovery.
 
 ## Release history
 
-See [CHANGELOG.md](CHANGELOG.md). The version shown in the lower-left corner of the application links to the GitHub repository.
+See [CHANGELOG.md](CHANGELOG.md). The version shown in the lower-left corner identifies the installed application.
 
 ## License
 

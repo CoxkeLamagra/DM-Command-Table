@@ -92,12 +92,18 @@ Client addresses are read only when `DM_COMMAND_TABLE_TRUST_PROXY=true`. Use thi
 
 Prepared encounters may expand to at most 10,000 combatants, including custom Players/NPCs and any Players/NPCs retained in the current combat. Oversized encounters are rejected before expansion. Loading a prepared encounter requires campaign editor or owner access.
 
-## v10.1.0 technical refactor
+## Local resource limits
 
-The refactor keeps schema 2, existing settings, local storage paths, backup format and deployment topology. Upgrade to v10.1.0 after verifying a backup, or choose an approved main commit for later changes. Updating application code does not alter installed systemd/Nginx templates or local environment settings. The v10.0.0 tag remains the original release; it is not moved by main updates.
+The application uses a fresh schema-version-1 baseline named `offline-runtime-baseline`. Use separate fresh database and uploads paths for this version. Earlier installations and their backups remain separate; startup refuses their schema metadata. Never delete existing data to resolve a format error.
+
+Runtime hosts need no Internet access. Catalogue imports read local browser files, and Debian GUI updates install the fixed host-staged runtime directory. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
 
 Password derivation capacity is four concurrent operations per server process across all credential paths. Package import/export capacity is two operations, admitted before request-body reading. Busy operations return 503 and should be retried; authentication rate limits still apply. Capacity limits are local safeguards, not remote services or a substitute for proxy/body limits.
 
 Screenshot bytes stream with backpressure and private conditional caching. Every cache validation is authorized against current access. SQL statements are reused but returned records and permissions are never cached. Backup checksums use 64 KiB chunks so a large SQLite file is not copied wholesale into process memory merely for hashing; backups and restores still verify the same SHA-256 values.
 
 Use `pnpm verify` and CI's Node 22/24 browser and Docker checks before accepting a source update. Host-specific systemd/Nginx and restore acceptance still require your own LXC. Review [the technical assessment](security-efficiency-review.md) for exact coverage and limits.
+
+## Offline update staging
+
+Follow [Debian GUI setup](debian-13-lxc.md#updates-from-administration) to stage and approve a package. `runtime-manifest.json` records the fresh baseline, version and exact runtime inventory. An independently installed verifier checks hashes and rejects external dependency links. The incoming path and release directories belong to root; the application account cannot change executable code. A checksum manifest is not a signature: approve the build source and artifact before staging. Keep prior releases and stopped-service backups until recovery is accepted; retention is host-managed.

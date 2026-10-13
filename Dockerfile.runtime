@@ -1,0 +1,12 @@
+# Build context must be the output of pnpm package:runtime, not the source tree.
+# Load this base image locally first when building on an offline host.
+FROM node:24.21.0-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
+ENV DM_COMMAND_TABLE_DB_PATH=/data/dm-command-table.sqlite DM_COMMAND_TABLE_UPLOAD_PATH=/data/uploads
+RUN mkdir -p /data /app && chown node:node /data /app
+COPY --chown=node:node . ./
+USER node
+EXPOSE 3000
+VOLUME ["/data"]
+CMD ["node", "server.js"]

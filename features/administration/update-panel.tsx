@@ -6,16 +6,13 @@ import { requestJson } from "../shared/api-client";
 import type { UpdateState } from "@/domain/updates";
 
 const labels: Record<string, string> = {
-  prerequisites: "Check Node and pnpm",
-  fetch: "Fetch source and prepare build",
-  install: "Install locked dependencies",
-  build: "Build application",
-  test: "Run tests",
-  package: "Package release",
+  prerequisites: "Check local runtime",
+  verify: "Verify host-staged package",
+  package: "Prepare local release",
   backup: "Stop application and back up local data",
   switch: "Switch to the new release",
   health: "Restart application and check readiness",
-  cleanup: "Clean up build worktree",
+  cleanup: "Retain packages and backups",
   rollback: "Recover previous release",
 };
 
@@ -99,8 +96,9 @@ export function UpdatePanel() {
             Application updates
           </h2>
           <p className="mt-1 text-sm text-stone-400">
-            Build and test an update, back up local data, then restart the
-            application.
+            Install the package staged by the server administrator, back up
+            local data, then restart the application. No Internet connection is
+            used.
           </p>
           {state?.available && (
             <p className="mt-1 text-sm text-stone-400">

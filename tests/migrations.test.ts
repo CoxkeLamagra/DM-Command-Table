@@ -75,3 +75,24 @@ test("a failed migration is rolled back without recording its version", () => {
   assert.equal(applied.count, 0);
   database.close();
 });
+
+test("earlier database baselines are rejected without changing their data", () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec(
+    "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT, applied_at INTEGER); INSERT INTO schema_migrations VALUES(1, 'local-first-baseline', 1); CREATE TABLE sentinel(value TEXT); INSERT INTO sentinel VALUES('preserved');",
+  );
+  assert.throws(() => runMigrations(database), /fresh data directory/);
+  assert.equal(
+    database.prepare("SELECT value FROM sentinel").get()!.value,
+    "preserved",
+  );
+  assert.equal(
+    database
+      .prepare(
+        "SELECT count(*) AS n FROM sqlite_master WHERE name='combatants'",
+      )
+      .get()!.n,
+    0,
+  );
+  database.close();
+});

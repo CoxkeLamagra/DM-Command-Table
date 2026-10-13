@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { migrations, runMigrations } from "../db/migrations.ts";
+import { runMigrations } from "../db/migrations.ts";
 import { emptyRuntime, applyHitPointChange } from "../domain/combat-runtime.ts";
 import { applyCombatAction, loadPreparation } from "../domain/combat.ts";
 import type {
@@ -9,10 +9,7 @@ import type {
   CombatEncounter,
   PreparedEncounter,
 } from "../domain/encounters.ts";
-import {
-  combatRuntimeSchema,
-  combatSnapshotSchema,
-} from "../server/http/schemas.ts";
+import { combatRuntimeSchema } from "../server/http/schemas.ts";
 import { createCampaignRepository } from "../server/campaigns/campaign-repository.ts";
 import { createBestiaryRepository } from "../server/bestiary/bestiary-repository.ts";
 import { createEncounterRepository } from "../server/encounters/encounter-repository.ts";
@@ -315,41 +312,6 @@ test("saved snapshots outlive Bestiary edits/deletion; runtime, conditions, undo
         "SELECT COUNT(*) AS count FROM screenshot_references WHERE screenshot_id=? AND resource_type='combat'",
       )
       .get(imageId)!.count,
-  );
-  database.close();
-});
-test("existing v9 storage migration captures current stat blocks and preserves condition semantics", () => {
-  const database = new DatabaseSync(":memory:");
-  database.exec(migrations[0].sql);
-  database.exec(`CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT,applied_at INTEGER); INSERT INTO schema_migrations VALUES(1,'local-first-baseline',1);
-    INSERT INTO users VALUES('owner','Owner','owner','hash',1,1,1);
-    INSERT INTO campaigns(id,owner_id,name,created_at,updated_at) VALUES('campaign','owner','Old',1,1);
-    INSERT INTO monsters(id,campaign_id,name,abilities,spell_slots,created_at,updated_at) VALUES('monster','campaign','Old mage','<p>Captured</p>','[2]',1,1);
-    INSERT INTO combat_encounters(id,campaign_id,created_at,updated_at) VALUES('combat','campaign',1,1);
-    INSERT INTO combatants(id,encounter_id,monster_id,name,kind,created_at,updated_at) VALUES('creature','combat','monster','Old mage','monster',1,1);
-    INSERT INTO combat_conditions VALUES('timed','creature','Timed',2,1),('manual','creature','Manual',NULL,1);`);
-  runMigrations(database);
-  runMigrations(database);
-  const row = database
-    .prepare("SELECT snapshot,runtime FROM combatants")
-    .get() as { snapshot: string; runtime: string };
-  assert.equal(
-    combatSnapshotSchema.parse(JSON.parse(row.snapshot)).abilities,
-    "<p>Captured</p>",
-  );
-  const runtime = combatRuntimeSchema.parse(JSON.parse(row.runtime));
-  assert.equal(runtime.temporaryHitPoints, 0);
-  assert.equal(runtime.resources[0].remaining, 2);
-  assert.equal(runtime.resources[0].name, "Level 1 spell slots");
-  const rows = database
-    .prepare("SELECT id,timing FROM combat_conditions ORDER BY id")
-    .all();
-  assert.deepEqual(
-    rows.map((row) => [row.id, row.timing]),
-    [
-      ["manual", "manual"],
-      ["timed", "start-turn"],
-    ],
   );
   database.close();
 });

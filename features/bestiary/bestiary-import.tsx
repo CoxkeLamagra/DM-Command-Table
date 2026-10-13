@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  convertRemoteMonster,
-  getRemoteSummary,
+  convertCatalogueMonster,
+  getMonsterSummary,
   type FiveEToolsMonster,
-  type RemoteMonsterRef,
 } from "@/features/bestiary/fiveetools";
 import {
-  loadRemoteCatalogue,
-  searchRemoteCatalogue,
-} from "@/features/bestiary/remote-catalogue";
+  parseCatalogue,
+  searchCatalogue,
+  catalogueIdentity,
+} from "./local-catalogue";
 import { importMonster, updateMonster } from "../shared/api-client";
 import type { Monster } from "@/domain/types";
 export function BestiaryImport({
@@ -34,78 +34,39 @@ export function BestiaryImport({
   complete: (items: Monster[]) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [remoteEnabled, setRemoteEnabled] = useState(false);
   const [localCatalogue, setLocalCatalogue] = useState<FiveEToolsMonster[]>([]);
-  const searchGeneration = useRef(0);
-  const [catalog, setCatalog] = useState<RemoteMonsterRef[]>([]);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<FiveEToolsMonster[]>([]);
   const [selected, setSelected] = useState<FiveEToolsMonster[]>([]);
-  const [loading, setLoading] = useState(false);
-  const cache = useRef(new Map<string, FiveEToolsMonster[]>());
-  useEffect(() => {
-    if (!open || !remoteEnabled || catalog.length) return;
-    const timer = setTimeout(() => {
-      setLoading(true);
-      void loadRemoteCatalogue()
-        .then(setCatalog)
-        .catch(() =>
-          toast.error("The external Bestiary catalogue could not be loaded."),
-        )
-        .finally(() => setLoading(false));
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [open, remoteEnabled, catalog.length]);
-  const search = useCallback(async () => {
-    const generation = ++searchGeneration.current;
-    if (query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const found = localCatalogue.length
-        ? localCatalogue
-            .filter((item) =>
-              item.name.toLowerCase().includes(query.toLowerCase()),
-            )
-            .slice(0, 50)
-        : await searchRemoteCatalogue(query.trim(), catalog, cache.current);
-      if (generation === searchGeneration.current) setResults(found);
-    } catch {
-      toast.error("Monster search failed.");
-    } finally {
-      if (generation === searchGeneration.current) setLoading(false);
-    }
-  }, [catalog, query, localCatalogue]);
-  useEffect(() => {
-    if (!open || (!catalog.length && !localCatalogue.length)) return;
-    const timer = setTimeout(() => void search(), 250);
-    return () => clearTimeout(timer);
-  }, [open, catalog.length, localCatalogue.length, search]);
-  function key(item: FiveEToolsMonster) {
-    return `${item.name}::${item.source}`.toLowerCase();
-  }
+  const [importing, setImporting] = useState(false);
+  const results = useMemo(
+    () => searchCatalogue(query, localCatalogue),
+    [query, localCatalogue],
+  );
+  const key = catalogueIdentity;
   async function run() {
+    if (importing) return;
+    setImporting(true);
     const next = [...monsters];
     let added = 0,
       replaced = 0,
       discarded = 0;
     for (const remote of selected) {
-      const legacy = convertRemoteMonster(remote, () => crypto.randomUUID());
+      const converted = convertCatalogueMonster(remote, () =>
+        crypto.randomUUID(),
+      );
       const input = {
-        name: legacy.name,
-        type: legacy.type,
-        challengeRating: legacy.cr,
-        armorClass: legacy.ac,
-        hitPoints: legacy.hp,
-        speed: legacy.speed,
-        stats: legacy.stats,
-        abilities: legacy.abilities,
-        spells: legacy.spells,
+        name: converted.name,
+        type: converted.type,
+        challengeRating: converted.cr,
+        armorClass: converted.ac,
+        hitPoints: converted.hp,
+        speed: converted.speed,
+        stats: converted.stats,
+        abilities: converted.abilities,
+        spells: converted.spells,
         notes: "",
-        spellSlots: legacy.slots,
-        source: legacy.source ?? null,
+        spellSlots: converted.slots,
+        source: converted.source ?? null,
         favorite: false,
       };
       const index = next.findIndex(
@@ -137,6 +98,7 @@ export function BestiaryImport({
         );
       }
     }
+    setImporting(false);
     complete(next);
     setOpen(false);
     setSelected([]);
@@ -172,21 +134,9 @@ export function BestiaryImport({
                       throw new Error(
                         "Catalogue files must be no larger than 10 MB.",
                       );
-                    const data = JSON.parse(await file.text());
-                    if (
-                      !Array.isArray(data.monster) ||
-                      data.monster.some(
-                        (item: FiveEToolsMonster) =>
-                          typeof item.name !== "string" ||
-                          typeof item.source !== "string",
-                      )
-                    )
-                      throw new Error("Select a 5etools monster JSON file.");
-                    setLocalCatalogue(data.monster);
-                    setRemoteEnabled(false);
-                    setCatalog([]);
+                    setLocalCatalogue(parseCatalogue(await file.text()));
+                    setSelected([]);
                     setQuery("");
-                    setResults([]);
                   } catch (error) {
                     toast.error(
                       error instanceof Error ? error.message : "Import failed",
@@ -195,20 +145,10 @@ export function BestiaryImport({
                 }}
               />
             </label>
-            {!remoteEnabled && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setRemoteEnabled(true);
-                  setLocalCatalogue([]);
-                }}
-              >
-                Connect to remote catalogue
-              </Button>
-            )}
             <p className="text-xs text-stone-400">
-              Remote import connects to dnd5e.lamagra.link only after you choose
-              it. Local files stay on this server.
+              Choose a local catalogue, then search and preview monsters before
+              importing. Files are read in your browser; selected records are
+              saved on this server.
             </p>
           </div>
           <Input
@@ -244,14 +184,14 @@ export function BestiaryImport({
                   {selected.length} selected
                 </span>
               </label>
-              <Button onClick={run} disabled={!selected.length}>
+              <Button onClick={run} disabled={!selected.length || importing}>
                 <Download /> Import selected ({selected.length})
               </Button>
             </>
           )}
           <div className="space-y-1">
             {results.map((item) => {
-              const summary = getRemoteSummary(item);
+              const summary = getMonsterSummary(item);
               const checked = selected.some(
                 (entry) => key(entry) === key(item),
               );
@@ -272,13 +212,14 @@ export function BestiaryImport({
                   />
                   <span className="flex-1">{item.name}</span>
                   <span className="text-xs text-stone-500">
-                    {item.source} · CR {summary.cr} · HP {summary.hp}
+                    {item.source} · CR {summary.cr} · {summary.type} · AC{" "}
+                    {summary.ac} · HP {summary.hp}
                   </span>
                 </label>
               );
             })}
           </div>
-          {loading && <p className="text-sm text-stone-500">Searching…</p>}
+          {importing && <p className="text-sm text-stone-500">Importing…</p>}
         </DialogContent>
       </Dialog>
     </>

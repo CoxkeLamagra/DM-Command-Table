@@ -1,6 +1,6 @@
 # Local API reference
 
-This is the current v9 route surface, derived from the route adapters and `server/api/api-router.ts`. It is an application API, not a compatibility promise for earlier releases. JSON requests use `Content-Type: application/json` and the local session cookie. Mutating requests with an Origin must match the browser-facing Host. Authenticated JSON responses are private and uncached.
+This is the current route surface, derived from the route adapters and focused handlers under `server/api/`. It is an application API, not a compatibility promise for earlier releases. JSON requests use `Content-Type: application/json` and the local session cookie. Mutating requests with an Origin must match the browser-facing Host. Authenticated JSON responses are private and uncached.
 
 Records use UUID IDs. Revisioned updates submit the last received `revision`; a stale revision returns a conflict. Read the current state and reconcile the draft before resubmitting. Input shapes and limits are defined in `server/http/schemas.ts` and `domain/`; the browser client is in `features/shared/api-client.ts`.
 
@@ -44,7 +44,7 @@ Prepared encounters are nested under Sessions; there is no top-level `C/encounte
 
 ## Identity, administration and media
 
-`GET /api/admin/updates` requires a current administrator session and returns `{ available, target?, job }`. An unavailable local broker returns `{ available: false, job: null }`. `POST /api/admin/updates` accepts only `{ "action": "start" }`, checks origin and current administrator rights, records the request in the local audit history and limits starts to six attempts per administrator/source per hour. A reachable broker returns 202 with the current job; an unavailable broker returns 503. Duplicate starts attach to the running job. Browser-supplied targets or commands are rejected with 400. Status and logs use private, uncached responses. The broker's root-configured target and latest job are defined in `domain/updates.ts`; it runs independently of application restarts. See [Debian GUI setup](debian-13-lxc.md#updates-from-administration).
+`GET /api/admin/updates` requires a current administrator session and returns `{ available, target?, job }`. An unavailable local broker returns `{ available: false, job: null }`. `POST /api/admin/updates` accepts only `{ "action": "start" }`, checks origin and current administrator rights, records the request in the local audit history and limits starts to six attempts per administrator/source per hour. A reachable broker returns 202 with the current job; an unavailable broker returns 503. Duplicate starts attach to the running job. Browser-supplied targets or commands are rejected with 400. Status and logs use private, uncached responses. The broker's fixed host-staged runtime target and latest job are defined in `domain/updates.ts`; it runs independently of application restarts. See [Debian GUI setup](debian-13-lxc.md#updates-from-administration).
 
 | Method                   | Route                  | Purpose                                                                                |
 | ------------------------ | ---------------------- | -------------------------------------------------------------------------------------- |
@@ -60,12 +60,16 @@ Typical errors are 400 for invalid input, 401 for missing/invalid authentication
 
 Combatants accept optional `runtime` and `snapshot` fields. Runtime contains nonnegative `temporaryHitPoints`, nullable `concentration`, `deathSaves` (integer successes/failures from 0 through 3), and up to 100 resources (`id`, `name`, `maximum`, `remaining`, `reset`). Resource counts are integers from 0 through 10,000 with remaining no greater than maximum; reset is `manual` or `start-turn`. A Bestiary-linked combatant captures its stat block and slot resources when first saved without a supplied snapshot/runtime. Prepared loads create fresh snapshots and resources per instance.
 
-Conditions support `timing` (`start-turn`, `end-turn`, `manual`), `requiresSave` and `saveDue`. Defaults preserve earlier timed-start-turn and indefinite-manual behavior. Turn commands decrement the outgoing end-turn and incoming start-turn conditions; save-gated expiry sets `saveDue` instead of removing the condition. Clients manually resolve saves and death saves. Own-turn resources reset only for the incoming eligible combatant, including round wrap. Reset-rounds changes round/turn without consuming conditions or restoring resources.
+Conditions support `timing` (`start-turn`, `end-turn`, `manual`), `requiresSave` and `saveDue`. New timed conditions default to start-turn; indefinite conditions use manual timing. Turn commands decrement the outgoing end-turn and incoming start-turn conditions; save-gated expiry sets `saveDue` instead of removing the condition. Clients manually resolve saves and death saves. Own-turn resources reset only for the incoming eligible combatant, including round wrap. Reset-rounds changes round/turn without consuming conditions or restoring resources.
 
-## v10.1.0 security/efficiency behavior
+## Security and capacity behavior
 
-The route and JSON record contracts remain unchanged. Authentication user objects never contain password hashes or credential evidence. A login or password change racing a reset returns a failure rather than issuing a session from obsolete credentials. Administrator rights are rechecked at the account mutation boundary. Password work and campaign package import/export return 503 with a retry message when their process-local capacity is full; retry the operation after a short delay.
+Authentication user objects never contain password hashes or credential evidence. A login or password change racing a reset returns a failure rather than issuing a session from obsolete credentials. Administrator rights are rechecked at the account mutation boundary. Password work and campaign package import/export return 503 with a retry message when their process-local capacity is full; retry the operation after a short delay.
 
 Screenshot GET responses stream bytes and use `Cache-Control: private, no-cache`, `Vary: Cookie`, and an ETag. `If-None-Match` can return 304 only after current user/campaign access is checked. Unauthenticated requests remain 401 and inaccessible/missing images remain 404.
 
 Package imports require a valid current portable campaign and exactly its referenced image assets; missing, duplicate or unused assets reject before decoding. Imports remain transactional with staging cleanup; the 50 MiB package limit remains. Package concurrency is bounded before request-body reading. This changes rejection of malformed packages, not the supported export format.
+
+## Offline imports and updates
+
+Catalogue files are parsed and searched in the browser; selected monsters use the normal local `C/monsters` mutation endpoints. There is no remote catalogue API or external connection. The only update source is the host-staged `/opt/dm-command-table/incoming/runtime` package. The update API retains administrator authorization, audit entries, throttling and polling, and cannot upload or choose executable code. First installation uses a fresh database; earlier database/export formats are not a supported import or migration contract.

@@ -1,6 +1,6 @@
 # Application architecture
 
-The v9 application uses a fresh SQLite schema and removes version-prefixed application/API modules. It preserves campaign ownership and sharing, administration, characters and NPCs, Bestiary imports, story links, sessions and templates, prepared encounters, single-use combatants, combat conditions and undo, search, screenshots, and backups.
+The application uses a single fresh SQLite baseline, `offline-runtime-baseline` (schema version 1). It preserves campaign ownership and sharing, administration, Players/NPCs, local Bestiary imports, Story/Session planning and templates, prepared encounters, single-use combatants, live combat resources, conditions and undo, search, screenshots and backups. The runtime makes no requests to external services.
 
 ## Structure
 
@@ -12,15 +12,15 @@ The v9 application uses a fresh SQLite schema and removes version-prefixed appli
 | `db`                 | Fresh baseline, transaction boundaries, bounded prepared-statement cache and SQLite configuration                   |
 | `scripts` / `deploy` | Shared standalone runtime, consistent backup/restore, maintenance and deployment                                    |
 
-Prepared custom combatants are normalized rows rather than JSON blobs. Combat reads conditions in a batch and saves changed rows incrementally. Mutating commands use expected revisions; bulk character/Bestiary deletion is atomic. Combat history has a count and byte budget and retains image references needed by undo. Combatant runtime resources and stat-block snapshots are separate bounded JSON values on each combatant row; conditions remain normalized rows with start/end/manual timing and save-prompt flags. Bestiary/prepared definitions are never updated by live resource spending. Snapshot image references are retained for live Combat and undo, and portable campaign packages remap embedded images. Schema migration 2 adds these fields to existing v9 storage and captures currently linked stat blocks and slot totals.
+Prepared custom combatants are normalized rows rather than JSON blobs. Combat reads conditions in a batch and saves changed rows incrementally. Mutating commands use expected revisions; bulk character/Bestiary deletion is atomic. Combat history has a count and byte budget and retains image references needed by undo. Combatant runtime resources and stat-block snapshots are separate bounded JSON values on each combatant row; conditions remain normalized rows with start/end/manual timing and save-prompt flags. Bestiary/prepared definitions are never updated by live resource spending. Snapshot image references are retained for live Combat and undo, and portable campaign packages remap embedded images. All runtime, snapshot and condition fields are defined directly in the baseline CREATE TABLE statements. No legacy data conversion is retained.
 
 Rich text is sanitized at persistence boundaries and when rendered or pasted. Local images retain campaign authorization after an uploader account is removed. Campaign packages include embedded images and remap their IDs on import; failed imports clean up staged uploads, and maintenance handles abandoned staging.
 
-The workspace supports addressable campaign/section/record URLs and browser navigation, dirty-draft reconciliation, separate authorization and server availability messages, and a mobile navigation focus trap. Editor components and shared record/draft helpers are extracted from large screens. Offline Bestiary JSON imports do not contact external services; connecting to the catalogue is opt-in.
+The workspace supports addressable campaign/section/record URLs and browser navigation, dirty-draft reconciliation, separate authorization and server availability messages, and a mobile navigation focus trap. Editor components and shared record/draft helpers are extracted from large screens. Bestiary catalogue parsing, deduplication and search are pure functions in `features/bestiary/local-catalogue.ts`; the UI loads local files and retains multi-selection, previews and duplicate replacement. Browser CSP limits connections to the same origin.
 
-## Security and efficiency refactor
+## Local security and resource limits
 
-The v10.1.0 release retains schema 2 and the v10.0.0 feature set. `db/statements.ts` keeps an LRU cache of at most 256 prepared SQL statements per connection using a WeakMap. It caches executable SQL only: bindings, returned rows and permission decisions are evaluated anew. Compound authentication budgets use one transaction, read all limits before any increment, and perform cleanup per connection.
+`db/statements.ts` keeps an LRU cache of at most 256 prepared SQL statements per connection using a WeakMap. It caches executable SQL only: bindings, returned rows and permission decisions are evaluated anew. Compound authentication budgets use one transaction, read all limits before any increment, and perform cleanup per connection.
 
 Credential evidence stays in a server-only WeakMap rather than in API user objects. Login verification and hash upgrades recheck the stored password; session issuance rechecks the evidence after cookie/settings awaits. Password changes update only the hash that was verified and revoke existing sessions. Administrator account creation/reset checks current administrator rights after asynchronous hashing. All password derivations share a four-operation capacity limit, in addition to the existing sign-in admission limits.
 
@@ -30,9 +30,11 @@ Package import validates the portable campaign and exact asset manifest before d
 
 ## Deployment contract
 
-Debian 13 LXC is primary and Docker secondary. Both consume the same standalone Next.js server, static assets and operational scripts. Production storage uses absolute local paths. No hosted database, object store, cloud identity, or remote search is required. Keep the optional remote catalogue disconnected for fully offline operation.
+Debian 13 LXC is primary and Docker secondary. Both consume the same standalone Next.js server, static assets and operational scripts. Production storage uses absolute local paths. No hosted database, object store, cloud identity, or remote search is required. A host-staged runtime contains its dependencies and assets; no package manager runs during deployment or updates.
 
-This is a breaking baseline, not an in-place data migration. Previous API aliases, cookies and database formats are removed. Preserve older installations and backups separately. v9.0.0 introduced this baseline; v9.1.0 bundles deployment corrections without changing the schema.
+This is a fresh-install baseline. Existing database migration metadata must exactly match this baseline before any migration SQL runs. Earlier versions require separate storage and matching application code; no compatibility aliases or historical upgrade path are promised.
+
+The API router owns campaign and template entry points and one HTTP error boundary. It delegates content, Bestiary, combat and search to focused modules in `server/api/`, using a typed request context and shared revision schemas. Repositories retain authorization, transaction boundaries and expected-revision checks; session/prepared-encounter saves remain atomic.
 
 ## Source layout
 
@@ -55,7 +57,9 @@ This is a breaking baseline, not an in-place data migration. Previous API aliase
 
 ## Verification and operational limits
 
-Optional Debian GUI updates use a separate root-owned Node broker installed outside application releases. Administrator-only API routes speak a bounded start/status protocol over a group-restricted local Unix socket. The application remains unprivileged; no arbitrary target, command or environment is accepted from the browser. The broker invokes the root-owned CLI updater with a root-configured target, persists the latest job and bounded logs in a root-only state directory, and remains alive when the application stops. The CLI lock still serializes GUI and manual updates. Installed broker/updater templates are explicitly maintained by root and are never overwritten by a GUI update. Docker retains host-managed replacement.
+Optional Debian GUI updates use a root-owned broker outside application releases. Administrator-only API routes send bounded start/status messages over a local Unix socket. The fixed target is `/opt/dm-command-table/incoming/runtime`; browser input never supplies paths or commands. Root approves and stages the package, with no writable application access to its ancestors or contents. The installed verifier checks a manifest containing the baseline, application version, SHA-256 file hashes and relative dependency links. Checksums establish transfer integrity, not publisher authenticity; host approval supplies trust. The updater uses only local files, takes a consistent stopped-service backup, switches releases and checks readiness, and restores the previous release/data on failure. The broker retains progress and bounded logs across application restarts. Its systemd unit limits IP traffic to localhost. Docker replacement remains host-managed.
+
+`package:runtime` writes the runtime manifest. The independent root-owned verifier is installed from an approved source checkout, not executed from the staged candidate as root. `next-command.mjs` disables telemetry for development and builds; `start-runtime.mjs` disables it for standalone startup. Local application dependencies are bundled rather than removed.
 
 Run `pnpm verify`, then `pnpm exec playwright install chromium` and `pnpm test:browser`. CI runs unit/API checks, production builds and browser regression tests on Node 22 and 24, plus Docker startup, authentication-boundary, storage and backup checks. See [release assessment](release-assessment.md) for observed results and [API reference](api.md) for the route contract.
 

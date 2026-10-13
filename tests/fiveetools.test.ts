@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  cleanRemoteText,
-  convertRemoteMonster,
-  getRemoteSummary,
+  cleanCatalogueText,
+  convertCatalogueMonster,
+  getMonsterSummary,
   monsterIdentity,
 } from "../features/bestiary/fiveetools.ts";
 
 test("5eTools text markup is converted to readable local text", () => {
   assert.equal(
-    cleanRemoteText("{@atk mw} {@damage 1d8+3|1d8 + 3}"),
+    cleanCatalogueText("{@atk mw} {@damage 1d8+3|1d8 + 3}"),
     "Melee Weapon Attack: 1d8+3",
   );
 });
 
-test("remote monster conversion preserves the fields used by the Bestiary", () => {
-  const monster = convertRemoteMonster(
+test("catalogue monster conversion preserves the fields used by the Bestiary", () => {
+  const monster = convertCatalogueMonster(
     {
       name: "Test Drake",
       source: "TST",
@@ -54,7 +54,7 @@ test("duplicate identity is case-insensitive and source-specific", () => {
     monsterIdentity({ name: "Goblin", source: "MM" }),
     monsterIdentity({ name: "Goblin", source: "VGM" }),
   );
-  assert.deepEqual(getRemoteSummary({ name: "Unknown", source: "TST" }), {
+  assert.deepEqual(getMonsterSummary({ name: "Unknown", source: "TST" }), {
     type: "creature",
     ac: 10,
     hp: 10,

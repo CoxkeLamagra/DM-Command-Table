@@ -1,102 +1,107 @@
 # Docker deployment
 
-Docker is the secondary deployment target. It builds the same standalone runtime used by Debian LXC, runs one unprivileged application instance, and stores the database, screenshots and backups in a persistent named volume. Use Docker Engine with the Compose plugin.
+Docker is the secondary deployment target. It runs the same self-contained standalone runtime as Debian LXC, as an unprivileged user with persistent local SQLite, screenshots and backups. Runtime operation requires no Internet connection. Docker Engine and Compose must already be provisioned on the local host.
 
-## Install v10.2.0
+## Prepare and transfer an image
+
+Build an approved source revision on a trusted build machine. Initial builds can download base images and npm dependencies; this is separate from runtime operation. Check out `v11.0.0` for this release and record the exact source commit alongside the image.
 
 ```sh
-git clone https://github.com/CoxkeLamagra/DM-Command-Table.git
-cd DM-Command-Table
-git checkout --detach v10.2.0
+docker build -t dm-command-table:11.0.0 .
+docker save -o dm-command-table-11.0.0.tar dm-command-table:11.0.0
+```
+
+Alternatively, build from an already prepared self-contained runtime without invoking a package manager. Load the approved Node base image locally first (`node:24.21.0-bookworm-slim`), then use the runtime directory as the entire build context:
+
+```sh
+pnpm package:runtime
+node scripts/runtime-integrity.mjs dist/runtime
+docker build --network none --pull=false -f "$PWD/Dockerfile.runtime" -t dm-command-table:11.0.0 dist/runtime
+docker save -o dm-command-table-11.0.0.tar dm-command-table:11.0.0
+```
+
+`Dockerfile.runtime` copies only the supplied package and uses the prepared base image. Runtime preparation and base-image approval happen before an offline image build; no registry or package-manager access is needed by its build steps.
+
+Transfer the approved image and the repository's `compose.yaml` and `.env.example` using trusted local media. On the offline host:
+
+```sh
+docker load -i dm-command-table-11.0.0.tar
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
 ```
 
-Put the generated value in `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` in `.env`; keep it private and enter it when creating the first administrator. Compose reads `.env` for interpolation. Storage paths inside the container are fixed to `/data`; the development paths in the example do not replace these. Keep registration in `first-user` mode unless intentionally onboarding more accounts.
+Enter the generated bootstrap token privately in `.env`; the first production administrator account requires it. Use fresh storage for this baseline, separate from earlier installations. Do not delete or reuse an older volume to resolve schema-format errors.
 
-```sh
-docker compose up --build --wait --wait-timeout 120
-docker compose ps
-curl --fail http://127.0.0.1:3000/api/health
-```
-
-The readiness response includes version `10.2.0`. Open `http://localhost:3000` on the Docker host. For another computer, configure a local reverse proxy or explicitly set `DMCT_BIND_ADDRESS` in `.env` to the host's LAN address. The default bind is loopback. When using a reverse proxy, preserve the original Host and overwrite forwarded headers; enable `DM_COMMAND_TABLE_TRUST_PROXY=true` only if direct access cannot bypass that proxy. Use secure cookies with HTTPS.
-
-The root filesystem is read-only; `/data` persists and temporary/cache directories use tmpfs. Do not run multiple instances against the volume. `docker compose down` retains the named volume; `down -v` destroys it and is not an update or recovery command.
-
-## Update
-
-Create and verify a backup first. Record the running tag or commit. Fetch and select the approved release, then rebuild:
-
-```sh
-docker compose exec -T dm-command-table node scripts/backup-local.mjs
-# Verify the printed backup path, for example:
-docker compose exec -T dm-command-table node scripts/restore-local.mjs /data/backups/BACKUP
-git fetch --tags origin
-git checkout --detach APPROVED_TAG_OR_COMMIT
-docker compose up --build --wait --wait-timeout 120
-curl --fail http://127.0.0.1:3000/api/health
-```
-
-Replace `BACKUP` and `APPROVED_TAG_OR_COMMIT` with actual values. Verify login, campaigns, prepared encounters, Combat and embedded images. Existing v9 installations retain their data. Pre-v9 databases require a separate fresh volume. Docker Compose has no automatic rollback equivalent to the LXC updater. If a candidate fails, stop it, use the matching previous code and verified pre-update backup, and follow the recovery procedure below.
-
-## Backup and maintenance
-
-```sh
-docker compose exec -T dm-command-table node scripts/check-local-storage.mjs
-docker compose exec -T dm-command-table node scripts/backup-local.mjs
-docker compose exec -T dm-command-table node scripts/maintenance.mjs
-```
-
-Docker does not install a backup schedule. Schedule the backup command on the host, verify its result, then run maintenance. Backups inside the application volume are not an offline copy. Copy a completed directory to separate storage; use the path printed by the backup command:
-
-```sh
-install -d -m 0700 ./backup-copy
-docker compose cp dm-command-table:/data/backups/BACKUP ./backup-copy/
-```
-
-Keep account data and images private. See [operations](operations.md) for retention and quarantine behavior.
-
-## Restore to separate data
-
-Stop the running service. Restore a verified backup into a new empty directory in the existing named volume, using the same application release that created it:
-
-```sh
-docker compose stop dm-command-table
-docker compose run --rm --no-deps dm-command-table node scripts/restore-local.mjs /data/backups/BACKUP /data/recovered
-```
-
-Create `compose.recovery.yaml` beside `compose.yaml`:
+Create `compose.local.yaml` beside `compose.yaml`:
 
 ```yaml
 services:
   dm-command-table:
+    image: dm-command-table:11.0.0
+    pull_policy: never
+```
+
+```sh
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml up --no-build --pull never --wait --wait-timeout 120
+curl --fail http://127.0.0.1:3000/api/health
+```
+
+Use the same project name and both files for all following commands. `--no-build` and `--pull never` ensure the runtime host uses the loaded image. Storage paths inside the container are fixed to `/data`. Port 3000 binds to loopback by default. For LAN use, configure a local reverse proxy or the explicit `DMCT_BIND_ADDRESS`; trust forwarded headers only when clients cannot bypass that proxy. Use HTTPS and secure cookies for public endpoints.
+
+The root filesystem is read-only; `/data` persists and temporary/cache paths use tmpfs. Run one instance against the volume. `down` retains it; `down -v` destroys it and is not an update or recovery operation.
+
+## Offline updates
+
+The Administration update panel reports the Debian broker as unavailable in Docker. Preserve host-managed image replacement without granting container privileges or mounting the Docker socket.
+
+Create and verify a backup with the current image:
+
+```sh
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml exec -T dm-command-table node scripts/backup-local.mjs
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml exec -T dm-command-table node scripts/restore-local.mjs /data/backups/BACKUP
+```
+
+Build/test the candidate elsewhere, transfer and load its approved image locally, then change `image` in `compose.local.yaml`. Run the same `up --no-build --pull never --wait` command. Check readiness, accounts, campaigns, prepared encounters, Combat and images. Only packages using the current fresh baseline can use its data. Earlier versions require a separate fresh installation. Retain the previous image and matching backup for recovery; Docker has no automatic rollback equivalent to the Debian updater.
+
+## Backup and maintenance
+
+```sh
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml exec -T dm-command-table node scripts/check-local-storage.mjs
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml exec -T dm-command-table node scripts/backup-local.mjs
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml exec -T dm-command-table node scripts/maintenance.mjs
+```
+
+Schedule backups on the host and keep an additional offline copy. Copy the completed backup directory printed by the command to separate private storage. Backups in the application volume alone are not disaster recovery. See [operations](operations.md) for retention and quarantine.
+
+## Restore to separate data
+
+Stop the service and use the matching image to restore into a new empty directory in the persistent volume:
+
+```sh
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml stop dm-command-table
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml run --rm --no-deps --pull never dm-command-table node scripts/restore-local.mjs /data/backups/BACKUP /data/recovered
+```
+
+Add the restored paths to the service's `environment` in `compose.local.yaml`:
+
+```yaml
+services:
+  dm-command-table:
+    image: dm-command-table:11.0.0
+    pull_policy: never
     environment:
       DM_COMMAND_TABLE_DB_PATH: /data/recovered/dm-command-table.sqlite
       DM_COMMAND_TABLE_UPLOAD_PATH: /data/recovered/uploads
 ```
 
-```sh
-docker compose -f compose.yaml -f compose.recovery.yaml up --wait --wait-timeout 120
-```
+Start with the same offline `up` command and verify login, campaign records and embedded images. Restore refuses existing destinations and preserves original data. A backup from an earlier baseline must be restored with its original application version.
 
-Use both files for subsequent commands while that recovered directory is active. Original data is preserved. Validate readiness, login and embedded images before accepting the recovery. A restore never merges into or overwrites an existing directory.
-
-## Diagnose
-
-The Administration update panel is unavailable in Docker. Continue using the host-side Compose update procedure; do not mount the Docker socket or install the Debian root update broker inside the container.
+## Diagnose and acceptance
 
 ```sh
-docker compose ps
-docker compose logs --tail 100 dm-command-table
-docker compose exec -T dm-command-table node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.text()).then(console.log)"
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml ps
+docker compose -p dmct-offline -f compose.yaml -f compose.local.yaml logs --tail 100 dm-command-table
 ```
 
-If localhost works but another computer cannot connect, check the host bind address, proxy and firewall. If login fails through HTTPS, check proxy trust, forwarded scheme and cookie settings. Use [operations](operations.md) for storage and authentication diagnostics.
-
-## Security/efficiency release
-
-The installation example pins v10.2.0, including the security/efficiency refactor. For a later main build, fetch and check out an approved main commit, then use the existing Compose update procedure. Record `git rev-parse HEAD` alongside the reported application version.
-
-The refactor retains schema 2, the same persistent volume and unprivileged standalone runtime. Capacity limits and streaming reads are inside the local process; they do not require new services, ports or permissions. Keep your verified backup before replacing the container, then check readiness, login, campaign records, Combat, and embedded images. The original v10.0.0 tag remains unchanged.
+For LAN connectivity, check host bind address, proxy and firewall. For HTTPS login, check proxy trust, forwarded scheme and cookie settings. Validate image build, startup, storage and restore on a disposable Docker host before deployment; source/browser tests alone do not establish container acceptance.

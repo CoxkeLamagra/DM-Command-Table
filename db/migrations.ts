@@ -9,7 +9,7 @@ export type Migration = {
 export const migrations: readonly Migration[] = [
   {
     version: 1,
-    name: "local-first-baseline",
+    name: "offline-runtime-baseline",
     sql: `
       CREATE TABLE security_rate_limits (
         key TEXT PRIMARY KEY NOT NULL,
@@ -214,6 +214,8 @@ export const migrations: readonly Migration[] = [
         display_number INTEGER,
         kind TEXT NOT NULL CHECK (kind IN ('player', 'monster', 'npc')),
         notes TEXT NOT NULL DEFAULT '',
+        runtime TEXT NOT NULL DEFAULT '{"temporaryHitPoints":0,"concentration":null,"deathSaves":{"successes":0,"failures":0},"resources":[]}',
+        snapshot TEXT,
         initiative REAL NOT NULL DEFAULT 0,
         hit_points REAL NOT NULL DEFAULT 1,
         maximum_hit_points REAL NOT NULL DEFAULT 1,
@@ -231,6 +233,9 @@ export const migrations: readonly Migration[] = [
         id TEXT PRIMARY KEY NOT NULL,
         combatant_id TEXT NOT NULL REFERENCES combatants(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
+        timing TEXT NOT NULL DEFAULT 'start-turn' CHECK (timing IN ('start-turn','end-turn','manual')),
+        requires_save INTEGER NOT NULL DEFAULT 0 CHECK (requires_save IN (0,1)),
+        save_due INTEGER NOT NULL DEFAULT 0 CHECK (save_due IN (0,1)),
         remaining_turns INTEGER CHECK (remaining_turns IS NULL OR remaining_turns > 0),
         created_at INTEGER NOT NULL
       );
@@ -302,21 +307,6 @@ export const migrations: readonly Migration[] = [
       );
     `,
   },
-  {
-    version: 2,
-    name: "combat-runtime-and-condition-timing",
-    sql: `
-    ALTER TABLE combatants ADD COLUMN runtime TEXT NOT NULL DEFAULT '{"temporaryHitPoints":0,"concentration":null,"deathSaves":{"successes":0,"failures":0},"resources":[]}';
-    ALTER TABLE combatants ADD COLUMN snapshot TEXT;
-    ALTER TABLE combat_conditions ADD COLUMN timing TEXT NOT NULL DEFAULT 'start-turn' CHECK (timing IN ('start-turn','end-turn','manual'));
-    ALTER TABLE combat_conditions ADD COLUMN requires_save INTEGER NOT NULL DEFAULT 0 CHECK (requires_save IN (0,1));
-    ALTER TABLE combat_conditions ADD COLUMN save_due INTEGER NOT NULL DEFAULT 0 CHECK (save_due IN (0,1));
-    UPDATE combat_conditions SET timing='manual' WHERE remaining_turns IS NULL;
-    UPDATE combatants SET snapshot=(SELECT json_object('name',m.name,'type',m.type,'challengeRating',m.challenge_rating,'speed',m.speed,'stats',m.stats,'abilities',m.abilities,'spells',m.spells,'notes',m.notes,'source',COALESCE(m.source,''),'hitPoints',m.hit_points,'armorClass',m.armor_class,'spellSlots',json(m.spell_slots),'tags',json((SELECT json_group_array(json_object('id',t.id,'name',t.name,'color',t.color)) FROM tags t JOIN monster_tags mt ON mt.tag_id=t.id WHERE mt.monster_id=m.id))) FROM monsters m WHERE m.id=combatants.monster_id) WHERE monster_id IS NOT NULL;
-    UPDATE combatants SET runtime=json_set(runtime,'$.resources',json((SELECT json_group_array(json_object('id',lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-4'||substr(lower(hex(randomblob(2))),2)||'-8'||substr(lower(hex(randomblob(2))),2)||'-'||lower(hex(randomblob(6))),'name','Level '||(CAST(j.key AS INTEGER)+1)||' spell slots','maximum',j.value,'remaining',j.value,'reset','manual')) FROM json_each(json_extract(snapshot,'$.spellSlots')) j WHERE j.value>0))) WHERE snapshot IS NOT NULL;
-    INSERT OR IGNORE INTO screenshot_references (screenshot_id,campaign_id,resource_type,resource_id,created_at) SELECT s.id,e.campaign_id,'combat',e.id,s.created_at FROM combatants c JOIN combat_encounters e ON e.id=c.encounter_id JOIN screenshots s ON instr(c.snapshot,'/api/screenshots/'||s.id)>0;
-  `,
-  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {
@@ -327,6 +317,19 @@ export function runMigrations(database: DatabaseSync): void {
       applied_at INTEGER NOT NULL
     );
   `);
+  const applied = database
+    .prepare("SELECT version, name FROM schema_migrations ORDER BY version")
+    .all() as Array<{ version: number; name: string }>;
+  if (
+    applied.some(
+      (entry, index) =>
+        entry.version !== migrations[index]?.version ||
+        entry.name !== migrations[index]?.name,
+    )
+  )
+    throw new Error(
+      "Unsupported database format. Use a fresh data directory for this release.",
+    );
   const current = database
     .prepare(
       "SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations",
