@@ -2,6 +2,13 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.3.0 — 2026-10-13
+
+- Add a standalone fresh Debian 13 LXC installer that provisions signed OS prerequisites, Node 24, pinned pnpm, separate build/runtime accounts, locked dependencies, verified application runtime, Nginx and scheduled backups.
+- Enable the automatic GUI updater during installation, check application/proxy health and updater access as the runtime account, and print the initial administrator setup token only after successful verification.
+- Protect the token in root-only configuration, refuse existing or partial installations, serialize installers, and preserve files for diagnosis on failure.
+- Add installer, readiness and administrator-token regressions and document the complete bare-LXC quick start. Existing v11 data remains compatible; existing installations use Admin updates rather than the fresh installer.
+
 ## 11.2.1 — 2026-10-13
 
 - Automatically connect to the remote Bestiary when opening Import monsters; remove the Connect button and show a small connecting/connected/unavailable status.

@@ -4,6 +4,37 @@ This guide starts with a bare Debian 13 LXC and ends with a running application,
 
 The default path builds the approved release inside the LXC. Initial OS/tool/dependency installation and browser downloads need Internet access. Once packaged, ordinary application use is local; automatic updates contact source/package hosts only when started. A separate-build-machine alternative is included below for keeping build tools off the runtime host. Bundled npm libraries are retained.
 
+## Recommended: complete installation script
+
+For a **fresh, dedicated Debian 13 LXC**, open its console as **root**. The container must already have systemd as PID 1, an amd64/arm64 CPU, a LAN address, working DNS and Internet routing. Allocate at least 2 CPU cores, 4 GiB RAM and 12 GiB disk, with additional space for data, backups, retained builds and releases. The script does not configure the LXC host's networking or firewall.
+
+Run these commands in the console. The first two supply the download tool and trusted CA certificates missing from some bare templates:
+
+```bash
+set -euo pipefail
+apt-get update
+apt-get install -y ca-certificates curl
+curl --fail --show-error --silent --location \
+  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v11.3.0/deploy/debian-13/install-dm-command-table \
+  --output /root/install-dm-command-table
+bash /root/install-dm-command-table
+```
+
+The [standalone installer](../deploy/debian-13/install-dm-command-table) defaults to the pinned v11.3.0 release. It installs signed Debian prerequisites and Chromium, signed NodeSource Node 24, pnpm 11.25.0, separate `dmct`/`dmct-build` accounts, fresh local storage, frozen application dependencies, the verified standalone runtime, Nginx, the daily backup timer and the automatic GUI updater. It runs audit/format/lint/type/unit/build/browser checks before deployment, then checks direct/proxy health, protected endpoint behavior and the updater socket **as the runtime account**, validates storage and takes an initial backup. No separate updater installation or manual build is needed. Keep the console open while these checks run; installation time depends on network/CPU resources.
+
+On success the console displays the installed version, LXC addresses and **Initial install token**. Open `http://<LXC-IP>/` in a LAN browser, choose **Register**, and enter that token in **Initial setup token** along with your username, display name and password. The first account becomes administrator and public registration closes automatically. The token is printed deliberately for the person installing the application; keep the console output private. It is also retained in root-only mode `0600` in `/etc/dm-command-table.env`. After registration the token cannot create another account. You can optionally clear it and restart:
+
+```bash
+sed -i 's/^DM_COMMAND_TABLE_BOOTSTRAP_TOKEN=.*/DM_COMMAND_TABLE_BOOTSTRAP_TOKEN=/' /etc/dm-command-table.env
+systemctl restart dm-command-table.service
+```
+
+For future versions use **Administration → Update application**. Existing installations must use their updater; this fresh installer refuses existing accounts, data, releases, service files and partial installations without overwriting them. A failed installation stops without printing a completion token and retains files for diagnosis. Fix the reported phase before completing manually or starting again in a new container; never delete existing application data just to rerun it. Concurrent installers are prevented by `/run/lock/dm-command-table-install.lock`; after a forced interruption, remove that empty lock directory only after confirming no installer remains running. Run `bash /root/install-dm-command-table --help` for usage; `--release v11.MINOR.PATCH` can select a different approved stable release from v11.3.0 onward.
+
+The default endpoint uses trusted-LAN HTTP. For access outside that network, apply the HTTPS section below before entering credentials. Allow port 80 (or your configured HTTPS port) through the LXC host firewall; Node port 3000 stays on loopback. Initial installation and subsequent GUI updates require access to Debian/NodeSource repositories, GitHub and npm package registries. Local application use and local JSON imports remain usable offline.
+
+The numbered sections below are the **manual alternative** and troubleshooting reference. After a successful scripted installation, continue with administrator registration and the optional HTTPS/recovery guidance rather than repeating the manual setup.
+
 ## 1. Prepare the container and root shell
 
 Create a Debian 13 container using your LXC host's supported template and give it a LAN address, working DNS and a default gateway. Use at least 2 CPU cores, 4 GiB RAM and 12 GiB disk for building/testing locally, plus space for campaign data, images, releases and backups. A runtime-only container can use fewer resources. Standard unprivileged LXC is sufficient; Docker, nesting and a privileged container are not required. The LXC host manages networking and any host firewall.
@@ -98,7 +129,7 @@ From the build directory, clone the source and select the release explicitly. A 
 cd /var/cache/dm-command-table-build
 runuser -u dmct-build -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git source
 cd /var/cache/dm-command-table-build/source
-runuser -u dmct-build -- git checkout --detach v11.2.1
+runuser -u dmct-build -- git checkout --detach v11.3.0
 runuser -u dmct-build -- git rev-parse HEAD
 runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
 runuser -u dmct-build -- /usr/bin/pnpm verify
@@ -202,7 +233,7 @@ systemctl is-active nginx.service dm-command-table.service
 systemctl list-timers dm-command-table-backup.timer --no-pager
 ```
 
-Both health requests must return `status: ready` and version `11.2.1`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
+Both health requests must return `status: ready` and version `11.3.0`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
 
 Use `ip -brief address` to find the LAN address, then open `http://<container-LAN-IP>/` from your computer. Register the first administrator with the private bootstrap token. Keep self-registration disabled unless you intentionally enable it through Administration. Create a campaign/session, upload a screenshot, save and reload to verify the browser-facing installation.
 
@@ -281,24 +312,24 @@ Configure LAN DNS (or each client's hosts file) for this hostname, trust the cer
 
 To avoid retaining build tools/checkouts on the runtime LXC, provision Debian prerequisites and system-wide Node as above, then build on a trusted compatible Linux machine of the same architecture. That machine needs the same Node/pnpm/native build tools and browser prerequisites from sections 2–5. Do not use a Windows/macOS package or native dependencies from an incompatible Linux platform.
 
-On the build machine, use the section 5 commands to check out `v11.2.1`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
+On the build machine, use the section 5 commands to check out `v11.3.0`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
 
 ```bash
 mkdir -p dist/lxc-bundle
 cp -a dist/runtime dist/lxc-bundle/runtime
 cp -a deploy/debian-13 dist/lxc-bundle/deploy
 cp scripts/runtime-integrity.mjs dist/lxc-bundle/runtime-integrity.mjs
-tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.2.1-lxc.tar.gz .
-(cd dist; sha256sum dm-command-table-v11.2.1-lxc.tar.gz > dm-command-table-v11.2.1-lxc.tar.gz.sha256)
+tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.3.0-lxc.tar.gz .
+(cd dist; sha256sum dm-command-table-v11.3.0-lxc.tar.gz > dm-command-table-v11.3.0-lxc.tar.gz.sha256)
 ```
 
 Transfer both files from the approved build. Verify the checksum from that trusted transfer before extracting into a new staging directory. Checksums alone do not establish who produced the bundle. On the runtime host:
 
 ```bash
 cd /path/to/transferred-files
-sha256sum --check dm-command-table-v11.2.1-lxc.tar.gz.sha256
+sha256sum --check dm-command-table-v11.3.0-lxc.tar.gz.sha256
 install -d -o root -g root -m 0700 /root/dmct-install
-tar -xzf dm-command-table-v11.2.1-lxc.tar.gz -C /root/dmct-install
+tar -xzf dm-command-table-v11.3.0-lxc.tar.gz -C /root/dmct-install
 cd /root/dmct-install
 ```
 
@@ -317,7 +348,7 @@ Run these commands once as root using an approved source checkout. On an existin
 ```bash
 cd /var/cache/dm-command-table-build/source
 runuser -u dmct-build -- git fetch --tags origin
-runuser -u dmct-build -- git checkout --detach v11.2.1
+runuser -u dmct-build -- git checkout --detach v11.3.0
 bash deploy/debian-13/install-gui-updater
 ```
 

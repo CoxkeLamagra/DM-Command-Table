@@ -68,3 +68,7 @@ Run `pnpm verify`, then `pnpm exec playwright install chromium` and `pnpm test:b
 SQLite serves a single application instance with persistent local storage. Revision checks prevent stale writes but do not provide live presence or cursor sharing. Health checks exercise readiness, not complete disaster recovery. Backup retention is manual. Debian systemd/Nginx lifecycle acceptance requires the actual LXC host and is not established by Docker CI. The rich-text editor remains a contenteditable implementation; major editor changes need cross-browser acceptance testing.
 
 See [the technical review](security-efficiency-review.md) for source-backed findings, regression evidence and review limits.
+
+## Fresh-install automation
+
+`deploy/debian-13/install-dm-command-table` is a standalone root entry point for a dedicated Debian 13/systemd LXC. It installs prerequisites, builds a fixed approved project tag under `dmct-build` with a clean environment, deploys verified root-owned code, configures local storage/Nginx/backups and installs the independent automatic updater. A runtime-user probe checks direct/proxy health, unauthorized campaign access and the broker socket before token disclosure. The first-admin token is generated after the build, stored in mode-0600 configuration and printed only on completed installation. Prior paths/accounts and concurrent runs are refused.

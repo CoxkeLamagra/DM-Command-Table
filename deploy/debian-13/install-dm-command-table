@@ -1,0 +1,145 @@
+#!/bin/bash
+# Standalone fresh-install entry point; run as root inside a dedicated Debian 13 LXC.
+set +x
+set -euo pipefail
+umask 077
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+RELEASE=v11.3.0
+REPOSITORY=https://github.com/CoxkeLamagra/DM-Command-Table.git
+if [[ ${1:-} == --help ]]; then
+  echo 'Usage: bash install-dm-command-table [--release v11.MINOR.PATCH]'
+  echo 'Fresh Debian 13/systemd installation only. Installs prerequisites, application, backups and automatic GUI updates.'
+  exit 0
+fi
+if [[ $# == 2 && $1 == --release ]]; then RELEASE=$2; elif [[ $# != 0 ]]; then echo 'Use --help for usage.' >&2; exit 1; fi
+[[ $RELEASE =~ ^v11\.([0-9]+)\.[0-9]+$ ]] && (( 10#${BASH_REMATCH[1]} >= 3 )) || { echo 'Select a stable v11 release tag from v11.3.0 onward.' >&2; exit 1; }
+[[ $(id -u) == 0 ]] || { echo 'Run this installer as root inside the LXC.' >&2; exit 1; }
+source /etc/os-release
+[[ $ID == debian && $VERSION_ID == 13 ]] || { echo 'Debian 13 is required.' >&2; exit 1; }
+[[ $(cat /proc/1/comm) == systemd ]] || { echo 'PID 1 must be systemd. Fix the LXC template first.' >&2; exit 1; }
+case $(dpkg --print-architecture) in amd64|arm64) ;; *) echo 'Node 24 requires amd64 or arm64.' >&2; exit 1 ;; esac
+PHASE=preflight
+INSTALL_LOCK=/run/lock/dm-command-table-install.lock
+mkdir "$INSTALL_LOCK" 2>/dev/null || { echo "An installer is already running (or its lock remains after interruption): $INSTALL_LOCK" >&2; exit 1; }
+TEMPORARY=
+trap 'result=$?; rmdir -- "$INSTALL_LOCK"; [[ -z $TEMPORARY ]] || rm -rf -- "$TEMPORARY"; if [[ $result != 0 ]]; then echo "Installation failed during $PHASE. No completion token was printed. Inspect the preceding error; retained files/data are not deleted. Do not rerun over a partial installation." >&2; fi' EXIT
+# Refuse partial/previous installs rather than replacing data, tokens or services.
+for managed in /opt/dm-command-table /var/lib/dm-command-table /var/cache/dm-command-table-build \
+  /var/lib/dm-command-table-updater /usr/local/lib/dm-command-table /usr/local/sbin/update-dm-command-table \
+  /etc/dm-command-table.env /etc/systemd/system/dm-command-table{,-updater,-backup}.service \
+  /etc/systemd/system/dm-command-table-backup.timer /etc/nginx/sites-{available,enabled}/dm-command-table; do
+  [[ ! -e $managed && ! -L $managed ]] || { echo "Existing installation path: $managed. Use Admin updates or inspect the partial installation; nothing was overwritten." >&2; exit 1; }
+done
+for account in dmct dmct-build; do
+  if getent passwd "$account" >/dev/null || getent group "$account" >/dev/null; then
+    echo "Account/group $account already exists. Use a fresh dedicated container." >&2; exit 1
+  fi
+done
+step() { PHASE=$1; echo "=== $PHASE ==="; }
+export DEBIAN_FRONTEND=noninteractive
+step prerequisites
+apt-get update
+apt-get install -y ca-certificates curl gnupg git nginx openssl build-essential python3 util-linux iproute2 procps xz-utils chromium
+step 'Node 24 and pnpm'
+TEMPORARY=$(mktemp -d /tmp/dmct-install.XXXXXXXX)
+install -d -m 0755 /etc/apt/keyrings
+curl --fail --show-error --silent --location https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key --output "$TEMPORARY/nodesource-key"
+gpg --batch --yes --dearmor --output "$TEMPORARY/nodesource.gpg" "$TEMPORARY/nodesource-key"
+install -o root -g root -m 0644 "$TEMPORARY/nodesource.gpg" /etc/apt/keyrings/nodesource.gpg
+cat > /etc/apt/sources.list.d/nodesource.sources <<EOF
+Types: deb
+URIs: https://deb.nodesource.com/node_24.x
+Suites: nodistro
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/nodesource.gpg
+EOF
+apt-get update
+apt-get install -y nodejs
+[[ $(/usr/bin/node -p 'process.versions.node.split(".")[0]') == 24 ]]
+/usr/bin/npm install --global --prefix /usr pnpm@11.25.0
+[[ $(/usr/bin/pnpm --version) == 11.25.0 ]]
+/usr/bin/node -e 'const {DatabaseSync}=require("node:sqlite"); new DatabaseSync(":memory:").close()'
+step 'Accounts and fresh storage'
+useradd --system --user-group --home-dir /var/lib/dm-command-table --shell /usr/sbin/nologin dmct
+useradd --system --user-group --home-dir /var/cache/dm-command-table-build --shell /usr/sbin/nologin dmct-build
+install -d -o root -g root -m 0755 /opt/dm-command-table/{releases,incoming} /usr/local/lib/dm-command-table
+install -d -o dmct -g dmct -m 0700 /var/lib/dm-command-table{,/uploads,/backups}
+install -d -o dmct-build -g dmct-build -m 0755 /var/cache/dm-command-table-build
+BUILD=$(mktemp -d /var/cache/dm-command-table-build/install-XXXXXXXX)
+chown dmct-build:dmct-build "$BUILD"
+SOURCE=$BUILD/source
+build_run() {
+  runuser -u dmct-build -- /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+    HOME=/var/cache/dm-command-table-build LANG=C.UTF-8 CI=1 GIT_TERMINAL_PROMPT=0 \
+    NEXT_TELEMETRY_DISABLED=1 DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium "$@"
+}
+step "Fetch $RELEASE"
+cd "$BUILD"
+build_run /usr/bin/git clone --no-checkout "$REPOSITORY" "$SOURCE"
+cd "$SOURCE"
+REVISION=$(build_run /usr/bin/git rev-parse --verify "$RELEASE^{commit}")
+[[ $REVISION =~ ^[a-f0-9]{40}$ ]]
+build_run /usr/bin/git checkout --detach "$REVISION"
+# Only prepare code from the selected project release, as the build account.
+step 'Install locked application dependencies'
+build_run /usr/bin/pnpm install --frozen-lockfile --prod=false
+step 'Audit, checks, unit tests and production build'
+build_run /usr/bin/pnpm verify
+step 'Browser regressions and runtime packaging'
+build_run /usr/bin/pnpm test:browser
+build_run /usr/bin/node scripts/package-runtime.mjs "$BUILD/runtime"
+step 'Install verified runtime'
+install -o root -g root -m 0644 scripts/runtime-integrity.mjs /usr/local/lib/dm-command-table/runtime-integrity.mjs
+RUNTIME=/opt/dm-command-table/releases/initial
+cp -a "$BUILD/runtime" "$RUNTIME"
+chown -hR root:root "$RUNTIME"
+chmod -R a+rX,go-w "$RUNTIME"
+/usr/bin/node /usr/local/lib/dm-command-table/runtime-integrity.mjs "$RUNTIME" --trusted-staging
+VERSION=$(/usr/bin/node -e 'console.log(JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")).applicationVersion)' "$RUNTIME/runtime-manifest.json")
+[[ v$VERSION == "$RELEASE" ]] || { echo 'Runtime version does not match the selected release.' >&2; exit 1; }
+ln -s "$RUNTIME" /opt/dm-command-table/current
+step 'Configure first administrator registration'
+install -o root -g root -m 0600 deploy/debian-13/dm-command-table.env.example /etc/dm-command-table.env
+BOOTSTRAP_TOKEN=$(openssl rand -hex 32)
+[[ $BOOTSTRAP_TOKEN =~ ^[a-f0-9]{64}$ ]]
+sed -i "s/^DM_COMMAND_TABLE_BOOTSTRAP_TOKEN=.*/DM_COMMAND_TABLE_BOOTSTRAP_TOKEN=$BOOTSTRAP_TOKEN/" /etc/dm-command-table.env
+for unit in dm-command-table.service dm-command-table-backup.service dm-command-table-backup.timer; do
+  install -o root -g root -m 0644 "deploy/debian-13/$unit" "/etc/systemd/system/$unit"
+done
+install -o root -g root -m 0644 deploy/debian-13/nginx-dm-command-table.conf /etc/nginx/sites-available/dm-command-table
+ln -s /etc/nginx/sites-available/dm-command-table /etc/nginx/sites-enabled/dm-command-table
+if [[ -L /etc/nginx/sites-enabled/default ]]; then unlink /etc/nginx/sites-enabled/default; fi
+nginx -t
+step 'Activate automatic GUI updates'
+bash deploy/debian-13/install-gui-updater
+step 'Start application, proxy and scheduled backups'
+systemctl daemon-reload
+systemctl enable --now nginx.service dm-command-table.service dm-command-table-backup.timer
+systemctl reload nginx
+systemctl is-active nginx.service dm-command-table.service dm-command-table-updater.service dm-command-table-backup.timer
+# Test the proxy, expected application version and updater socket as the runtime
+# user, then check real storage and create the first verified backup.
+step 'Verify installation'
+install -o root -g root -m 0644 "$SOURCE/deploy/debian-13/check-installation.mjs" /usr/local/lib/dm-command-table/check-installation.mjs
+cd /
+runuser -u dmct -- /usr/bin/node /usr/local/lib/dm-command-table/check-installation.mjs "$VERSION"
+cd /opt/dm-command-table/current
+(
+  set -a
+  source /etc/dm-command-table.env
+  set +a
+  runuser -u dmct --preserve-environment -- /usr/bin/node scripts/check-local-storage.mjs
+)
+systemctl start dm-command-table-backup.service
+systemctl list-timers dm-command-table-backup.timer --no-pager
+step 'Installation complete'
+echo "Installed DM Command Table $VERSION. Automatic GUI updates are enabled."
+echo 'Open http://<LXC-IP>/ from your LAN browser and choose Register to create the first administrator.'
+echo "LXC addresses: $(hostname -I)"
+printf '\nInitial install token: %s\n\n' "$BOOTSTRAP_TOKEN"
+echo 'Enter this token in the initial setup token field. The first account becomes administrator and public registration closes.'
+echo 'The token is also retained in root-only /etc/dm-command-table.env. Keep console output private.'
+echo 'After registration the token cannot create another account. Optionally clear it in that file and restart dm-command-table.service.'
+echo "Build checkout retained at $SOURCE. For future application updates use Administration → Update application."
+unset BOOTSTRAP_TOKEN
