@@ -4,6 +4,12 @@ Version 11.0.0 introduces the fresh-install baseline. This refactor retains loca
 
 Catalogue search/import uses local JSON rather than an external source. Administrator application updates retain GUI controls, progress, logs, auditing and recovery while installing a fixed root-approved host-staged package. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
 
+## v11.0.1 installation patch
+
+The patch adds a browser-test-only local Chromium executable override, `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH`. The Debian guide now defaults to signed Debian Chromium packages rather than requiring a Chrome-for-Testing download. CI and other environments retain Playwright's pinned browser when the variable is unset. The existing browser assertions and application production configuration are unchanged.
+
+Version 11.0.1 retains the v11 database baseline and data; it requires no fresh storage for existing v11 installations. Local verification passed all 94 unit/API tests, lint, formatting, TypeScript, audit and the production build. All 16 browser tests passed using the documented environment override through the standard `pnpm test:browser` command. The Playwright-pinned browser download remains blocked by this cloud environment's network policy.
+
 ## Database and architecture
 
 The SQLite schema is initialized directly from one version-1 baseline named `offline-runtime-baseline`. Historical conversion SQL is removed. Earlier database identities are rejected without modifying their records. Use separate new storage; no earlier database or export compatibility is promised. Keep old installations and backups with matching code.

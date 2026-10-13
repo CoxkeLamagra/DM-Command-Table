@@ -98,7 +98,7 @@ From the build directory, clone the source and select the release explicitly. A 
 cd /var/cache/dm-command-table-build
 runuser -u dmct-build -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git source
 cd /var/cache/dm-command-table-build/source
-runuser -u dmct-build -- git checkout --detach v11.0.0
+runuser -u dmct-build -- git checkout --detach v11.0.1
 runuser -u dmct-build -- git rev-parse HEAD
 runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
 runuser -u dmct-build -- /usr/bin/pnpm verify
@@ -106,18 +106,31 @@ runuser -u dmct-build -- /usr/bin/pnpm verify
 
 `verify` includes the production dependency audit, formatting, lint, TypeScript, unit/API tests and production build. Installation keeps the lockfile and supply-chain checks intact. The working directory is deliberately accessible to the build account; running `runuser` from `/root` can cause permission failures.
 
-Install Chromium and its OS libraries, then run the existing browser regression suite as the build account:
+For the default Debian LXC installation, use Debian's packaged Chromium. This avoids a separate Chrome-for-Testing download and obtains the browser and its shared-library dependencies through signed APT packages:
+
+```bash
+apt-get install -y chromium
+/usr/bin/chromium --version
+cd /var/cache/dm-command-table-build/source
+runuser -u dmct-build -- /usr/bin/env DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium /usr/bin/pnpm test:browser
+runuser -u dmct-build -- /usr/bin/pnpm package:runtime
+runuser -u dmct-build -- /usr/bin/node scripts/runtime-integrity.mjs dist/runtime
+```
+
+`DM_COMMAND_TABLE_TEST_CHROMIUM_PATH` selects a local executable for browser tests only; it does not affect application startup. This option is available from v11.0.1 onward. Without it, Playwright continues using its pinned Chromium for CI and other environments. System Chromium may differ from that pinned version; the test assertions remain unchanged.
+
+If you specifically need the Playwright-pinned browser and its download endpoint is reachable, use this alternative instead:
 
 ```bash
 cd /var/cache/dm-command-table-build/source
 /usr/bin/pnpm exec playwright install-deps chromium
 runuser -u dmct-build -- /usr/bin/pnpm exec playwright install chromium
 runuser -u dmct-build -- /usr/bin/pnpm test:browser
-runuser -u dmct-build -- /usr/bin/pnpm package:runtime
-runuser -u dmct-build -- /usr/bin/node scripts/runtime-integrity.mjs dist/runtime
 ```
 
-The dependency-library step runs as root because it installs Debian packages; browser downloads and tests run as `dmct-build`. The browser suite uses disposable data and port 3100; do not have another service using that port. `package:runtime` refuses an existing destination, so preserve an earlier package or choose a new absolute destination when rebuilding.
+The OS-library step runs as root; the browser download and tests run as `dmct-build`. A failed download must be resolved or replaced with the signed Debian Chromium option before running tests. Do not continue after `Failed to install browsers` or disable verification. If the download fails, preserve the preceding URL/HTTP/network error to diagnose the blocked destination.
+
+The browser suite uses disposable data and port 3100; do not have another service using that port. `package:runtime` refuses an existing destination, so preserve an earlier package or choose a new absolute destination when rebuilding. Keep using the same build account so browser caches and permissions remain consistent.
 
 ## 6. Install the approved runtime and templates
 
@@ -189,7 +202,7 @@ systemctl is-active nginx.service dm-command-table.service
 systemctl list-timers dm-command-table-backup.timer --no-pager
 ```
 
-Both health requests must return `status: ready` and version `11.0.0`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
+Both health requests must return `status: ready` and version `11.0.1`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
 
 Use `ip -brief address` to find the LAN address, then open `http://<container-LAN-IP>/` from your computer. Register the first administrator with the private bootstrap token. Keep self-registration disabled unless you intentionally enable it through Administration. Create a campaign/session, upload a screenshot, save and reload to verify the browser-facing installation.
 
@@ -268,24 +281,24 @@ Configure LAN DNS (or each client's hosts file) for this hostname, trust the cer
 
 To avoid retaining build tools/checkouts on the runtime LXC, provision Debian prerequisites and system-wide Node as above, then build on a trusted compatible Linux machine of the same architecture. That machine needs the same Node/pnpm/native build tools and browser prerequisites from sections 2–5. Do not use a Windows/macOS package or native dependencies from an incompatible Linux platform.
 
-On the build machine, use the section 5 commands to check out `v11.0.0`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
+On the build machine, use the section 5 commands to check out `v11.0.1`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
 
 ```bash
 mkdir -p dist/lxc-bundle
 cp -a dist/runtime dist/lxc-bundle/runtime
 cp -a deploy/debian-13 dist/lxc-bundle/deploy
 cp scripts/runtime-integrity.mjs dist/lxc-bundle/runtime-integrity.mjs
-tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.0.0-lxc.tar.gz .
-(cd dist; sha256sum dm-command-table-v11.0.0-lxc.tar.gz > dm-command-table-v11.0.0-lxc.tar.gz.sha256)
+tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.0.1-lxc.tar.gz .
+(cd dist; sha256sum dm-command-table-v11.0.1-lxc.tar.gz > dm-command-table-v11.0.1-lxc.tar.gz.sha256)
 ```
 
 Transfer both files from the approved build. Verify the checksum from that trusted transfer before extracting into a new staging directory. Checksums alone do not establish who produced the bundle. On the runtime host:
 
 ```bash
 cd /path/to/transferred-files
-sha256sum --check dm-command-table-v11.0.0-lxc.tar.gz.sha256
+sha256sum --check dm-command-table-v11.0.1-lxc.tar.gz.sha256
 install -d -o root -g root -m 0700 /root/dmct-install
-tar -xzf dm-command-table-v11.0.0-lxc.tar.gz -C /root/dmct-install
+tar -xzf dm-command-table-v11.0.1-lxc.tar.gz -C /root/dmct-install
 cd /root/dmct-install
 ```
 
@@ -306,23 +319,23 @@ systemctl daemon-reload
 systemctl enable --now dm-command-table-updater.service
 ```
 
-Before every update, build, test and approve a new package. For an in-LXC build, use the following commands; replace `v11.0.0` with the actual reviewed release tag when a newer release is available. Returning to this tag simply rebuilds the same version. Do not reset or overwrite local source changes.
+Before every update, build, test and approve a new package. For an in-LXC build, use the following commands; replace `v11.0.1` with the actual reviewed release tag when a newer release is available. Returning to this tag simply rebuilds the same version. Do not reset or overwrite local source changes.
 
 ```bash
 cd /var/cache/dm-command-table-build/source
-DMCT_RELEASE_TAG=v11.0.0
+DMCT_RELEASE_TAG=v11.0.1
 runuser -u dmct-build -- git fetch --tags origin
 runuser -u dmct-build -- git checkout --detach "$DMCT_RELEASE_TAG"
 runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
 runuser -u dmct-build -- /usr/bin/pnpm verify
-runuser -u dmct-build -- /usr/bin/pnpm test:browser
+runuser -u dmct-build -- /usr/bin/env DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium /usr/bin/pnpm test:browser
 DMCT_CANDIDATE=/var/cache/dm-command-table-build/runtime-$(date +%Y%m%d-%H%M%S)
 test ! -e "$DMCT_CANDIDATE"
 runuser -u dmct-build -- /usr/bin/pnpm package:runtime "$DMCT_CANDIDATE"
 /usr/bin/node scripts/runtime-integrity.mjs "$DMCT_CANDIDATE"
 ```
 
-For a separate build machine, prepare/transfer/verify a newly approved bundle using the alternative installation steps, then set `DMCT_CANDIDATE` to the absolute path of its unpacked `runtime/` directory. Browser dependencies may need refreshing on the build machine after dependency updates; repeat the two Playwright installation commands from section 5 when needed.
+For a separate build machine, prepare/transfer/verify a newly approved bundle using the alternative installation steps, then set `DMCT_CANDIDATE` to the absolute path of its unpacked `runtime/` directory. Keep Chromium current through signed Debian package updates. For the pinned-browser alternative, repeat the Playwright installation commands from section 5 after dependency updates when needed.
 
 Stage the candidate while holding the updater's lock, so an update cannot run during copying. First check the Administration panel for a running job; if locking fails, wait for that update to finish. Preserve an existing incoming package instead of overwriting it:
 
@@ -380,18 +393,19 @@ Set database/uploads paths to the restored files, start the matching release and
 
 ## Troubleshooting and host acceptance
 
-| Symptom                            | Check and correction                                                                                                                            |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm: command not found`          | Complete section 3; verify `/usr/bin/pnpm --version` reports `11.25.0`, then verify it through `runuser` in section 4.                          |
-| Node/SQLite is missing or too old  | Complete the signed Node 24 installation and SQLite probe in section 3; do not use Debian's older Node or a root-only nvm path for these units. |
-| Permission denied scanning `/root` | Change to the accessible build checkout before running commands as `dmct-build`.                                                                |
-| Welcome to nginx                   | Enable the application site, disable only the default welcome-site symlink on a dedicated container, run `nginx -t`, then reload.               |
-| Connection refused on port 3000    | Inspect application status/logs and the current release link; allow startup retries rather than rebuilding immediately.                         |
-| LAN browser cannot connect         | Check container IP, LXC host routing/firewall and Nginx listener; Node's loopback port is intentionally inaccessible remotely.                  |
-| Bootstrap token rejected           | Use the token from the private environment file for first registration and confirm the service was restarted after changes.                     |
-| Login fails on HTTPS               | Check the certificate trust, actual hostname, forwarded scheme and cookie/proxy settings through the real endpoint.                             |
-| Unsupported database format        | Select separate fresh storage for version 11; retain old databases/backups with their original release.                                         |
-| Package/staging verification fails | Use the complete same-architecture approved runtime and correct root ownership; do not bypass hashes, TLS or signature checks.                  |
+| Symptom                                             | Check and correction                                                                                                                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser download fails / browser executable missing | Install `chromium` with APT and use `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium` as in section 5. Do not run tests with a missing browser. |
+| `pnpm: command not found`                           | Complete section 3; verify `/usr/bin/pnpm --version` reports `11.25.0`, then verify it through `runuser` in section 4.                                |
+| Node/SQLite is missing or too old                   | Complete the signed Node 24 installation and SQLite probe in section 3; do not use Debian's older Node or a root-only nvm path for these units.       |
+| Permission denied scanning `/root`                  | Change to the accessible build checkout before running commands as `dmct-build`.                                                                      |
+| Welcome to nginx                                    | Enable the application site, disable only the default welcome-site symlink on a dedicated container, run `nginx -t`, then reload.                     |
+| Connection refused on port 3000                     | Inspect application status/logs and the current release link; allow startup retries rather than rebuilding immediately.                               |
+| LAN browser cannot connect                          | Check container IP, LXC host routing/firewall and Nginx listener; Node's loopback port is intentionally inaccessible remotely.                        |
+| Bootstrap token rejected                            | Use the token from the private environment file for first registration and confirm the service was restarted after changes.                           |
+| Login fails on HTTPS                                | Check the certificate trust, actual hostname, forwarded scheme and cookie/proxy settings through the real endpoint.                                   |
+| Unsupported database format                         | Select separate fresh storage for version 11; retain old databases/backups with their original release.                                               |
+| Package/staging verification fails                  | Use the complete same-architecture approved runtime and correct root ownership; do not bypass hashes, TLS or signature checks.                        |
 
 ```sh
 systemctl status dm-command-table.service dm-command-table-updater.service --no-pager -l

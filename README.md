@@ -6,7 +6,7 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current release is **11.0.0**, a fresh-install baseline. Start with a new data directory; earlier databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
+The current release is **11.0.1**, a fresh-install baseline. Start with a new data directory; earlier databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
 
 Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same self-contained standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md), [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
 
@@ -301,6 +301,15 @@ pnpm verify
 pnpm exec playwright install chromium
 pnpm test:browser
 ```
+
+On Debian, you can use the signed distribution browser instead of downloading Playwright's pinned Chromium:
+
+```bash
+apt-get install -y chromium
+DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium pnpm test:browser
+```
+
+Install the OS package as root and run tests as your build account. The override affects tests only; CI retains the pinned browser when it is unset. See the [LXC guide](docs/debian-13-lxc.md) for complete setup.
 
 Browser tests use a temporary local database and disposable test account, without touching application data. The test server runs on port 3100; build first with `pnpm build`. CI runs verification and browser regression tests on Node.js 22 and 24.
 

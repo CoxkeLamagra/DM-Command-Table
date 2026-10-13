@@ -2,6 +2,12 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.0.1 — 2026-10-13
+
+- Support `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH` for running the unchanged browser regression suite with a local Chromium executable; retain Playwright's pinned browser by default.
+- Complete the bare Debian 13 LXC installation guide and use signed Debian Chromium packages by default to avoid blocked Chrome-for-Testing downloads.
+- This patch keeps the v11 database baseline and application functionality; existing v11 installations retain their data. Earlier major versions still require separate fresh storage.
+
 ## 11.0.0 — 2026-10-13
 
 - Refactor campaign resource routing into focused content, Bestiary, combat and search handlers, retaining transactional saves and authorization boundaries.
