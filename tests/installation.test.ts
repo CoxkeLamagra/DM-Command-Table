@@ -37,6 +37,7 @@ function installFixture(mode: string) {
     "opt",
     "usr/local/sbin",
     "run/lock",
+    "usr/lib/node_modules/pnpm",
   ])
     mkdirSync(path.join(root, folder), { recursive: true });
   writeFileSync(root + "/os-release", "ID=debian\nVERSION_ID=13\n");
@@ -48,7 +49,11 @@ function installFixture(mode: string) {
   }
   const preamble = `const fs=require('node:fs'),cp=require('node:child_process'),root=${JSON.stringify(root)},args=process.argv.slice(2);`;
   stub("id", "console.log('0');");
-  stub("getent", "process.exit(2);");
+  stub(
+    "getent",
+    preamble +
+      `const file=root+"/account-"+args[1];if(args[0]==="passwd"&&fs.existsSync(file))console.log(fs.readFileSync(file,"utf8"));else process.exit(2);`,
+  );
   stub("dpkg", "console.log('amd64');");
   stub(
     "apt-get",
@@ -56,11 +61,15 @@ function installFixture(mode: string) {
       `fs.appendFileSync(root+'/commands', 'apt '+args.join(' ')+'\\n');`,
   );
   stub("chown", "");
-  stub("npm", "");
+  stub(
+    "npm",
+    preamble +
+      `const mask=process.umask(); if(mask!==0o22 || !process.argv.includes("--umask=0022"))process.exit(11);const bin=root+"/usr/lib/node_modules/pnpm/bin";fs.mkdirSync(bin,{recursive:true});for(const name of ["pnpm","pnpx"])fs.writeFileSync(bin+"/"+name+".cjs","fixture launcher",{mode:0o600});`,
+  );
   stub(
     "pnpm",
     preamble +
-      `fs.appendFileSync(root+'/commands','pnpm '+args.join(' ')+'\\n');if(args[0]==='--version')console.log('11.25.0');if(args[0]==='verify' && ${JSON.stringify(mode)}==='build-failure')process.exit(1);if(args[0]==='install'){if(Object.keys(process.env).some(k=>k.startsWith('DM_COMMAND_TABLE_')&&k!=='DM_COMMAND_TABLE_TEST_CHROMIUM_PATH'))process.exit(9);if(process.env.NODE_ENV)process.exit(10);}`,
+      `fs.appendFileSync(root+'/commands','pnpm '+args.join(' ')+'\\n');if(args[0]==='--version')console.log('11.25.0');if(args[0]==='verify' && ${JSON.stringify(mode)}==='build-failure'&&!fs.existsSync(root+'/retry-build'))process.exit(1);if(args[0]==='install'){if(Object.keys(process.env).some(k=>k.startsWith('DM_COMMAND_TABLE_')&&k!=='DM_COMMAND_TABLE_TEST_CHROMIUM_PATH'))process.exit(9);if(process.env.NODE_ENV)process.exit(10);}`,
   );
   stub(
     "curl",
@@ -73,7 +82,11 @@ function installFixture(mode: string) {
       `fs.writeFileSync(args[args.indexOf('--output')+1],'fixture key');`,
   );
   stub("nginx", "");
-  stub("useradd", "");
+  stub(
+    "useradd",
+    preamble +
+      `const name=args.at(-1),home=args[args.indexOf("--home-dir")+1];fs.writeFileSync(root+"/account-"+name,name+":x:999:999::"+home+":/usr/sbin/nologin");`,
+  );
   stub("hostname", "console.log('192.0.2.10');");
   stub(
     "install",
@@ -129,6 +142,7 @@ function installFixture(mode: string) {
     .replaceAll("/etc/systemd/system", root + "/etc/systemd/system")
     .replaceAll("/etc/nginx", root + "/etc/nginx")
     .replaceAll("/etc/apt", root + "/etc/apt")
+    .replaceAll("/usr/lib/node_modules", root + "/usr/lib/node_modules")
     .replaceAll(
       "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
       `PATH=${root}/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
@@ -143,8 +157,8 @@ function installFixture(mode: string) {
     mkdirSync(root + "/var/lib/dm-command-table");
     writeFileSync(root + "/var/lib/dm-command-table/keep", "original data");
   }
-  const run = () =>
-    spawnSync("bash", [root + "/installer"], {
+  const run = (args: string[] = []) =>
+    spawnSync("bash", [root + "/installer", ...args], {
       encoding: "utf8",
       env: {
         ...process.env,
@@ -162,6 +176,10 @@ test("fresh installer provisions services and returns a protected token that reg
     oldMode = process.env.NODE_ENV;
   try {
     assert.equal(f.result.status, 0, f.result.stderr);
+    assert.equal(
+      statSync(f.root + "/usr/lib/node_modules/pnpm/bin/pnpm.cjs").mode & 0o777,
+      0o755,
+    );
     const config = readFileSync(f.root + "/etc/dm-command-table.env", "utf8");
     const token = config.match(
       /^DM_COMMAND_TABLE_BOOTSTRAP_TOKEN=([a-f0-9]{64})$/m,
@@ -226,6 +244,19 @@ for (const mode of ["existing", "build-failure", "health-failure"]) {
         f.result.stdout,
         /Initial install token:|Installation complete/,
       );
+      if (mode === "build-failure") {
+        writeFileSync(f.root + "/retry-build", "retry");
+        const resumed = f.run(["--resume"]);
+        assert.equal(resumed.status, 0, resumed.stderr);
+        assert.match(resumed.stdout, /Initial install token: [a-f0-9]{64}/);
+        assert.match(resumed.stdout, /Install locked application dependencies/);
+        assert.doesNotMatch(resumed.stderr, /Existing installation path/);
+      }
+      if (mode === "existing") {
+        const resumed = f.run(["--resume"]);
+        assert.match(resumed.stderr, /Cannot resume/);
+      }
+
       if (mode === "build-failure")
         assert.match(
           f.result.stderr,

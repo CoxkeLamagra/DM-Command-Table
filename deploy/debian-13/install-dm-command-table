@@ -4,10 +4,12 @@ set +x
 set -euo pipefail
 umask 077
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-RELEASE=v11.3.1
+RELEASE=v11.3.2
 REPOSITORY=https://github.com/CoxkeLamagra/DM-Command-Table.git
+RESUME=false
+if [[ ${1:-} == --resume ]]; then RESUME=true; shift; fi
 if [[ ${1:-} == --help ]]; then
-  echo 'Usage: bash install-dm-command-table [--release v11.MINOR.PATCH]'
+  echo 'Usage: bash install-dm-command-table [--resume] [--release v11.MINOR.PATCH]'
   echo 'Fresh Debian 13/systemd installation only. Installs prerequisites, application, backups and automatic GUI updates.'
   exit 0
 fi
@@ -22,17 +24,33 @@ PHASE=preflight
 INSTALL_LOCK=/run/lock/dm-command-table-install.lock
 mkdir "$INSTALL_LOCK" 2>/dev/null || { echo "An installer is already running (or its lock remains after interruption): $INSTALL_LOCK" >&2; exit 1; }
 TEMPORARY=
-trap 'result=$?; rmdir -- "$INSTALL_LOCK"; [[ -z $TEMPORARY ]] || rm -rf -- "$TEMPORARY"; if [[ $result != 0 ]]; then echo "Installation failed during $PHASE. No completion token was printed. Inspect the preceding error; retained files/data are not deleted. Do not rerun over a partial installation." >&2; fi' EXIT
+trap 'result=$?; rmdir -- "$INSTALL_LOCK"; [[ -z $TEMPORARY ]] || rm -rf -- "$TEMPORARY"; if [[ $result != 0 ]]; then echo "Installation failed during $PHASE. No completion token was printed. Inspect the preceding error; retained files/data are not deleted. For a failure before runtime deployment, retry the corrected installer with --resume; later failures require manual inspection." >&2; fi' EXIT
 # Refuse partial/previous installs rather than replacing data, tokens or services.
 for managed in /opt/dm-command-table /var/lib/dm-command-table /var/cache/dm-command-table-build \
   /var/lib/dm-command-table-updater /usr/local/lib/dm-command-table /usr/local/sbin/update-dm-command-table \
   /etc/dm-command-table.env /etc/systemd/system/dm-command-table{,-updater,-backup}.service \
   /etc/systemd/system/dm-command-table-backup.timer /etc/nginx/sites-{available,enabled}/dm-command-table; do
+  if [[ $RESUME == true && -d $managed && ! -L $managed ]]; then
+    case $managed in /opt/dm-command-table|/var/lib/dm-command-table|/var/cache/dm-command-table-build|/usr/local/lib/dm-command-table) continue ;; esac
+  fi
   [[ ! -e $managed && ! -L $managed ]] || { echo "Existing installation path: $managed. Use Admin updates or inspect the partial installation; nothing was overwritten." >&2; exit 1; }
 done
+if [[ $RESUME == true ]]; then
+  for folder in /opt/dm-command-table /var/lib/dm-command-table /usr/local/lib/dm-command-table; do
+    if [[ -d $folder ]] && [[ -n $(find "$folder" -mindepth 1 ! -type d -print -quit) ]]; then
+      echo "Cannot resume: $folder contains files or links. Inspect this installation manually; nothing was removed." >&2; exit 1
+    fi
+  done
+fi
 for account in dmct dmct-build; do
-  if getent passwd "$account" >/dev/null || getent group "$account" >/dev/null; then
-    echo "Account/group $account already exists. Use a fresh dedicated container." >&2; exit 1
+  if record=$(getent passwd "$account"); then
+    expected=/var/lib/dm-command-table
+    [[ $account != dmct-build ]] || expected=/var/cache/dm-command-table-build
+    [[ $RESUME == true && $record == *":$expected:/usr/sbin/nologin" && $record =~ ^$account:[^:]*:([0-9]+):([0-9]+): ]] && (( 10#${BASH_REMATCH[1]} > 0 && 10#${BASH_REMATCH[1]} < 1000 && 10#${BASH_REMATCH[2]} > 0 )) || {
+      echo "Account $account already exists or has unexpected configuration. Use a fresh dedicated container." >&2; exit 1
+    }
+  elif getent group "$account" >/dev/null; then
+    echo "Group $account exists without the expected account. Inspect it manually." >&2; exit 1
   fi
 done
 step() { PHASE=$1; echo "=== $PHASE ==="; }
@@ -57,12 +75,16 @@ EOF
 apt-get update
 apt-get install -y nodejs
 [[ $(/usr/bin/node -p 'process.versions.node.split(".")[0]') == 24 ]]
-/usr/bin/npm install --global --prefix /usr pnpm@11.25.0
+(umask 022; /usr/bin/npm install --global --prefix /usr --umask=0022 pnpm@11.25.0)
+# Repair an earlier private global install; these are shared tool files only.
+chmod 0755 /usr/lib/node_modules
+chmod -R a+rX,go-w /usr/lib/node_modules/pnpm
+chmod 0755 /usr/lib/node_modules/pnpm/bin/{pnpm,pnpx}.cjs
 [[ $(/usr/bin/pnpm --version) == 11.25.0 ]]
 /usr/bin/node -e 'const {DatabaseSync}=require("node:sqlite"); new DatabaseSync(":memory:").close()'
 step 'Accounts and fresh storage'
-useradd --system --user-group --home-dir /var/lib/dm-command-table --shell /usr/sbin/nologin dmct
-useradd --system --user-group --home-dir /var/cache/dm-command-table-build --shell /usr/sbin/nologin dmct-build
+getent passwd dmct >/dev/null || useradd --system --user-group --home-dir /var/lib/dm-command-table --shell /usr/sbin/nologin dmct
+getent passwd dmct-build >/dev/null || useradd --system --user-group --home-dir /var/cache/dm-command-table-build --shell /usr/sbin/nologin dmct-build
 install -d -o root -g root -m 0755 /opt/dm-command-table/{releases,incoming} /usr/local/lib/dm-command-table
 install -d -o dmct -g dmct -m 0700 /var/lib/dm-command-table{,/uploads,/backups}
 install -d -o dmct-build -g dmct-build -m 0755 /var/cache/dm-command-table-build
@@ -74,6 +96,8 @@ build_run() {
     HOME=/var/cache/dm-command-table-build LANG=C.UTF-8 CI=1 GIT_TERMINAL_PROMPT=0 \
     NEXT_TELEMETRY_DISABLED=1 DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium "$@"
 }
+cd "$BUILD"
+[[ $(build_run /usr/bin/pnpm --version) == 11.25.0 ]]
 step "Fetch $RELEASE"
 cd "$BUILD"
 build_run /usr/bin/git clone --no-checkout "$REPOSITORY" "$SOURCE"

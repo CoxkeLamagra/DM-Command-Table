@@ -2,6 +2,13 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.3.2 — 2026-10-13
+
+- Fix global pnpm installation under the installer's private file mask: use public shared-tool permissions, repair prior private pnpm files and verify execution as the unprivileged build account.
+- Apply the same permission/access repair to the GUI updater installer without changing private token/data permissions.
+- Add guarded `--resume` for pre-deployment installation failures, retaining existing build checkouts and matching accounts while refusing existing data, executable releases or configuration.
+- Cover shared-tool masks and successful guarded resumption in installer regressions; document recovery from the reported dependency-installation error.
+
 ## 11.3.1 — 2026-10-13
 
 - Replace the entire current combat roster when loading a prepared encounter, including existing Players/NPCs; loading an empty encounter clears Combat.

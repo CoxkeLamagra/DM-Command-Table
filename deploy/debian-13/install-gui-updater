@@ -14,13 +14,18 @@ exec 8>/run/lock/dm-command-table-update.lock
 flock -n 8 || { echo 'An update is running. Retry after it finishes.' >&2; exit 1; }
 apt-get update
 apt-get install -y git curl ca-certificates chromium build-essential python3 util-linux
-if [[ ! -x /usr/bin/pnpm ]] || [[ $(/usr/bin/pnpm --version) != 11.25.0 ]]; then
-  /usr/bin/npm install --global --prefix /usr pnpm@11.25.0
-fi
 if ! id dmct-build >/dev/null 2>&1; then
   useradd --system --user-group --home-dir /var/cache/dm-command-table-build --shell /usr/sbin/nologin dmct-build
 fi
 install -d -o dmct-build -g dmct-build -m 0755 /var/cache/dm-command-table-build
+pnpm_version() { runuser -u dmct-build -- /usr/bin/env -i -C / PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/var/cache/dm-command-table-build /usr/bin/pnpm --version; }
+if [[ ! -x /usr/bin/pnpm ]] || ! pnpm_version >/dev/null 2>&1 || [[ $(/usr/bin/pnpm --version) != 11.25.0 ]]; then
+  (umask 022; /usr/bin/npm install --global --prefix /usr --umask=0022 pnpm@11.25.0)
+  chmod 0755 /usr/lib/node_modules
+  chmod -R a+rX,go-w /usr/lib/node_modules/pnpm
+  chmod 0755 /usr/lib/node_modules/pnpm/bin/{pnpm,pnpx}.cjs
+fi
+[[ $(pnpm_version) == 11.25.0 ]]
 install -d -o root -g root -m 0755 /usr/local/lib/dm-command-table
 if systemctl cat dm-command-table-updater.service >/dev/null 2>&1; then
   systemctl stop dm-command-table-updater.service
