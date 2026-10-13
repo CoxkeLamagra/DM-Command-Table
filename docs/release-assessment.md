@@ -2,7 +2,11 @@
 
 Version 11.0.0 introduces the fresh-install baseline. This refactor retains local accounts, administrator account/settings/media management, campaign ownership/sharing/copy/templates/import/export, Players/NPCs, Bestiary, Stories/Sessions and links, prepared encounters, live combat/conditions/resources/undo, local search, rich text/screenshots, responsive navigation and backup/restore/maintenance.
 
-Catalogue search/import defaults to local JSON. Version 11.1.0 also restores an optional remote source after explicit browser connection. Administrator application updates retain GUI controls, progress, logs, auditing and recovery; version 11.2.0 automates trusted source fetch, dependency installation, verification, build and deployment. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
+Catalogue search/import connects automatically to the remote source when opening the import window as of 11.2.1; local JSON remains available offline. Administrator application updates retain GUI controls, progress, logs, auditing and recovery; version 11.2.0 automates trusted source fetch, dependency installation, verification, build and deployment. Runtime libraries remain bundled. Package-registry and browser downloads are preparation activities, not runtime requirements.
+
+## v11.2.1 automatic catalogue connection
+
+The import window connects automatically and replaces the Connect button with a small connection status. The parser accepts valid null ability sections and creature type choices, which previously blocked entire source files. Local-file imports remain usable when remote requests fail; fixed-origin requests still omit cookies and referrers. All 4,560 records in the live catalogue's 110 nonempty source files passed parsing; the remaining indexed file contains no monsters. Browser fixtures cover automatic connection, previews, persisted import and offline fallback. Verification passed production audit, formatting, lint, TypeScript, all 104 unit/API tests and the production build; all 17 system-Chromium browser tests passed.
 
 ## v11.2.0 automatic Admin updates
 

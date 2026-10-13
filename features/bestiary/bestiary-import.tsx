@@ -40,14 +40,13 @@ export function BestiaryImport({
 }) {
   const [open, setOpen] = useState(false);
   const [localCatalogue, setLocalCatalogue] = useState<FiveEToolsMonster[]>([]);
-  const [source, setSource] = useState<"local" | "remote">("local");
+  const [source, setSource] = useState<"local" | "remote">("remote");
   const [remoteCatalogue, setRemoteCatalogue] = useState<RemoteMonsterRef[]>(
     [],
   );
   const [remoteResults, setRemoteResults] = useState<FiveEToolsMonster[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [searching, setSearching] = useState(false);
-  const loading = connecting || searching;
   const [remoteError, setRemoteError] = useState("");
   const connection = useRef<AbortController | null>(null);
   const cache = useRef(new Map<string, FiveEToolsMonster[]>());
@@ -101,6 +100,7 @@ export function BestiaryImport({
     setSelected([]);
     setRemoteResults([]);
     setQuery("");
+    setRemoteCatalogue([]);
     setConnecting(true);
     setRemoteError("");
     try {
@@ -187,7 +187,13 @@ export function BestiaryImport({
     results.every((item) => selected.some((entry) => key(entry) === key(item)));
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        variant="outline"
+        onClick={() => {
+          setOpen(true);
+          void connect();
+        }}
+      >
         <Download /> Import monsters
       </Button>
       <Dialog
@@ -197,6 +203,7 @@ export function BestiaryImport({
             connection.current?.abort();
             setConnecting(false);
           }
+          if (value) void connect();
           setOpen(value);
         }}
       >
@@ -235,34 +242,28 @@ export function BestiaryImport({
                 }}
               />
             </label>
-            <Button
-              variant="outline"
-              onClick={connect}
-              disabled={loading || importing}
-            >
-              Connect to remote catalogue
-            </Button>
-            <p className="text-xs text-stone-400">
-              Local files work offline. Connecting searches dnd5e.lamagra.link
-              from your browser; only selected monsters are copied to this
-              server. Account and campaign data are not sent to the catalogue.
+            <p role="status" className="text-xs text-stone-400">
+              {connecting
+                ? "Connecting to remote catalogue…"
+                : remoteCatalogue.length > 0
+                  ? `Catalogue connected · ${remoteCatalogue.length} monsters indexed`
+                  : "Remote catalogue unavailable"}
             </p>
-            {source === "remote" && (
-              <p className="text-sm">
-                Remote catalogue: {remoteCatalogue.length} monsters indexed
-              </p>
-            )}
-            {loading && (
+            <p className="text-xs text-stone-400">
+              The remote catalogue connects automatically when this window
+              opens. Searches contact dnd5e.lamagra.link from your browser; only
+              selected monsters are copied to this server. Account and campaign
+              data are not sent. Local files work offline.
+            </p>
+            {searching && (
               <p role="status" className="text-sm">
-                {connecting
-                  ? "Connecting to remote catalogue…"
-                  : "Searching remote catalogue…"}
+                Searching remote catalogue…
               </p>
             )}
             {remoteError && (
               <p role="alert" className="text-sm text-red-300">
-                {remoteError} You can retry connecting or import a local JSON
-                file.
+                {remoteError} Close and reopen this window to retry, or import a
+                local JSON file.
               </p>
             )}
           </div>

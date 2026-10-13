@@ -1,6 +1,6 @@
 # Application architecture
 
-The application uses a single fresh SQLite baseline, `offline-runtime-baseline` (schema version 1). It preserves campaign ownership and sharing, administration, Players/NPCs, local Bestiary imports, Story/Session planning and templates, prepared encounters, single-use combatants, live combat resources, conditions and undo, search, screenshots and backups. The runtime needs no external services. Browser-side remote Bestiary search is optional and connects only after explicit user action.
+The application uses a single fresh SQLite baseline, `offline-runtime-baseline` (schema version 1). It preserves campaign ownership and sharing, administration, Players/NPCs, local Bestiary imports, Story/Session planning and templates, prepared encounters, single-use combatants, live combat resources, conditions and undo, search, screenshots and backups. The runtime needs no external services. Browser-side remote Bestiary search is optional and connects only when the import window opens.
 
 ## Structure
 

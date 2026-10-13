@@ -2,6 +2,12 @@
 
 All notable DM Command Table releases are documented here.
 
+## 11.2.1 — 2026-10-13
+
+- Automatically connect to the remote Bestiary when opening Import monsters; remove the Connect button and show a small connecting/connected/unavailable status.
+- Accept valid 5etools null ability sections and choice creature types, preventing a single record from blocking searches throughout its source file.
+- Retain local-file imports when the catalogue is unavailable, validate malformed input, and update catalogue usage/privacy documentation. Existing v11 data remains compatible.
+
 ## 11.2.0 — 2026-10-13
 
 - Restore automatic Admin updates: fetch the latest stable v11 release, install frozen dependencies, verify/test/build, run Chromium regressions, package, verify, back up and deploy with expected-version health and rollback.

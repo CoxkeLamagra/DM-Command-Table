@@ -26,6 +26,9 @@ test("local catalogue search, preview, import and replacement work with external
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByRole("button", { name: "Connect to remote catalogue" }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByText("Remote catalogue unavailable", { exact: true }),
   ).toBeVisible();
   const upload = () =>
     dialog.locator('input[type="file"]').setInputFiles({
@@ -74,5 +77,8 @@ test("local catalogue search, preview, import and replacement work with external
       exact: true,
     }),
   ).toBeVisible();
-  expect(external).toEqual([]);
+  expect(external.length).toBeGreaterThan(0);
+  expect(
+    external.every((origin) => origin === "https://dnd5e.lamagra.link"),
+  ).toBe(true);
 });

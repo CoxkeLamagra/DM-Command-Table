@@ -6,11 +6,11 @@ On desktop, the left menu can collapse to icons only using **Collapse menu**, th
 
 This is a hobby project to see how far vibe coding can take me without writing a single piece of code by hand. Please keep this in mind when using this project.
 
-The current release is **11.2.0**, using the v11 database baseline. First v11 installations need a new data directory; upgrades within v11 retain their data. Pre-v11 databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
+The current release is **11.2.1**, using the v11 database baseline. First v11 installations need a new data directory; upgrades within v11 retain their data. Pre-v11 databases and exports are not a supported upgrade contract. Keep previous installations and their backups separately. No historical database migration runs.
 
 Debian 13 LXC is the primary deployment option; Docker is secondary. Both run the same self-contained standalone Node server. See [LXC installation and recovery](docs/debian-13-lxc.md), [architecture](docs/architecture.md), [Docker deployment](docs/docker.md), and [operations](docs/operations.md).
 
-The runtime works offline. Accounts, campaigns, screenshots, search and backups stay on your server. Bestiary catalogue search supports local JSON files and an explicit optional connection to [dnd5e.lamagra.link](https://dnd5e.lamagra.link/bestiary.html). The browser contacts that host only when you choose **Connect to remote catalogue**; accounts and campaign data are not sent to it. After the one-time Debian updater installation, Administrator GUI updates fetch the latest stable v11 release, install locked dependencies, verify/build/test it, package it, back up data and deploy with rollback. No manual build or staging is needed. Updates require server access to GitHub and package registries only when explicitly started; a manual staged mode remains available for offline hosts. Bundled npm libraries are retained. Preparing dependencies or building an image on a separate build machine can use package registries; running the packaged application requires no Internet access. Development and build commands disable Next.js telemetry.
+The runtime works offline. Accounts, campaigns, screenshots, search and backups stay on your server. Bestiary catalogue search supports local JSON files and an automatic connection when opening the import window to [dnd5e.lamagra.link](https://dnd5e.lamagra.link/bestiary.html). The browser contacts that host when you open **Bestiary → Import monsters**; accounts and campaign data are not sent to it. After the one-time Debian updater installation, Administrator GUI updates fetch the latest stable v11 release, install locked dependencies, verify/build/test it, package it, back up data and deploy with rollback. No manual build or staging is needed. Updates require server access to GitHub and package registries only when explicitly started; a manual staged mode remains available for offline hosts. Bundled npm libraries are retained. Preparing dependencies or building an image on a separate build machine can use package registries; running the packaged application requires no Internet access. Development and build commands disable Next.js telemetry.
 
 ## Features
 
@@ -89,7 +89,7 @@ If HP or AC is not set, the combat tracker uses `10` when that player is added t
 - Open a monster's full stat block and edit every field.
 - Open and edit monsters directly from the searchable list.
 - Delete individual monsters.
-- Optionally connect to the remote catalogue, search by name or source, preview and select multiple monsters for import.
+- Open the import window to connect automatically to the remote catalogue, search by name or source, preview and select multiple monsters for import.
 - Open a local 5etools-compatible JSON catalogue (up to 10 MiB and 10,000 entries).
 - Search the loaded catalogue by name or source and compare source, CR, type, HP, and AC before importing. Files are read in the browser; only selected records are sent to this server.
 - Search the campaign Bestiary with typeahead filtering across monster names, types, CR, sources, abilities, spells, and notes.

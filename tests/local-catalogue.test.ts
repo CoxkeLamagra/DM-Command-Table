@@ -38,3 +38,49 @@ test("local catalogues validate conversion fields, deduplicate by source and sea
     /10 MB/,
   );
 });
+
+test("catalogue accepts null ability sections and choice creature types without blocking other monsters", () => {
+  const records = parseCatalogue(
+    JSON.stringify({
+      monster: [
+        {
+          name: "Empyrean",
+          source: "XMM",
+          type: { type: { choose: ["celestial", "fiend"] }, tags: ["titan"] },
+          hp: { average: 346 },
+          trait: null,
+          action: null,
+          bonus: null,
+          reaction: null,
+          legendary: null,
+          mythic: null,
+          spellcasting: null,
+        },
+        {
+          name: "Goblin",
+          source: "XMM",
+          hp: { average: 10 },
+          action: [{ name: "Scimitar", entries: ["5 damage"] }],
+        },
+      ],
+    }),
+  );
+  const converted = convertCatalogueMonster(records[0], () => "id");
+  assert.match(converted.type, /celestial or fiend/);
+  assert.equal(converted.hp, 346);
+  assert.equal(converted.abilities, "No special actions or traits.");
+  assert.equal(converted.spells, "No spells");
+  assert.match(
+    convertCatalogueMonster(records[1], () => "id").abilities,
+    /Scimitar/,
+  );
+  assert.throws(() =>
+    parseCatalogue(
+      JSON.stringify({
+        monster: [
+          { name: "Invalid", source: "XMM", type: { type: { choose: [42] } } },
+        ],
+      }),
+    ),
+  );
+});

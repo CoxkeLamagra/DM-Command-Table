@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("remote catalogue connects only on request and imports searchable monster previews", async ({
+test("remote catalogue connects automatically and imports searchable monster previews", async ({
   page,
 }) => {
   const requests: string[] = [];
@@ -12,6 +12,12 @@ test("remote catalogue connects only on request and imports searchable monster p
     "/data/bestiary/index.json": { MM: "bestiary-mm.json" },
     "/data/bestiary/bestiary-mm.json": {
       monster: [
+        {
+          name: "Choice creature",
+          source: "MM",
+          type: { type: { choose: ["celestial", "fiend"] } },
+          action: null,
+        },
         {
           name: "Remote goblin",
           source: "MM",
@@ -36,16 +42,16 @@ test("remote catalogue connects only on request and imports searchable monster p
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
   await page.locator('form button[type="submit"]').click();
   await page.getByRole("button", { name: "Bestiary", exact: true }).click();
+  expect(requests).toEqual([]);
   await page
     .getByRole("button", { name: "Import monsters", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  expect(requests).toEqual([]);
-  await dialog
-    .getByRole("button", { name: "Connect to remote catalogue", exact: true })
-    .click();
   await expect(
-    dialog.getByText("Remote catalogue: 1 monsters indexed"),
+    dialog.getByRole("button", { name: "Connect to remote catalogue" }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByText("Catalogue connected · 1 monsters indexed"),
   ).toBeVisible();
   await dialog.getByPlaceholder("Type at least two characters…").fill("goblin");
   await expect(

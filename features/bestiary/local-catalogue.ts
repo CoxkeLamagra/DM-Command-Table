@@ -2,7 +2,10 @@ import { z } from "zod";
 import type { FiveEToolsMonster } from "./fiveetools.ts";
 
 const number = z.number().finite();
-const entries = z.array(z.unknown()).optional();
+const entries = z
+  .array(z.unknown())
+  .nullish()
+  .transform((value) => value ?? undefined);
 const monster = z.object({
   name: z.string().trim().min(1).max(200),
   source: z.string().trim().min(1).max(100),
@@ -11,7 +14,14 @@ const monster = z.object({
     .union([
       z.string(),
       z.object({
-        type: z.string().optional(),
+        type: z
+          .union([
+            z.string(),
+            z
+              .object({ choose: z.array(z.string()).min(1) })
+              .transform((value) => value.choose.join(" or ")),
+          ])
+          .optional(),
         tags: z.array(z.unknown()).optional(),
       }),
     ])

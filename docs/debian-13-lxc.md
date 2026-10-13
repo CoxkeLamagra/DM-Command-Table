@@ -98,7 +98,7 @@ From the build directory, clone the source and select the release explicitly. A 
 cd /var/cache/dm-command-table-build
 runuser -u dmct-build -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git source
 cd /var/cache/dm-command-table-build/source
-runuser -u dmct-build -- git checkout --detach v11.2.0
+runuser -u dmct-build -- git checkout --detach v11.2.1
 runuser -u dmct-build -- git rev-parse HEAD
 runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
 runuser -u dmct-build -- /usr/bin/pnpm verify
@@ -202,7 +202,7 @@ systemctl is-active nginx.service dm-command-table.service
 systemctl list-timers dm-command-table-backup.timer --no-pager
 ```
 
-Both health requests must return `status: ready` and version `11.2.0`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
+Both health requests must return `status: ready` and version `11.2.1`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
 
 Use `ip -brief address` to find the LAN address, then open `http://<container-LAN-IP>/` from your computer. Register the first administrator with the private bootstrap token. Keep self-registration disabled unless you intentionally enable it through Administration. Create a campaign/session, upload a screenshot, save and reload to verify the browser-facing installation.
 
@@ -281,24 +281,24 @@ Configure LAN DNS (or each client's hosts file) for this hostname, trust the cer
 
 To avoid retaining build tools/checkouts on the runtime LXC, provision Debian prerequisites and system-wide Node as above, then build on a trusted compatible Linux machine of the same architecture. That machine needs the same Node/pnpm/native build tools and browser prerequisites from sections 2–5. Do not use a Windows/macOS package or native dependencies from an incompatible Linux platform.
 
-On the build machine, use the section 5 commands to check out `v11.2.0`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
+On the build machine, use the section 5 commands to check out `v11.2.1`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
 
 ```bash
 mkdir -p dist/lxc-bundle
 cp -a dist/runtime dist/lxc-bundle/runtime
 cp -a deploy/debian-13 dist/lxc-bundle/deploy
 cp scripts/runtime-integrity.mjs dist/lxc-bundle/runtime-integrity.mjs
-tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.2.0-lxc.tar.gz .
-(cd dist; sha256sum dm-command-table-v11.2.0-lxc.tar.gz > dm-command-table-v11.2.0-lxc.tar.gz.sha256)
+tar -C dist/lxc-bundle -czf dist/dm-command-table-v11.2.1-lxc.tar.gz .
+(cd dist; sha256sum dm-command-table-v11.2.1-lxc.tar.gz > dm-command-table-v11.2.1-lxc.tar.gz.sha256)
 ```
 
 Transfer both files from the approved build. Verify the checksum from that trusted transfer before extracting into a new staging directory. Checksums alone do not establish who produced the bundle. On the runtime host:
 
 ```bash
 cd /path/to/transferred-files
-sha256sum --check dm-command-table-v11.2.0-lxc.tar.gz.sha256
+sha256sum --check dm-command-table-v11.2.1-lxc.tar.gz.sha256
 install -d -o root -g root -m 0700 /root/dmct-install
-tar -xzf dm-command-table-v11.2.0-lxc.tar.gz -C /root/dmct-install
+tar -xzf dm-command-table-v11.2.1-lxc.tar.gz -C /root/dmct-install
 cd /root/dmct-install
 ```
 
@@ -317,7 +317,7 @@ Run these commands once as root using an approved source checkout. On an existin
 ```bash
 cd /var/cache/dm-command-table-build/source
 runuser -u dmct-build -- git fetch --tags origin
-runuser -u dmct-build -- git checkout --detach v11.2.0
+runuser -u dmct-build -- git checkout --detach v11.2.1
 bash deploy/debian-13/install-gui-updater
 ```
 
@@ -412,4 +412,4 @@ Source/unit/browser/package checks and deployment simulations do not establish s
 
 ## Optional online monster imports
 
-Local JSON imports and normal application use remain offline. To search the online Bestiary, the user's browser must reach `https://dnd5e.lamagra.link`. Choose **Bestiary → Import monsters → Connect to remote catalogue** explicitly; no server service, token or updater configuration is required. The downloaded monsters are saved as local campaign records. Keep local-file imports available when the remote catalogue is unreachable.
+Local JSON imports and normal application use remain offline. To search the online Bestiary, the user's browser must reach `https://dnd5e.lamagra.link`. Choose **Bestiary → Import monsters**; the catalogue connects automatically and shows **Catalogue connected** when ready; no server service, token or updater configuration is required. The downloaded monsters are saved as local campaign records. Keep local-file imports available when the remote catalogue is unreachable.
