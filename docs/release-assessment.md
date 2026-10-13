@@ -1,3 +1,7 @@
+# v10.2.0 release assessment
+
+The 2026-10-13 minor release adds administrator GUI updates and the root-home updater fix to v10.1.0. The feature CI run `38359587201` passed 92 tests (including real Unix-socket integration) and all 15 Chromium browser tests on Node 22/24, plus Docker startup/storage/backup checks. Debian service installation and lifecycle acceptance remain host-specific. Existing features, schema 2 and local-only storage are preserved. GUI updates require the documented one-time root installation; Docker remains host-managed.
+
 # v10.1.0 technical assessment
 
 Reviewed on 2026-10-12 against the v10.0.0 feature set. The released refactor's findings, changes, regression evidence and limits are recorded in [security and efficiency review](security-efficiency-review.md). Application behavior remains at batches 1 and 2, storage remains local-only, and the schema remains version 2. v10.1.0 packages the refactor from PR #25; the earlier v10.0.0 release tag remains immutable.
