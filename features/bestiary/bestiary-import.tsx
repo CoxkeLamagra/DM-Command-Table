@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MonsterStatBlock } from "./monster-stat-block";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ export function BestiaryImport({
   const connection = useRef<AbortController | null>(null);
   const cache = useRef(new Map<string, FiveEToolsMonster[]>());
   const [query, setQuery] = useState("");
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [selected, setSelected] = useState<FiveEToolsMonster[]>([]);
   const [importing, setImporting] = useState(false);
   const localResults = useMemo(
@@ -312,26 +314,70 @@ export function BestiaryImport({
                 (entry) => key(entry) === key(item),
               );
               return (
-                <label
-                  key={key(item)}
-                  className="flex cursor-pointer items-center gap-3 rounded border border-white/10 p-3"
-                >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={() =>
-                      setSelected((current) =>
-                        checked
-                          ? current.filter((entry) => key(entry) !== key(item))
-                          : [...current, item],
-                      )
-                    }
-                  />
-                  <span className="flex-1">{item.name}</span>
-                  <span className="text-xs text-stone-500">
-                    {item.source} · CR {summary.cr} · {summary.type} · AC{" "}
-                    {summary.ac} · HP {summary.hp}
-                  </span>
-                </label>
+                <div key={key(item)}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded border border-white/10 p-3">
+                    <Checkbox
+                      aria-label={`Select ${item.name}`}
+                      checked={checked}
+                      onCheckedChange={() =>
+                        setSelected((current) =>
+                          checked
+                            ? current.filter(
+                                (entry) => key(entry) !== key(item),
+                              )
+                            : [...current, item],
+                        )
+                      }
+                    />
+                    <span className="flex-1">{item.name}</span>
+                    <span className="text-xs text-stone-500">
+                      {item.source} · CR {summary.cr} · {summary.type} · AC{" "}
+                      {summary.ac} · HP {summary.hp}
+                    </span>
+                  </label>
+                  <details
+                    className="px-3 py-2"
+                    open={previewKey === key(item)}
+                    onToggle={(event) => {
+                      const opened = event.currentTarget.open;
+                      setPreviewKey((current) =>
+                        opened
+                          ? key(item)
+                          : current === key(item)
+                            ? null
+                            : current,
+                      );
+                    }}
+                  >
+                    <summary className="cursor-pointer text-xs text-amber-200">
+                      View stat block for {item.name}
+                    </summary>
+                    {previewKey === key(item) && (
+                      <MonsterStatBlock
+                        monster={(() => {
+                          const value = convertCatalogueMonster(
+                            item,
+                            () => "preview",
+                          );
+                          return {
+                            name: value.name,
+                            type: value.type,
+                            challengeRating: value.cr,
+                            armorClass: value.ac,
+                            hitPoints: value.hp,
+                            speed: value.speed,
+                            stats: value.stats,
+                            abilities: value.abilities,
+                            spells: value.spells,
+                            notes: value.notes,
+                            source: value.source ?? "",
+                            spellSlots: value.slots,
+                          };
+                        })()}
+                      />
+                    )}
+                  </details>
+                </div>
               );
             })}
           </div>

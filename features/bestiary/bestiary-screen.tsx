@@ -1,4 +1,5 @@
 "use client";
+import { MonsterStatBlock } from "./monster-stat-block";
 import { isDraftDirty } from "@/features/shared/draft-state";
 
 import { deleteRecords } from "../shared/api";
@@ -321,6 +322,14 @@ export function BestiaryScreen({
                   {editable ? "Edit monster" : editing.name}
                 </DialogTitle>
               </DialogHeader>
+              <details open className="mb-3">
+                <summary className="cursor-pointer text-sm text-amber-200">
+                  Visual stat block
+                </summary>
+                <MonsterStatBlock
+                  monster={{ ...editing, source: editing.source ?? "" }}
+                />
+              </details>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Name">
                   <Input

@@ -1,5 +1,6 @@
 "use client";
 
+import { MonsterStatBlock as VisualMonsterStatBlock } from "@/features/bestiary/monster-stat-block";
 import { RuntimeControls } from "./runtime-controls";
 import type { CombatSnapshot, CombatCondition } from "@/domain/encounters";
 import { useState } from "react";
@@ -19,7 +20,6 @@ import {
   RichTextContent,
   RichTextEditor,
 } from "@/features/rich-text/rich-text";
-import { DetailSection, Stat } from "@/features/shared/ui";
 import { uploadScreenshot } from "@/features/shared/api";
 import type { Combatant } from "@/domain/types";
 
@@ -576,80 +576,11 @@ function MonsterStatBlock({ monster }: { monster?: CombatSnapshot }) {
         notes for its details.
       </div>
     );
-  const slots = monster.spellSlots
-    .map((count, index) => ({ level: index + 1, count }))
-    .filter(({ count }) => count > 0);
   return (
-    <section className="mt-6 border-t border-white/10 pt-5">
-      <div className="mb-4">
-        <h3 className="font-serif text-2xl text-amber-100">{monster.name}</h3>
-        <p className="text-xs text-stone-400">
-          Encounter snapshot · Bestiary edits do not change this stat block.
-        </p>
-        <p className="text-sm italic text-stone-400">
-          {monster.type || "Unknown type"} · CR {monster.challengeRating || "—"}
-          {monster.source ? ` · ${monster.source}` : ""}
-        </p>
-        {!!monster.tags?.length && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {monster.tags.map((tag) => (
-              <span
-                key={tag.id}
-                className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-stone-400"
-                style={
-                  tag.color
-                    ? { borderColor: tag.color, color: tag.color }
-                    : undefined
-                }
-              >
-                {tag.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <Stat label="Armor class" value={monster.armorClass} />
-        <Stat label="Hit points" value={monster.hitPoints} />
-        <Stat label="Speed" value={monster.speed || "—"} />
-      </div>
-      <MonsterDetail title="Ability scores" value={monster.stats} />
-      <MonsterDetail title="Actions & traits" value={monster.abilities} />
-      <DetailSection title="Spellcasting">
-        {monster.spells ? (
-          <RichTextContent value={monster.spells} />
-        ) : (
-          <p className="text-stone-400">
-            No spellcasting information recorded.
-          </p>
-        )}
-        {!!slots.length && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {slots.map(({ level, count }) => (
-              <span
-                key={level}
-                className="rounded-md border border-violet-300/20 bg-violet-300/5 px-2 py-1 text-xs text-violet-200"
-              >
-                Level {level}: {count} slot{count === 1 ? "" : "s"}
-              </span>
-            ))}
-          </div>
-        )}
-      </DetailSection>
-      {!!monster.notes && <MonsterDetail title="Notes" value={monster.notes} />}
-    </section>
-  );
-}
-
-function MonsterDetail({ title, value }: { title: string; value: string }) {
-  return (
-    <DetailSection title={title}>
-      {value ? (
-        <RichTextContent value={value} />
-      ) : (
-        <p className="text-stone-400">No information recorded.</p>
-      )}
-    </DetailSection>
+    <VisualMonsterStatBlock
+      monster={monster}
+      caption="Encounter snapshot · Bestiary edits do not change this stat block."
+    />
   );
 }
 

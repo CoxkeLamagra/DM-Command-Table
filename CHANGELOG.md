@@ -2,6 +2,13 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.5.0 — 2026-10-14
+
+- Add a shared local visual monster stat block with a parchment layout, core stats and ability-score modifiers in import previews, Bestiary details and Combat snapshots.
+- Preserve catalogue saves, skills, damage/condition defenses, senses, languages, alignment, armor/HP details and complete spell lists during import.
+- Keep stat blocks editable through existing Bestiary fields, available offline and captured independently in combat snapshots. Existing records use their saved fields; reimport adds newly preserved catalogue details.
+- Add conversion/display/persistence regressions and update catalogue, Bestiary and Combat documentation. No database migration is required.
+
 ## 11.4.0 — 2026-10-13
 
 - Refactor browser requests into focused API clients with shared transport/errors; split Player, Session and Story persistence into composed repositories with shared transactional helpers.

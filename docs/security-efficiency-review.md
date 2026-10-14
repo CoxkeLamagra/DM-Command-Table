@@ -33,3 +33,9 @@ SQLite supports one application instance per data directory. Revisions do not pr
 ## Repository boundaries
 
 Release history begins at v11. Obsolete password upgrading and ineffective registration-mode configuration are removed; initial registration closes automatically and administrators control later registration through SQLite settings. Node 24 is the shared build/runtime line. Focused browser API modules share one transport; content repositories share transactional persistence helpers; the server and operational commands share storage path resolution. Clean builds leave data/credentials/dependencies intact. Packaging uses one contained-link/inventory traversal.
+
+## Visual monster stat blocks
+
+Import results offer **View stat block** before selection. Opening a Bestiary monster shows the same local parchment-style block with AC, HP, speed, ability scores/modifiers, traits/actions and spellcasting. Core fields and rich text remain editable through the existing Bestiary controls. Combat displays the independently captured encounter snapshot, so later Bestiary edits do not change a live encounter's block. All views render locally and remain available offline.
+
+New imports retain alignment, armor/HP formula details, saving throws, skills, damage/condition defenses, senses, passive Perception, languages and full spell lists in the existing ability/spell fields. Existing saved records render their available fields immediately; reimport with replacement adds catalogue details that older imports did not retain. Existing combat snapshots keep their captured values. No database migration or live webpage embedding is required.

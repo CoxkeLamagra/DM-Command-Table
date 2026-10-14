@@ -1,25 +1,10 @@
-# v11.4.0 release validation
+# v11.5.0 release validation
 
-This release refactors the current application and cleans repository/documentation around the v11 baseline. Current functionality remains: accounts/admin settings/media, campaign sharing/copy/templates/import/export, Players/NPCs, remote and offline catalogue imports, Story/Session preparation, full combat roster replacement, live resources/conditions/Undo, local search, screenshots, backups, the complete Debian installer/resume and automatic GUI updates.
+This release adds a shared local visual monster stat block to import previews, Bestiary details and captured Combat snapshots. The parchment-style display uses saved fields, an ability-score/modifier grid and sanitized rich text; current editing, offline import, campaign copies/packages and combat snapshot isolation remain supported without changing the database baseline.
 
-## Refactor scope
+New imports preserve catalogue metadata and complete spell lists in the existing abilities/spells fields. Parser checks cover actual catalogue field variants such as proficiency-based passive Perception expressions. All 4,560 monster records in the cached live catalogue source files passed the extended parser. Existing imports use their current saved fields; replacement imports can populate newly retained details.
 
-- Focused browser API clients share one transport/error model; current callers use the new entry point.
-- Player, Session and Story repositories share transactional indexing, audit, timestamps and revisions through a composed facade.
-- The server and packaged storage/backup/maintenance commands share path resolution; package inventory provides the single link validator.
-- Obsolete password upgrading and ineffective registration-mode configuration are removed. v11 passwords and schema remain supported.
-- Node 24/pinned pnpm define the build contract. Formatting covers current source/configuration/docs and excludes generated/vendor output. Cleanup preserves data, credentials, dependencies and symlink targets.
-- History starts at v11. README, user guide, architecture, API, operations, Debian, Docker and security/runtime docs describe current behavior.
-
-## Evidence
-
-Validated locally on Node 24.19.0 using the supported Node 24 line:
-
-- Safe output cleanup followed by frozen-lockfile installation and full verification passed. Production audit found no known vulnerabilities; repository formatting, ESLint and TypeScript passed.
-- All **112 unit/API tests** and **17 system-Chromium browser tests** passed, with no skips. This includes authorization/revisions, first-admin token and guarded installer resume, deployment/Undo recovery, remote/offline imports, full prepared replacement, cleanup preservation and shared storage resolution.
-- The separately packaged v11.4.0 runtime passed exact manifest/inventory/link verification. Live requests checked readiness/version, unauthenticated access, production first-admin registration, administration, Player/Session/Story persistence, campaign copy/export/import and screenshot upload/WebP/access. Packaged storage, backup/restore with screenshot references and maintenance commands passed using the new shared storage module.
-- The same package mounted over the application directory in an existing Node 24 test image passed readiness, authentication, admin registration, campaign creation, storage and backup/restore with Docker networking disabled and a read-only root filesystem. This validates packaged offline runtime behavior; a new image/source build was not claimed because the pinned base image was unavailable locally.
-- Local documentation links resolve; no generated builds, dependencies, private data or credentials are tracked. Changelog history begins at v11. Git history and saved application data are preserved.
+Validation passed: production dependency audit, repository formatting, lint, TypeScript, all 116 unit/integration tests and the production build. All 17 browser tests passed using system Chromium, including remote import preview, Bestiary display and saved Combat stat-block persistence after reload. The rendered Bestiary block was inspected in a browser screenshot. Runtime packaging and manifest/integrity verification passed for v11.5.0.
 
 ## Deployment limits
 

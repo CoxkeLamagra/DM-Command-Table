@@ -55,3 +55,9 @@ The independent GUI updater resolves the newest stable v11 tag from the fixed pr
 ## Verification
 
 CI/deployment use Node 24 and pinned pnpm. Formatting covers source, deployment JavaScript, configuration and documentation, excluding generated output and retained vendor source. Unit/API/browser suites check functionality, authorization, revisions and drafts; package/backup/installer/deployment regressions check integrity and recovery. Actual systemd/Nginx/TLS/firewall acceptance remains a deployment-host check; see [release validation](release-assessment.md).
+
+## Visual monster stat blocks
+
+Import results offer **View stat block** before selection. Opening a Bestiary monster shows the same local parchment-style block with AC, HP, speed, ability scores/modifiers, traits/actions and spellcasting. Core fields and rich text remain editable through the existing Bestiary controls. Combat displays the independently captured encounter snapshot, so later Bestiary edits do not change a live encounter's block. All views render locally and remain available offline.
+
+New imports retain alignment, armor/HP formula details, saving throws, skills, damage/condition defenses, senses, passive Perception, languages and full spell lists in the existing ability/spell fields. Existing saved records render their available fields immediately; reimport with replacement adds catalogue details that older imports did not retain. Existing combat snapshots keep their captured values. No database migration or live webpage embedding is required.

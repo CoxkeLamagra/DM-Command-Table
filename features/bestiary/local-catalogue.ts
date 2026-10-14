@@ -9,6 +9,23 @@ const entries = z
 const monster = z.object({
   name: z.string().trim().min(1).max(200),
   source: z.string().trim().min(1).max(100),
+  alignment: entries,
+  save: z
+    .record(z.unknown())
+    .nullish()
+    .transform((value) => value ?? undefined),
+  skill: z
+    .record(z.unknown())
+    .nullish()
+    .transform((value) => value ?? undefined),
+  vulnerable: entries,
+  resist: entries,
+  immune: entries,
+  conditionImmune: entries,
+  senses: entries,
+  languages: entries,
+  passive: z.union([number, z.string()]).optional(),
+  pbNote: z.string().optional(),
   size: z.array(z.string()).optional(),
   type: z
     .union([
@@ -27,7 +44,16 @@ const monster = z.object({
     ])
     .optional(),
   ac: z
-    .array(z.union([number, z.object({ ac: number.optional() })]))
+    .array(
+      z.union([
+        number,
+        z.object({
+          ac: number.optional(),
+          from: entries,
+          condition: z.string().optional(),
+        }),
+      ]),
+    )
     .optional(),
   hp: z
     .object({ average: number.optional(), formula: z.string().optional() })

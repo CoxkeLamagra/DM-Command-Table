@@ -122,3 +122,9 @@ The [complete Debian 13 installer](debian-13-lxc.md#recommended-complete-install
 ## Clean builds
 
 Use Node 24 (24.19.0 or newer; `.node-version` pins 24.21.0) and pnpm 11.25.0. `pnpm clean` removes generated build/test output and TypeScript caches without deleting source, environment files, application data or dependencies. Follow with `pnpm install --frozen-lockfile`, `pnpm verify`, browser regressions and `pnpm package:runtime`. Formatting and lint ignore generated output, so a previously packaged runtime never becomes part of source verification. The server and storage/backup/maintenance commands all use `scripts/storage-config.mjs`; exported absolute paths avoid working-directory ambiguity.
+
+## Visual monster stat blocks
+
+Import results offer **View stat block** before selection. Opening a Bestiary monster shows the same local parchment-style block with AC, HP, speed, ability scores/modifiers, traits/actions and spellcasting. Core fields and rich text remain editable through the existing Bestiary controls. Combat displays the independently captured encounter snapshot, so later Bestiary edits do not change a live encounter's block. All views render locally and remain available offline.
+
+New imports retain alignment, armor/HP formula details, saving throws, skills, damage/condition defenses, senses, passive Perception, languages and full spell lists in the existing ability/spell fields. Existing saved records render their available fields immediately; reimport with replacement adds catalogue details that older imports did not retain. Existing combat snapshots keep their captured values. No database migration or live webpage embedding is required.

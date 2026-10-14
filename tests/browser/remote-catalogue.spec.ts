@@ -24,7 +24,18 @@ test("remote catalogue connects automatically and imports searchable monster pre
           type: "humanoid",
           cr: "1/4",
           ac: [15],
-          hp: { average: 7 },
+          hp: { average: 7, formula: "2d6" },
+          str: 8,
+          dex: 14,
+          con: 10,
+          int: 10,
+          wis: 8,
+          cha: 8,
+          senses: ["darkvision 60 ft."],
+          languages: ["Common", "Goblin"],
+          action: [
+            { name: "Scimitar", entries: ["Melee attack: 5 slashing damage."] },
+          ],
         },
       ],
     },
@@ -57,7 +68,19 @@ test("remote catalogue connects automatically and imports searchable monster pre
   await expect(
     dialog.getByText(/CR 1\/4 · humanoid · AC 15 · HP 7/),
   ).toBeVisible();
-  await dialog.getByText("Remote goblin", { exact: true }).click();
+  await dialog
+    .getByText("View stat block for Remote goblin", { exact: true })
+    .click();
+  const preview = dialog.getByRole("region", {
+    name: "Remote goblin stat block",
+  });
+  await expect(preview.getByText("14 (+2)", { exact: true })).toBeVisible();
+  await expect(preview.getByText(/darkvision 60 ft./)).toBeVisible();
+  await dialog
+    .getByText("View stat block for Remote goblin", { exact: true })
+    .click();
+  await expect(preview).toBeHidden();
+  await dialog.getByLabel("Select Remote goblin", { exact: true }).check();
   await dialog
     .getByRole("button", { name: "Import selected (1)", exact: true })
     .click();
@@ -65,6 +88,42 @@ test("remote catalogue connects automatically and imports searchable monster pre
     page.getByText("Import complete: 1 added, 0 replaced, 0 discarded", {
       exact: true,
     }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /^Remote goblin/ }).click();
+  await expect(
+    dialog.getByRole("region", { name: "Remote goblin stat block" }),
+  ).toBeVisible();
+  await expect(
+    dialog
+      .getByRole("region", { name: "Remote goblin stat block" })
+      .getByText(/Scimitar/),
+  ).toBeVisible();
+  await expect(dialog).toHaveCSS("opacity", "1");
+  await page.screenshot({
+    path: test.info().outputPath("bestiary-stat-block.png"),
+  });
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Add combatants", exact: true })
+    .click();
+  await dialog.getByRole("tab", { name: "Bestiary", exact: true }).click();
+  await dialog.getByLabel("Select Remote goblin", { exact: true }).check();
+  await dialog
+    .getByRole("button", { name: "Add selected (1)", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Remote goblin stat block" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByRole("status", { name: "Combat: Saved", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page
+      .getByRole("region", { name: "Remote goblin stat block" })
+      .getByText(/darkvision 60 ft./),
   ).toBeVisible();
   expect(requests.sort()).toEqual(Object.keys(payloads).sort());
 });

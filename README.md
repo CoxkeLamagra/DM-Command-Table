@@ -1,6 +1,6 @@
 # DM Command Table
 
-DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **11.4.0**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing v11 accounts and campaign data remain usable.
+DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **11.5.0**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing v11 accounts and campaign data remain usable.
 
 Accounts, campaigns, Players/NPCs, Bestiary records, Stories/Sessions, prepared encounters, combat, search, screenshots and backups live on your server. Bundled libraries support offline operation. Opening Import monsters connects automatically to `dnd5e.lamagra.link`; local JSON imports remain available offline. Debian GUI updates contact GitHub and package registries only when you start an update.
 
@@ -12,7 +12,7 @@ Use a dedicated amd64/arm64 container with systemd, networking, at least 2 CPU c
 set -euo pipefail
 apt-get update
 apt-get install -y ca-certificates curl
-curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v11.4.0/deploy/debian-13/install-dm-command-table \
+curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v11.5.0/deploy/debian-13/install-dm-command-table \
   -o /root/install-dm-command-table
 bash /root/install-dm-command-table
 ```
@@ -60,3 +60,9 @@ node scripts/runtime-integrity.mjs dist/runtime
 Prepared loading replaces the entire combat roster and uses the last prepared Player entry for each trimmed, case-insensitive name. Monsters and NPCs may repeat. Revisions protect saves and Undo recovers previous combat state.
 
 This is a hobby project. No open-source license has been assigned; all rights are reserved unless the repository owner adds one. Retained third-party UI/styles include their upstream notice in `vendor/`.
+
+## Visual monster stat blocks
+
+Import results offer **View stat block** before selection. Opening a Bestiary monster shows the same local parchment-style block with AC, HP, speed, ability scores/modifiers, traits/actions and spellcasting. Core fields and rich text remain editable through the existing Bestiary controls. Combat displays the independently captured encounter snapshot, so later Bestiary edits do not change a live encounter's block. All views render locally and remain available offline.
+
+New imports retain alignment, armor/HP formula details, saving throws, skills, damage/condition defenses, senses, passive Perception, languages and full spell lists in the existing ability/spell fields. Existing saved records render their available fields immediately; reimport with replacement adds catalogue details that older imports did not retain. Existing combat snapshots keep their captured values. No database migration or live webpage embedding is required.
