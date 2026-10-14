@@ -42,7 +42,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
           database,
           `SELECT id, campaign_id AS campaignId, name, type,
                 challenge_rating AS challengeRating, armor_class AS armorClass,
-                hit_points AS hitPoints, speed, stats, abilities, spells, notes,
+                hit_points AS hitPoints, speed, stats, token, abilities, spells, notes,
                 spell_slots AS spellSlots, source, favorite, revision,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM monsters WHERE campaign_id = ? ORDER BY name COLLATE NOCASE, id`,
@@ -63,9 +63,9 @@ export function createBestiaryRepository(database: DatabaseSync) {
           database,
           `INSERT INTO monsters
             (id, campaign_id, name, type, challenge_rating, armor_class,
-             hit_points, speed, stats, abilities, spells, notes, spell_slots,
+             hit_points, speed, stats, token, abilities, spells, notes, spell_slots,
              source, favorite, revision, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
         ).run(
           id,
           campaignId,
@@ -76,6 +76,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
           input.hitPoints,
           input.speed,
           input.stats,
+          sanitizeRichText(input.token ?? ""),
           sanitizeRichText(input.abilities ?? ""),
           sanitizeRichText(input.spells ?? ""),
           sanitizeRichText(input.notes ?? ""),
@@ -94,6 +95,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
           actorUserId,
           "monster",
           id,
+          sanitizeRichText(input.token ?? ""),
           sanitizeRichText(input.abilities ?? ""),
           sanitizeRichText(input.spells ?? ""),
           sanitizeRichText(input.notes ?? ""),
@@ -114,7 +116,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
         const result = statement(
           database,
           `UPDATE monsters SET name = ?, type = ?, challenge_rating = ?,
-             armor_class = ?, hit_points = ?, speed = ?, stats = ?, abilities = ?,
+             armor_class = ?, hit_points = ?, speed = ?, stats = ?, token = ?, abilities = ?,
              spells = ?, notes = ?, spell_slots = ?, source = ?, favorite = ?,
              revision = revision + 1, updated_at = ?
            WHERE id = ? AND campaign_id = ? AND revision = ?`,
@@ -126,6 +128,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
           input.hitPoints,
           input.speed,
           input.stats,
+          sanitizeRichText(input.token ?? ""),
           sanitizeRichText(input.abilities ?? ""),
           sanitizeRichText(input.spells ?? ""),
           sanitizeRichText(input.notes ?? ""),
@@ -159,6 +162,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
           actorUserId,
           "monster",
           id,
+          sanitizeRichText(input.token ?? ""),
           sanitizeRichText(input.abilities ?? ""),
           sanitizeRichText(input.spells ?? ""),
           sanitizeRichText(input.notes ?? ""),
@@ -280,7 +284,7 @@ function getMonster(database: DatabaseSync, id: string): Monster {
     database,
     `SELECT id, campaign_id AS campaignId, name, type,
             challenge_rating AS challengeRating, armor_class AS armorClass,
-            hit_points AS hitPoints, speed, stats, abilities, spells, notes,
+            hit_points AS hitPoints, speed, stats, token, abilities, spells, notes,
             spell_slots AS spellSlots, source, favorite, revision,
             created_at AS createdAt, updated_at AS updatedAt
        FROM monsters WHERE id = ?`,

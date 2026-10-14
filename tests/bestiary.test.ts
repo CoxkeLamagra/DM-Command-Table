@@ -133,3 +133,36 @@ test("monster bulk deletion succeeds when unlinked and rolls back referenced sel
     database.close();
   }
 });
+
+test("separate Bestiary tokens persist and retain media access when actions change", () => {
+  const { database, campaign, bestiary } = fixture();
+  try {
+    const id = crypto.randomUUID();
+    database
+      .prepare(
+        "INSERT INTO screenshots(id,filename,original_name,mime_type,size,uploaded_by,created_at) VALUES(?,?,?,'image/webp',10,'owner',1)",
+      )
+      .run(id, id + ".webp", "Goblin");
+    const token = `<img src="/api/screenshots/${id}" alt="Monster token" />`;
+    const created = bestiary.create(campaign.id, "owner", { ...goblin, token });
+    assert.equal(created.token, token);
+    assert.equal(created.abilities, goblin.abilities);
+    const updated = bestiary.update(
+      campaign.id,
+      "owner",
+      created.id,
+      created.revision,
+      { ...goblin, token: created.token, abilities: "Edited attack" },
+    );
+    assert.equal(updated.token, token);
+    assert.equal(updated.abilities, "Edited attack");
+    const refs = database
+      .prepare(
+        "SELECT COUNT(*) AS n FROM screenshot_references WHERE screenshot_id=? AND resource_id=?",
+      )
+      .get(id, created.id) as { n: number };
+    assert.equal(refs.n, 1);
+  } finally {
+    database.close();
+  }
+});

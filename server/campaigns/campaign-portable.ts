@@ -222,6 +222,7 @@ export function importCampaign(
     for (const monster of data.monsters) {
       const created = bestiary.create(target.id, actorId, {
         ...monster,
+        token: sanitizeRichText(monster.token ?? ""),
         abilities: sanitizeRichText(monster.abilities),
         spells: sanitizeRichText(monster.spells),
         notes: sanitizeRichText(monster.notes),

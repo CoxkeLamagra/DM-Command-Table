@@ -307,6 +307,17 @@ export const migrations: readonly Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: "monster-token-section",
+    sql: `
+      ALTER TABLE monsters ADD COLUMN token TEXT NOT NULL DEFAULT '';
+      UPDATE monsters
+      SET token = substr(abilities, 1, instr(abilities, '>')),
+          abilities = ltrim(substr(abilities, instr(abilities, '>') + 1), char(10) || char(13) || ' ')
+      WHERE abilities GLOB '<img src="/api/screenshots/*" alt="Monster token"*';
+    `,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {

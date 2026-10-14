@@ -1,7 +1,7 @@
-# v11.5.2 release validation
+# v11.6.0 release validation
 
-The client now emits a workspace save-conflict event only for HTTP 409 responses with `code: "revision_conflict"`. Deleting a monster referenced by a prepared encounter retains the existing transactional safeguard and presents the dependency error with recovery instructions. Unreferenced monsters remain deletable, and failed bulk deletions roll back the entire selection. No database migration is required.
+Monster images now have a separate Token section and persisted `token` rich-text field, retained in Combat snapshots and tracked through existing authenticated local media references. Schema migration 2 automatically moves leading marked token images out of existing monster abilities. Existing captured snapshots can still display their original marked image. The migration does not change image URLs or saved combat state.
 
-Validation passed: production dependency audit, formatting, lint, TypeScript, all 120 unit/integration tests, the production build and all 17 browser tests using system Chromium. Tests cover successful unlinked deletion, dependency errors and atomic rollback, release of the dependency followed by successful deletion, and preservation of genuine revision-conflict events. Browser checks verify the dependency toast without a save-conflict banner and successful actual deletion through the same UI. Runtime packaging and integrity verification passed for v11.5.2.
+Validation passed: production dependency audit, repository formatting, lint, TypeScript, all 123 unit/integration tests, the production build and all 17 browser tests using system Chromium. Regression checks cover schema-1 token migration, independent token/action persistence and media references, captured Combat tokens, separate Token/Actions editor contents, action edits followed by save/reopen, and offline token display after Combat reload. Runtime packaging and integrity verification passed for v11.6.0.
 
 These checks do not establish a complete Debian LXC deployment or host proxy/TLS acceptance. System Chromium differs from Playwright’s pinned browser.

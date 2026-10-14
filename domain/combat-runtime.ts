@@ -19,6 +19,7 @@ export function snapshotMonster(
     challengeRating: source.challengeRating ?? "",
     speed: source.speed ?? "",
     stats: source.stats ?? "",
+    token: source.token ?? "",
     abilities: source.abilities ?? "",
     spells: source.spells ?? "",
     notes: source.notes ?? "",
@@ -49,6 +50,7 @@ export function combatRichText(entry: Combatant): string[] {
   return [
     entry.notes,
     entry.snapshot?.stats ?? "",
+    entry.snapshot?.token ?? "",
     entry.snapshot?.abilities ?? "",
     entry.snapshot?.spells ?? "",
     entry.snapshot?.notes ?? "",

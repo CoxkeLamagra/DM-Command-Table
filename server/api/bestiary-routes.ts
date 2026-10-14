@@ -21,6 +21,7 @@ export async function handleBestiaryRoutes(
       return apiJson({ monsters: bestiary.list(campaignId, context.userId) });
     if (method === "POST") {
       const input = clean(monsterSchema.parse(await jsonBody(request)), [
+        "token",
         "abilities",
         "spells",
         "notes",
@@ -33,7 +34,7 @@ export async function handleBestiaryRoutes(
     if (resourceId && method === "PATCH") {
       const { revision, ...input } = clean(
         revisionedMonster.parse(await jsonBody(request)),
-        ["abilities", "spells", "notes"],
+        ["token", "abilities", "spells", "notes"],
       );
       return apiJson({
         monster: bestiary.update(

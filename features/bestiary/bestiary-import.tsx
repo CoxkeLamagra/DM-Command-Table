@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  attachMonsterToken,
-  extractMonsterToken,
-} from "@/domain/monster-stat-block";
+import { attachMonsterToken } from "@/domain/monster-stat-block";
 import { uploadScreenshot } from "@/features/shared/api/media";
 import { catalogueTokenUrl, downloadMonsterToken } from "./monster-token";
 import { MonsterStatBlock } from "./monster-stat-block";
@@ -145,6 +142,7 @@ export function BestiaryImport({
         hitPoints: converted.hp,
         speed: converted.speed,
         stats: converted.stats,
+        token: "",
         abilities: converted.abilities,
         spells: converted.spells,
         notes: "",
@@ -174,7 +172,7 @@ export function BestiaryImport({
             const localUrl = await uploadScreenshot(
               new File([token], `${remote.name}.webp`, { type: token.type }),
             );
-            input.abilities = attachMonsterToken(input.abilities, localUrl);
+            input.token = attachMonsterToken("", localUrl);
           } catch {
             toast.warning(
               `Imported ${remote.name} without its token: local image storage is unavailable.`,
@@ -184,16 +182,7 @@ export function BestiaryImport({
           toast.warning(
             `Token unavailable for ${remote.name}; importing its stat block.`,
           );
-        if (index >= 0 && !extractMonsterToken(input.abilities).tokenUrl) {
-          const existingToken = extractMonsterToken(
-            next[index].abilities,
-          ).tokenUrl;
-          if (existingToken)
-            input.abilities = attachMonsterToken(
-              input.abilities,
-              existingToken,
-            );
-        }
+        if (index >= 0 && !input.token) input.token = next[index].token ?? "";
         if (index < 0) {
           next.push(await importMonster(campaignId, input));
           added++;

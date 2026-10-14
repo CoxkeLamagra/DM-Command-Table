@@ -2,6 +2,12 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.6.0 — 2026-10-14
+
+- Give monster token images a separate saved `token` field and Bestiary Token section, keeping Actions & traits free of imported token images.
+- Automatically move existing marked Bestiary tokens into the new field during schema migration 2. Preserve captured Combat images, local media permissions/references and campaign packages.
+- Store newly imported tokens separately and retain token images when editing actions or saving snapshots. Update schema/API/user documentation and add regressions.
+
 ## 11.5.2 — 2026-10-14
 
 - Show the actual deletion error for monsters used by prepared encounters, including how to remove the dependency. Reserve the workspace save-conflict banner for genuine revision conflicts.

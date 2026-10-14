@@ -415,6 +415,14 @@ export function BestiaryScreen({
                   placeholder="Ability scores…"
                 />
               </Field>
+              <Field label="Token">
+                <RichArea
+                  editable={editable}
+                  value={editing.token ?? ""}
+                  onChange={(token) => setEditing({ ...editing, token })}
+                  placeholder="Paste a monster token image…"
+                />
+              </Field>
               <Field label="Actions & traits">
                 <RichArea
                   editable={editable}

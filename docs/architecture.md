@@ -1,6 +1,6 @@
 # v11 architecture
 
-The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 1, `offline-runtime-baseline`. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
+The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 2, built on version 1 `offline-runtime-baseline` with the `monster-token-section` migration. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
 
 ## Source ownership
 
@@ -60,6 +60,8 @@ CI/deployment use Node 24 and pinned pnpm. Formatting covers source, deployment 
 
 Import results offer **View stat block** before selection. Opening a Bestiary monster shows the same local parchment-style block with AC, HP, speed, ability scores/modifiers, traits/actions and spellcasting. Core fields and rich text remain editable through the existing Bestiary controls. Combat displays the independently captured encounter snapshot, so later Bestiary edits do not change a live encounter's block. All views render locally and remain available offline.
 
-New imports retain alignment, armor/HP formula details, saving throws, skills, damage/condition defenses, senses, passive Perception, languages and full spell lists in the existing ability/spell fields. Existing saved records render their available fields immediately; reimport with replacement adds catalogue details that older imports did not retain. Existing combat snapshots keep their captured values. No database migration or live webpage embedding is required.
+New imports retain alignment, armor/HP formula details, saving throws, skills, damage/condition defenses, senses, passive Perception, languages and full spell lists in the existing ability/spell fields. Existing saved records render their available fields immediately; reimport with replacement adds catalogue details that older imports did not retain. Existing combat snapshots keep their captured values. Stat blocks render locally without embedding the catalogue webpage.
 
 Monster token icons appear at the upper right of visual stat blocks. Available tokens are downloaded from the catalogue during import and saved to the existing local image library; Bestiary and captured Combat blocks display these images offline. Reimport older monsters with replacement enabled to add tokens. Missing/unavailable token images do not block monster import. Token previews use temporary browser images. Both Bestiary and Combat stat blocks start expanded; click **Visual stat block** to collapse or expand them.
+
+Monster token images have a dedicated `token` rich-text field. Bestiary persistence and Combat snapshots track this field through the existing local media reference and campaign package lifecycle. Schema migration 2 moves existing leading marked monster tokens from `abilities` to `token` without changing image URLs.

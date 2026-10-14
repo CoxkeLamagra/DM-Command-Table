@@ -96,3 +96,28 @@ test("earlier database baselines are rejected without changing their data", () =
   );
   database.close();
 });
+
+test("v11 token migration separates existing token images without touching actions", () => {
+  const database = new DatabaseSync(":memory:");
+  try {
+    database.exec(migrations[0].sql);
+    database.exec(
+      "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT,applied_at INTEGER); INSERT INTO schema_migrations VALUES(1,'offline-runtime-baseline',1); INSERT INTO users VALUES('owner','Owner','owner','hash',1,1,1); INSERT INTO campaigns(id,owner_id,name,created_at,updated_at) VALUES('campaign','owner','Campaign',1,1);",
+    );
+    const token =
+      '<img src="/api/screenshots/abcdef-1234" alt="Monster token" />';
+    database
+      .prepare(
+        "INSERT INTO monsters(id,campaign_id,name,type,challenge_rating,armor_class,hit_points,speed,stats,abilities,spells,notes,spell_slots,created_at,updated_at) VALUES('monster','campaign','Cat','','',12,2,'','',?,'','','[]',1,1)",
+      )
+      .run(token + "\nActions\nClaw");
+    runMigrations(database);
+    runMigrations(database);
+    const monster = database
+      .prepare("SELECT token,abilities FROM monsters")
+      .get();
+    assert.deepEqual({ ...monster }, { token, abilities: "Actions\nClaw" });
+  } finally {
+    database.close();
+  }
+});

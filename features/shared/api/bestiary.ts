@@ -38,6 +38,7 @@ export async function updateMonster(
         hitPoints: monster.hitPoints,
         speed: monster.speed,
         stats: monster.stats,
+        token: monster.token ?? "",
         abilities: monster.abilities,
         spells: monster.spells,
         notes: monster.notes,

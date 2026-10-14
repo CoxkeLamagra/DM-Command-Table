@@ -121,6 +121,26 @@ test("remote catalogue connects automatically and imports searchable monster pre
   await expect(savedBlock).toBeHidden();
   await dialog.getByText("Visual stat block", { exact: true }).click();
   await expect(savedBlock).toBeVisible();
+
+  const tokenEditor = dialog.locator(
+    '[contenteditable="true"][data-placeholder="Paste a monster token image…"]',
+  );
+  const actionsEditor = dialog.locator(
+    '[contenteditable="true"][data-placeholder="Actions and traits…"]',
+  );
+  await expect(tokenEditor.locator("img")).toHaveCount(1);
+  await expect(actionsEditor.locator("img")).toHaveCount(0);
+  await actionsEditor.press("End");
+  await actionsEditor.press("Control+End");
+  await actionsEditor.press("Enter");
+  await actionsEditor.pressSequentially("Edited attack");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Monster saved", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^Remote goblin/ }).click();
+  await expect(tokenEditor.locator("img")).toHaveCount(1);
+  await expect(actionsEditor).toContainText("Edited attack");
+  await expect(actionsEditor.locator("img")).toHaveCount(0);
   await expect(dialog).toHaveCSS("opacity", "1");
   await page.screenshot({
     path: test.info().outputPath("bestiary-stat-block.png"),

@@ -42,3 +42,9 @@ export function attachMonsterToken(abilities: string, url: string) {
     throw new Error("Invalid local monster token URL.");
   return `<img src="${url}" alt="Monster token">\n${extractMonsterToken(abilities).abilities}`;
 }
+
+export function tokenImageUrl(token: string): string | undefined {
+  return token.match(
+    /<img\b[^>]*\bsrc="(\/api\/screenshots\/[0-9a-f-]+)"/i,
+  )?.[1];
+}

@@ -163,3 +163,28 @@ test("catalogue tokens support explicit references and reject external image hos
   );
   assert.equal(catalogueTokenUrl({ name: "X", source: "X" }), undefined);
 });
+
+test("separate tokens survive combat capture without changing action text", async () => {
+  const { snapshotMonster, combatRichText } =
+    await import("../domain/combat-runtime.ts");
+  const { tokenImageUrl } = await import("../domain/monster-stat-block.ts");
+  const token = '<p><img src="/api/screenshots/abcdef-1234" alt="Cat"></p>';
+  const snapshot = snapshotMonster({
+    name: "Cat",
+    hitPoints: 2,
+    armorClass: 12,
+    token,
+    abilities: "Claw",
+  });
+  assert.equal(snapshot.token, token);
+  assert.equal(snapshot.abilities, "Claw");
+  assert.equal(
+    tokenImageUrl(snapshot.token ?? ""),
+    "/api/screenshots/abcdef-1234",
+  );
+  assert.ok(
+    combatRichText({
+      snapshot,
+    } as import("../domain/encounters.ts").Combatant).includes(token),
+  );
+});

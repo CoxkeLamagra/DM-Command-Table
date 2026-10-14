@@ -604,6 +604,7 @@ function replaceCombatants(
       : null;
     if (snapshot) {
       snapshot.stats = sanitizeRichText(snapshot.stats);
+      snapshot.token = sanitizeRichText(snapshot.token ?? "");
       snapshot.abilities = sanitizeRichText(snapshot.abilities);
       snapshot.spells = sanitizeRichText(snapshot.spells);
       snapshot.notes = sanitizeRichText(snapshot.notes);

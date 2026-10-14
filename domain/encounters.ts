@@ -47,6 +47,7 @@ export type CombatSnapshot = {
   challengeRating: string;
   speed: string;
   stats: string;
+  token?: string;
   abilities: string;
   spells: string;
   notes: string;

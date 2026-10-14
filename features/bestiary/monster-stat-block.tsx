@@ -6,6 +6,7 @@ import {
   abilityScores,
   abilitySections,
   extractMonsterToken,
+  tokenImageUrl,
 } from "@/domain/monster-stat-block";
 import type { CombatSnapshot } from "@/domain/encounters";
 import { RichTextContent } from "@/features/rich-text/rich-text";
@@ -19,6 +20,7 @@ export type StatBlockData = Pick<
   | "hitPoints"
   | "speed"
   | "stats"
+  | "token"
   | "abilities"
   | "spells"
   | "notes"
@@ -35,6 +37,7 @@ export function MonsterStatBlock({
   previewTokenUrl?: string;
 }) {
   const token = extractMonsterToken(monster.abilities);
+  const imageUrl = tokenImageUrl(monster.token ?? "") ?? token.tokenUrl;
   const scores = abilityScores(monster.stats);
   return (
     <section
@@ -42,8 +45,8 @@ export function MonsterStatBlock({
       className="my-4 overflow-hidden rounded border-y-4 border-red-900 bg-[#f5eddb] p-4 text-[#2c211b] shadow-md sm:p-6"
     >
       <TokenImage
-        key={`${token.tokenUrl ?? ""}:${previewTokenUrl ?? ""}`}
-        url={token.tokenUrl}
+        key={`${imageUrl ?? ""}:${previewTokenUrl ?? ""}`}
+        url={imageUrl}
         previewUrl={previewTokenUrl}
         name={monster.name}
       />

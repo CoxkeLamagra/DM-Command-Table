@@ -91,6 +91,7 @@ export type Monster = {
   hitPoints: number;
   speed: string;
   stats: string;
+  token?: string;
   abilities: string;
   spells: string;
   notes: string;
