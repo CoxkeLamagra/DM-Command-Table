@@ -25,3 +25,20 @@ export function abilitySections(value: string) {
     sections.push({ title: parts[index], value: parts[index + 1].trim() });
   return sections;
 }
+
+// Token images use the existing rich-text media lifecycle, including campaign exports
+// and captured encounter references. Only this leading, marked image is extracted.
+export function extractMonsterToken(abilities: string) {
+  const match = abilities.match(
+    /^<img src="(\/api\/screenshots\/[0-9a-f-]+)" alt="Monster token"\s*\/?>\s*/i,
+  );
+  return {
+    tokenUrl: match?.[1],
+    abilities: match ? abilities.slice(match[0].length) : abilities,
+  };
+}
+export function attachMonsterToken(abilities: string, url: string) {
+  if (!/^\/api\/screenshots\/[0-9a-f-]+$/i.test(url))
+    throw new Error("Invalid local monster token URL.");
+  return `<img src="${url}" alt="Monster token">\n${extractMonsterToken(abilities).abilities}`;
+}

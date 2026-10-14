@@ -562,7 +562,12 @@ export function CombatantEditor({
         )}
       </div>
       {combatant.kind === "monster" && (
-        <MonsterStatBlock monster={combatant.snapshot ?? undefined} />
+        <details open className="my-3">
+          <summary className="cursor-pointer text-sm text-amber-200">
+            Visual stat block
+          </summary>
+          <MonsterStatBlock monster={combatant.snapshot ?? undefined} />
+        </details>
       )}
     </aside>
   );

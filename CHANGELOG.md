@@ -2,6 +2,12 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.5.1 — 2026-10-14
+
+- Import available catalogue monster tokens into authenticated local image storage and show them in the upper right of visual stat blocks, including captured Combat snapshots.
+- Make Combat stat blocks collapsible; both Bestiary and Combat start expanded. Preserve existing media permissions, reference tracking, campaign packages and offline display.
+- Preview token images without uploading them; unavailable images do not prevent monster imports. Reimport older monsters to add their tokens.
+
 ## 11.5.0 — 2026-10-14
 
 - Add a shared local visual monster stat block with a parchment layout, core stats and ability-score modifiers in import previews, Bestiary details and Combat snapshots.

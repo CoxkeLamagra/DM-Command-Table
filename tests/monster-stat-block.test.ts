@@ -106,3 +106,60 @@ test("stat-block rules text retains hit/DC/recharge labels from catalogue tags",
     "Melee Weapon Attack: +4 to hit. Hit: 1d6 + 2. DC 13 save. Breath (Recharge 5–6)",
   );
 });
+
+test("monster tokens survive rich text sanitization and snapshot capture", async () => {
+  const { attachMonsterToken, extractMonsterToken } =
+    await import("../domain/monster-stat-block.ts");
+  const { sanitizeRichText } =
+    await import("../server/security/sanitize-rich-text.ts");
+  const { snapshotMonster } = await import("../domain/combat-runtime.ts");
+  const url = "/api/screenshots/abcdef-1234";
+  const abilities = sanitizeRichText(
+    attachMonsterToken("Actions\nClaw attack", url),
+  );
+  const snapshot = snapshotMonster({
+    name: "Cat",
+    hitPoints: 2,
+    armorClass: 12,
+    abilities,
+  });
+  assert.deepEqual(extractMonsterToken(snapshot.abilities), {
+    tokenUrl: url,
+    abilities: "Actions\nClaw attack",
+  });
+  assert.throws(() => attachMonsterToken("", "https://example.com/token.png"));
+});
+
+test("catalogue tokens support explicit references and reject external image hosts", async () => {
+  const { catalogueTokenUrl } =
+    await import("../features/bestiary/monster-token.ts");
+  assert.equal(
+    catalogueTokenUrl({ name: "Goblin", source: "MM", hasToken: true }),
+    "https://dnd5e.lamagra.link/img/bestiary/tokens/MM/Goblin.webp",
+  );
+  assert.equal(
+    catalogueTokenUrl({
+      name: "Alternate",
+      source: "X",
+      token: { name: 'Café "Cat"', source: "MM" },
+    }),
+    "https://dnd5e.lamagra.link/img/bestiary/tokens/MM/Cafe%20Cat.webp",
+  );
+  assert.equal(
+    catalogueTokenUrl({
+      name: "X",
+      source: "X",
+      tokenHref: { type: "internal", path: "bestiary/tokens/MM/Goblin.webp" },
+    }),
+    "https://dnd5e.lamagra.link/img/bestiary/tokens/MM/Goblin.webp",
+  );
+  assert.equal(
+    catalogueTokenUrl({
+      name: "X",
+      source: "X",
+      tokenUrl: "https://elsewhere.example/icon.png",
+    }),
+    undefined,
+  );
+  assert.equal(catalogueTokenUrl({ name: "X", source: "X" }), undefined);
+});

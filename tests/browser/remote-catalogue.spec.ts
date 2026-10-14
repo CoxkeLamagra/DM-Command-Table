@@ -19,6 +19,7 @@ test("remote catalogue connects automatically and imports searchable monster pre
           action: null,
         },
         {
+          hasToken: true,
           name: "Remote goblin",
           source: "MM",
           type: "humanoid",
@@ -43,6 +44,15 @@ test("remote catalogue connects automatically and imports searchable monster pre
   await page.route("https://dnd5e.lamagra.link/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     requests.push(path);
+    if (path.endsWith(".webp"))
+      return route.fulfill({
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAARUlEQVRYhe3XsREAMAhC0YzGKOzi4GaLpHmFvXcifM40+3OOBcYJSoTxhsuIhhVXGEUcLyAZSFZQGli+ismoZlVO81wHF+/niHkNYwSEAAAAAElFTkSuQmCC",
+          "base64",
+        ),
+        headers: { "access-control-allow-origin": "*" },
+      });
     return route.fulfill({
       json: payloads[path],
       headers: { "access-control-allow-origin": "*" },
@@ -74,6 +84,9 @@ test("remote catalogue connects automatically and imports searchable monster pre
   const preview = dialog.getByRole("region", {
     name: "Remote goblin stat block",
   });
+  await expect(
+    preview.getByRole("img", { name: "Remote goblin token" }),
+  ).toBeVisible();
   await expect(preview.getByText("14 (+2)", { exact: true })).toBeVisible();
   await expect(preview.getByText(/darkvision 60 ft./)).toBeVisible();
   await dialog
@@ -98,6 +111,16 @@ test("remote catalogue connects automatically and imports searchable monster pre
       .getByRole("region", { name: "Remote goblin stat block" })
       .getByText(/Scimitar/),
   ).toBeVisible();
+  const savedBlock = dialog.getByRole("region", {
+    name: "Remote goblin stat block",
+  });
+  await expect(
+    savedBlock.getByRole("img", { name: "Remote goblin token" }),
+  ).toHaveAttribute("src", /^\/api\/screenshots\//);
+  await dialog.getByText("Visual stat block", { exact: true }).click();
+  await expect(savedBlock).toBeHidden();
+  await dialog.getByText("Visual stat block", { exact: true }).click();
+  await expect(savedBlock).toBeVisible();
   await expect(dialog).toHaveCSS("opacity", "1");
   await page.screenshot({
     path: test.info().outputPath("bestiary-stat-block.png"),
@@ -115,15 +138,33 @@ test("remote catalogue connects automatically and imports searchable monster pre
   await expect(
     page.getByRole("region", { name: "Remote goblin stat block" }),
   ).toBeVisible();
+  const combatBlock = page.getByRole("region", {
+    name: "Remote goblin stat block",
+  });
+  await page.getByText("Visual stat block", { exact: true }).click();
+  await expect(combatBlock).toBeHidden();
+  await page.getByText("Visual stat block", { exact: true }).click();
+  await expect(combatBlock).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
     page.getByRole("status", { name: "Combat: Saved", exact: true }),
   ).toBeVisible();
+  await page.route("https://dnd5e.lamagra.link/**", (route) => route.abort());
   await page.reload();
   await expect(
     page
       .getByRole("region", { name: "Remote goblin stat block" })
       .getByText(/darkvision 60 ft./),
   ).toBeVisible();
-  expect(requests.sort()).toEqual(Object.keys(payloads).sort());
+  const image = page.getByRole("img", { name: "Remote goblin token" });
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+  expect(requests.sort()).toEqual(
+    [
+      ...Object.keys(payloads),
+      "/img/bestiary/tokens/MM/Remote%20goblin.webp",
+    ].sort(),
+  );
 });

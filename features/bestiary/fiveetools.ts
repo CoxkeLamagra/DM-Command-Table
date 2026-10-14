@@ -17,6 +17,10 @@ export type ConvertedMonster = {
 export type FiveEToolsMonster = {
   name: string;
   source: string;
+  hasToken?: boolean;
+  token?: { name: string; source: string };
+  tokenUrl?: string;
+  tokenHref?: { type?: string; url?: string; path?: string };
   alignment?: unknown[];
   save?: Record<string, unknown>;
   skill?: Record<string, unknown>;

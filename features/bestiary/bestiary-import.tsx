@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  attachMonsterToken,
+  extractMonsterToken,
+} from "@/domain/monster-stat-block";
+import { uploadScreenshot } from "@/features/shared/api/media";
+import { catalogueTokenUrl, downloadMonsterToken } from "./monster-token";
 import { MonsterStatBlock } from "./monster-stat-block";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
@@ -151,14 +157,47 @@ export function BestiaryImport({
           `${item.name}::${item.source ?? ""}`.toLowerCase() === key(remote),
       );
       try {
-        if (index < 0) {
-          next.push(await importMonster(campaignId, input));
-          added++;
-        } else if (
-          window.confirm(
+        // Ask about replacement before fetching/uploading media.
+        if (
+          index >= 0 &&
+          !window.confirm(
             `${remote.name} (${remote.source}) already exists. Replace the existing entry? Select Cancel to discard this import.`,
           )
         ) {
+          discarded++;
+          continue;
+        }
+        const tokenUrl = catalogueTokenUrl(remote);
+        const token = tokenUrl ? await downloadMonsterToken(tokenUrl) : null;
+        if (token) {
+          try {
+            const localUrl = await uploadScreenshot(
+              new File([token], `${remote.name}.webp`, { type: token.type }),
+            );
+            input.abilities = attachMonsterToken(input.abilities, localUrl);
+          } catch {
+            toast.warning(
+              `Imported ${remote.name} without its token: local image storage is unavailable.`,
+            );
+          }
+        } else if (tokenUrl)
+          toast.warning(
+            `Token unavailable for ${remote.name}; importing its stat block.`,
+          );
+        if (index >= 0 && !extractMonsterToken(input.abilities).tokenUrl) {
+          const existingToken = extractMonsterToken(
+            next[index].abilities,
+          ).tokenUrl;
+          if (existingToken)
+            input.abilities = attachMonsterToken(
+              input.abilities,
+              existingToken,
+            );
+        }
+        if (index < 0) {
+          next.push(await importMonster(campaignId, input));
+          added++;
+        } else {
           const existing = next[index];
           next[index] = await updateMonster(campaignId, {
             ...existing,
@@ -166,7 +205,7 @@ export function BestiaryImport({
             notes: existing.notes,
           });
           replaced++;
-        } else discarded++;
+        }
       } catch (error) {
         toast.error(
           error instanceof Error
@@ -354,6 +393,7 @@ export function BestiaryImport({
                     </summary>
                     {previewKey === key(item) && (
                       <MonsterStatBlock
+                        previewTokenUrl={catalogueTokenUrl(item)}
                         monster={(() => {
                           const value = convertCatalogueMonster(
                             item,

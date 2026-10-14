@@ -1,4 +1,12 @@
-import { abilityScores, abilitySections } from "@/domain/monster-stat-block";
+"use client";
+
+import { useEffect, useState } from "react";
+import { downloadMonsterToken } from "./monster-token";
+import {
+  abilityScores,
+  abilitySections,
+  extractMonsterToken,
+} from "@/domain/monster-stat-block";
 import type { CombatSnapshot } from "@/domain/encounters";
 import { RichTextContent } from "@/features/rich-text/rich-text";
 
@@ -20,16 +28,25 @@ export type StatBlockData = Pick<
 export function MonsterStatBlock({
   monster,
   caption,
+  previewTokenUrl,
 }: {
   monster: StatBlockData;
   caption?: string;
+  previewTokenUrl?: string;
 }) {
+  const token = extractMonsterToken(monster.abilities);
   const scores = abilityScores(monster.stats);
   return (
     <section
       aria-label={`${monster.name} stat block`}
       className="my-4 overflow-hidden rounded border-y-4 border-red-900 bg-[#f5eddb] p-4 text-[#2c211b] shadow-md sm:p-6"
     >
+      <TokenImage
+        key={`${token.tokenUrl ?? ""}:${previewTokenUrl ?? ""}`}
+        url={token.tokenUrl}
+        previewUrl={previewTokenUrl}
+        name={monster.name}
+      />
       <h3 className="break-words font-serif text-3xl font-bold text-red-950">
         {monster.name}
       </h3>
@@ -101,7 +118,7 @@ export function MonsterStatBlock({
         {monster.challengeRating || "—"}
         {monster.source ? ` · ${monster.source}` : ""}
       </p>
-      {abilitySections(monster.abilities).map((section, index) => (
+      {abilitySections(token.abilities).map((section, index) => (
         <BlockSection key={index} title={section.title} value={section.value} />
       ))}
       <BlockSection title="Spellcasting" value={monster.spells} />
@@ -136,5 +153,44 @@ function BlockSection({ title, value }: { title: string; value: string }) {
         className="text-[#2c211b]! whitespace-pre-line"
       />
     </div>
+  );
+}
+
+function TokenImage({
+  url,
+  previewUrl,
+  name,
+}: {
+  url?: string;
+  previewUrl?: string;
+  name: string;
+}) {
+  const [preview, setPreview] = useState<string>();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (url || !previewUrl) return;
+    let active = true,
+      objectUrl: string | undefined;
+    void downloadMonsterToken(previewUrl).then((blob) => {
+      if (active && blob) {
+        objectUrl = URL.createObjectURL(blob);
+        setPreview(objectUrl);
+      }
+    });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url, previewUrl]);
+  if (failed || !(url || preview)) return null;
+  // Local media is already decoded/re-encoded by the authenticated upload service.
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url || preview}
+      alt={`${name} token`}
+      onError={() => setFailed(true)}
+      className="float-right mb-3 ml-3 h-20 w-20 rounded-full object-contain sm:h-28 sm:w-28"
+    />
   );
 }

@@ -7,6 +7,18 @@ const entries = z
   .nullish()
   .transform((value) => value ?? undefined);
 const monster = z.object({
+  hasToken: z.boolean().optional(),
+  token: z
+    .object({ name: z.string().max(200), source: z.string().max(200) })
+    .optional(),
+  tokenUrl: z.string().max(2000).optional(),
+  tokenHref: z
+    .object({
+      type: z.string().optional(),
+      url: z.string().max(2000).optional(),
+      path: z.string().max(2000).optional(),
+    })
+    .optional(),
   name: z.string().trim().min(1).max(200),
   source: z.string().trim().min(1).max(100),
   alignment: entries,
