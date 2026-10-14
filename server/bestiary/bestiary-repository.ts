@@ -6,7 +6,11 @@ import {
   requireCampaignEdit,
   requireCampaignRead,
 } from "../campaigns/access.ts";
-import { recordAuditEvent } from "../support/audit.ts";
+import {
+  changed,
+  index,
+  removeIndex,
+} from "../support/resource-persistence.ts";
 import {
   ResourceNotFoundError,
   RevisionConflictError,
@@ -37,6 +41,18 @@ export function createBestiaryRepository(database: DatabaseSync) {
   return {
     list(campaignId: string, actorUserId: string): Monster[] {
       requireCampaignRead(database, campaignId, actorUserId);
+      const tagsByMonster = new Map<string, Tag[]>();
+      const tagged = statement(
+        database,
+        `SELECT mt.monster_id AS monsterId, t.id, t.name, t.color
+        FROM monster_tags mt JOIN tags t ON t.id=mt.tag_id JOIN monsters m ON m.id=mt.monster_id
+        WHERE m.campaign_id=? ORDER BY t.name COLLATE NOCASE`,
+      ).all(campaignId) as Array<Tag & { monsterId: string }>;
+      for (const { monsterId, ...tag } of tagged) {
+        const tags = tagsByMonster.get(monsterId) ?? [];
+        tags.push(tag);
+        tagsByMonster.set(monsterId, tags);
+      }
       return (
         statement(
           database,
@@ -47,7 +63,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
                 created_at AS createdAt, updated_at AS updatedAt
            FROM monsters WHERE campaign_id = ? ORDER BY name COLLATE NOCASE, id`,
         ).all(campaignId) as MonsterRow[]
-      ).map((row) => toMonster(database, row));
+      ).map((row) => toMonster(database, row, tagsByMonster.get(row.id) ?? []));
     },
 
     create(
@@ -56,6 +72,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
       input: MonsterInput,
     ): Monster {
       requireCampaignEdit(database, campaignId, actorUserId);
+      input = sanitizeMonster(input);
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
@@ -76,10 +93,10 @@ export function createBestiaryRepository(database: DatabaseSync) {
           input.hitPoints,
           input.speed,
           input.stats,
-          sanitizeRichText(input.token ?? ""),
-          sanitizeRichText(input.abilities ?? ""),
-          sanitizeRichText(input.spells ?? ""),
-          sanitizeRichText(input.notes ?? ""),
+          input.token ?? "",
+          input.abilities ?? "",
+          input.spells ?? "",
+          input.notes ?? "",
           JSON.stringify(input.spellSlots),
           input.source,
           input.favorite ? 1 : 0,
@@ -95,10 +112,11 @@ export function createBestiaryRepository(database: DatabaseSync) {
           actorUserId,
           "monster",
           id,
-          sanitizeRichText(input.token ?? ""),
-          sanitizeRichText(input.abilities ?? ""),
-          sanitizeRichText(input.spells ?? ""),
-          sanitizeRichText(input.notes ?? ""),
+          input.stats,
+          input.token ?? "",
+          input.abilities ?? "",
+          input.spells ?? "",
+          input.notes ?? "",
         );
       });
       return getMonster(database, id);
@@ -112,6 +130,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
       input: MonsterInput,
     ): Monster {
       requireCampaignEdit(database, campaignId, actorUserId);
+      input = sanitizeMonster(input);
       runTransaction(database, () => {
         const result = statement(
           database,
@@ -128,10 +147,10 @@ export function createBestiaryRepository(database: DatabaseSync) {
           input.hitPoints,
           input.speed,
           input.stats,
-          sanitizeRichText(input.token ?? ""),
-          sanitizeRichText(input.abilities ?? ""),
-          sanitizeRichText(input.spells ?? ""),
-          sanitizeRichText(input.notes ?? ""),
+          input.token ?? "",
+          input.abilities ?? "",
+          input.spells ?? "",
+          input.notes ?? "",
           JSON.stringify(input.spellSlots),
           input.source,
           input.favorite ? 1 : 0,
@@ -162,10 +181,11 @@ export function createBestiaryRepository(database: DatabaseSync) {
           actorUserId,
           "monster",
           id,
-          sanitizeRichText(input.token ?? ""),
-          sanitizeRichText(input.abilities ?? ""),
-          sanitizeRichText(input.spells ?? ""),
-          sanitizeRichText(input.notes ?? ""),
+          input.stats,
+          input.token ?? "",
+          input.abilities ?? "",
+          input.spells ?? "",
+          input.notes ?? "",
         );
       });
       return getMonster(database, id);
@@ -189,10 +209,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
           ).run(id, campaignId);
           if (!result.changes) throw new ResourceNotFoundError("monster", id);
           touch(database, campaignId, actorUserId, id, "deleted");
-          statement(
-            database,
-            "DELETE FROM search_index WHERE campaign_id=? AND resource_type='monster' AND resource_id=?",
-          ).run(campaignId, id);
+          removeIndex(database, campaignId, "monster", id);
         });
       } catch (error) {
         if (error instanceof Error && error.message.includes("FOREIGN KEY"))
@@ -240,15 +257,10 @@ function indexMonster(
   id: string,
   input: MonsterInput,
 ): void {
-  statement(
+  index(
     database,
-    "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = 'monster' AND resource_id = ?",
-  ).run(campaignId, id);
-  statement(
-    database,
-    "INSERT INTO search_index (campaign_id, resource_type, resource_id, title, content) VALUES (?, 'monster', ?, ?, ?)",
-  ).run(
     campaignId,
+    "monster",
     id,
     input.name,
     `${input.type} ${input.challengeRating} ${input.source ?? ""} ${input.stats} ${input.abilities} ${input.spells} ${input.notes}`,
@@ -293,13 +305,19 @@ function getMonster(database: DatabaseSync, id: string): Monster {
   return toMonster(database, row);
 }
 
-function toMonster(database: DatabaseSync, row: MonsterRow): Monster {
-  const tags = statement(
-    database,
-    `SELECT t.id, t.name, t.color FROM tags t
+function toMonster(
+  database: DatabaseSync,
+  row: MonsterRow,
+  suppliedTags?: Tag[],
+): Monster {
+  const tags =
+    suppliedTags ??
+    (statement(
+      database,
+      `SELECT t.id, t.name, t.color FROM tags t
        JOIN monster_tags mt ON mt.tag_id = t.id
       WHERE mt.monster_id = ? ORDER BY t.name COLLATE NOCASE`,
-  ).all(row.id) as Tag[];
+    ).all(row.id) as Tag[]);
   return {
     ...row,
     spellSlots: JSON.parse(row.spellSlots) as number[],
@@ -317,15 +335,23 @@ function touch(
   resourceId: string,
   action: string,
 ): void {
-  statement(
+  changed(
     database,
-    "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",
-  ).run(Date.now(), campaignId);
-  recordAuditEvent(database, {
     campaignId,
     actorUserId,
-    resourceType: action === "tag_created" ? "tag" : "monster",
+    action === "tag_created" ? "tag" : "monster",
     resourceId,
     action,
-  });
+  );
+}
+
+function sanitizeMonster(input: MonsterInput): MonsterInput {
+  return {
+    ...input,
+    stats: sanitizeRichText(input.stats),
+    token: sanitizeRichText(input.token ?? ""),
+    abilities: sanitizeRichText(input.abilities),
+    spells: sanitizeRichText(input.spells),
+    notes: sanitizeRichText(input.notes),
+  };
 }

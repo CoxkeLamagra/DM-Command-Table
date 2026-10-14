@@ -1,5 +1,6 @@
 "use client";
 
+import { isLocalMediaUrl } from "@/domain/local-media";
 import { formatSelection, insertEditorNode } from "./editor-commands";
 
 import {
@@ -152,7 +153,7 @@ export function RichTextEditor({
               selection.removeAllRanges();
               selection.addRange(savedSelection.current);
             }
-            if (insertion.startsWith("/api/screenshots/")) {
+            if (isLocalMediaUrl(insertion)) {
               const image = document.createElement("img");
               image.src = insertion;
               image.alt = "Screenshot";
@@ -282,10 +283,7 @@ function sanitizeRichText(value: string): string {
       element.tagName === "IMG" ? (element.getAttribute("alt") ?? "") : "";
     for (const attribute of Array.from(element.attributes))
       element.removeAttribute(attribute.name);
-    if (
-      element.tagName === "IMG" &&
-      /^\/api\/screenshots\/[0-9a-f-]+$/i.test(imageSource)
-    ) {
+    if (element.tagName === "IMG" && isLocalMediaUrl(imageSource)) {
       element.setAttribute("src", imageSource);
       element.setAttribute(
         "alt",

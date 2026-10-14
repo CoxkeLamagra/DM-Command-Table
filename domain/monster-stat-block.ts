@@ -1,3 +1,4 @@
+import { isLocalMediaUrl } from "./local-media.ts";
 export function abilityScores(stats: string) {
   const text = stats.replace(/<[^>]*>/g, " ");
   const values = new Map(
@@ -38,7 +39,7 @@ export function extractMonsterToken(abilities: string) {
   };
 }
 export function attachMonsterToken(abilities: string, url: string) {
-  if (!/^\/api\/screenshots\/[0-9a-f-]+$/i.test(url))
+  if (!isLocalMediaUrl(url))
     throw new Error("Invalid local monster token URL.");
   return `<img src="${url}" alt="Monster token">\n${extractMonsterToken(abilities).abilities}`;
 }

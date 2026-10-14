@@ -1,7 +1,18 @@
 import type { FiveEToolsMonster } from "./fiveetools";
 
-const BASE = "https://dnd5e.lamagra.link";
-const cache = new Map<string, Promise<Blob | null>>();
+import {
+  BESTIARY_BASE as BASE,
+  catalogueUrl,
+  fetchCatalogue,
+  readCatalogueBody,
+} from "./catalogue-download.ts";
+type CachedToken = { promise: Promise<Blob | null>; size: number };
+const cache = new Map<string, CachedToken>();
+let cachedBytes = 0;
+function evict(url: string) {
+  cachedBytes -= cache.get(url)?.size ?? 0;
+  cache.delete(url);
+}
 export function catalogueTokenUrl(
   monster: FiveEToolsMonster,
 ): string | undefined {
@@ -12,9 +23,8 @@ export function catalogueTokenUrl(
       (monster.tokenHref?.path ? `/img/${monster.tokenHref.path}` : undefined);
     if (!href) return;
     try {
-      const url = new URL(href, BASE);
-      if (url.origin === BASE && url.pathname.startsWith("/img/"))
-        return url.href;
+      const url = catalogueUrl(href);
+      if (new URL(url).pathname.startsWith("/img/")) return url;
     } catch {
       /* Invalid catalogue metadata has no image. */
     }
@@ -29,51 +39,37 @@ export function catalogueTokenUrl(
   return `${BASE}/img/bestiary/tokens/${encodeURIComponent(source)}/${encodeURIComponent(name)}.webp`;
 }
 export function downloadMonsterToken(url: string): Promise<Blob | null> {
-  if (!cache.has(url)) {
-    if (cache.size >= 64) cache.delete(cache.keys().next().value!);
-    cache.set(
-      url,
-      (async () => {
-        try {
-          const parsed = new URL(url);
-          if (parsed.origin !== BASE || !parsed.pathname.startsWith("/img/"))
-            return null;
-          const response = await fetch(url, {
-            credentials: "omit",
-            referrerPolicy: "no-referrer",
-            redirect: "error",
-            signal: AbortSignal.timeout(10000),
-          });
-          if (!response.ok || !response.body) return null;
-          const type = response.headers.get("content-type")?.split(";")[0];
-          if (
-            !type ||
-            !["image/webp", "image/png", "image/jpeg"].includes(type)
-          )
-            return null;
-          const reader = response.body.getReader();
-          const chunks: Uint8Array[] = [];
-          let bytes = 0;
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              bytes += value.byteLength;
-              if (bytes > 2 * 1024 * 1024) {
-                await reader.cancel();
-                return null;
-              }
-              chunks.push(value);
-            }
-          } finally {
-            reader.releaseLock();
-          }
-          return new Blob(chunks as BlobPart[], { type });
-        } catch {
-          return null;
-        }
-      })(),
-    );
-  }
-  return cache.get(url)!;
+  const cached = cache.get(url);
+  if (cached) return cached.promise;
+  if (cache.size >= 32) evict(cache.keys().next().value!);
+  const entry: CachedToken = { promise: Promise.resolve(null), size: 0 };
+  entry.promise = (async () => {
+    try {
+      const parsed = new URL(catalogueUrl(url));
+      if (!parsed.pathname.startsWith("/img/")) return null;
+      const response = await fetchCatalogue(url, 10000);
+      const { bytes, type } = await readCatalogueBody(
+        response,
+        2 * 1024 * 1024,
+        ["image/webp", "image/png", "image/jpeg"],
+      );
+      return new Blob([bytes], { type });
+    } catch {
+      return null;
+    }
+  })().then((blob) => {
+    if (cache.get(url) === entry) {
+      if (!blob)
+        evict(url); // Transient failures remain retryable.
+      else {
+        entry.size = blob.size;
+        cachedBytes += blob.size;
+        while (cachedBytes > 16 * 1024 * 1024)
+          evict(cache.keys().next().value!);
+      }
+    }
+    return blob;
+  });
+  cache.set(url, entry);
+  return entry.promise;
 }

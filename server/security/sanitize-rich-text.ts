@@ -1,3 +1,4 @@
+import { isLocalMediaUrl } from "../../domain/local-media.ts";
 import sanitizeHtml from "sanitize-html";
 import {
   RICH_TEXT_TAGS,
@@ -19,10 +20,7 @@ export function sanitizeRichText(value: string): string {
     },
     disallowedTagsMode: "discard",
     exclusiveFilter(frame) {
-      return (
-        frame.tag === "img" &&
-        !/^\/api\/screenshots\/[0-9a-f-]+$/i.test(frame.attribs.src ?? "")
-      );
+      return frame.tag === "img" && !isLocalMediaUrl(frame.attribs.src ?? "");
     },
   });
 }

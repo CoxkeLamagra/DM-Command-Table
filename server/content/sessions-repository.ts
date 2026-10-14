@@ -113,6 +113,7 @@ export function createSessionRepository(database: DatabaseSync) {
           id,
           expectedRevision,
           result.changes,
+          campaignId,
         );
         changed(database, campaignId, actorUserId, "session", id, "updated");
         index(

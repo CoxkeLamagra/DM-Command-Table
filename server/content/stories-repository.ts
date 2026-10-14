@@ -128,6 +128,7 @@ export function createStoryRepository(database: DatabaseSync) {
           id,
           expectedRevision,
           result.changes,
+          campaignId,
         );
         replaceStoryLinks(database, campaignId, id, input.sessionIds);
         changed(database, campaignId, actorUserId, "story_beat", id, "updated");

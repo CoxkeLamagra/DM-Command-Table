@@ -1,7 +1,7 @@
 import { createBestiaryRepository } from "../bestiary/bestiary-repository.ts";
 import { apiJson, jsonBody } from "../http/http.ts";
 import { monsterSchema } from "../http/schemas.ts";
-import { revisionedMonster, clean } from "./route-schemas.ts";
+import { revisionedMonster } from "./route-schemas.ts";
 import type { RouteInput } from "./route-input.ts";
 export async function handleBestiaryRoutes(
   input: RouteInput,
@@ -20,21 +20,15 @@ export async function handleBestiaryRoutes(
     if (method === "GET")
       return apiJson({ monsters: bestiary.list(campaignId, context.userId) });
     if (method === "POST") {
-      const input = clean(monsterSchema.parse(await jsonBody(request)), [
-        "token",
-        "abilities",
-        "spells",
-        "notes",
-      ]);
+      const input = monsterSchema.parse(await jsonBody(request));
       return apiJson(
         { monster: bestiary.create(campaignId, context.userId, input) },
         201,
       );
     }
     if (resourceId && method === "PATCH") {
-      const { revision, ...input } = clean(
-        revisionedMonster.parse(await jsonBody(request)),
-        ["token", "abilities", "spells", "notes"],
+      const { revision, ...input } = revisionedMonster.parse(
+        await jsonBody(request),
       );
       return apiJson({
         monster: bestiary.update(

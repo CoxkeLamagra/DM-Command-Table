@@ -723,3 +723,99 @@ test("combat API validates live resources before writes and applies end-turn sav
     database.close();
   }
 });
+
+test("failed updates do not disclose revision metadata from another campaign", async () => {
+  const { database, campaign, content, encounters } = fixture();
+  const { ResourceNotFoundError } = await import("../server/http/conflicts.ts");
+  const other = createCampaignRepository(database).create("owner", {
+    name: "Private campaign",
+  });
+  try {
+    const player = content.createPlayer(other.id, "owner", {
+      kind: "player",
+      name: "Private hero",
+      race: "",
+      className: "",
+      level: null,
+      hitPoints: null,
+      armorClass: null,
+      notes: "",
+    });
+    const session = content.createSession(other.id, "owner", {
+      title: "Private session",
+      date: "",
+      status: "planned",
+      notes: "",
+      sortOrder: 0,
+    });
+    const story = content.createStoryBeat(other.id, "owner", {
+      title: "Private story",
+      chapter: "",
+      details: "",
+      status: "planned",
+      sortOrder: 0,
+      sessionIds: [],
+    });
+    const prepared = encounters.createPrepared(other.id, "owner", session.id, {
+      name: "Private encounter",
+      notes: "",
+      sortOrder: 0,
+      monsters: [],
+      combatants: [],
+    });
+    assert.throws(
+      () =>
+        content.updatePlayer(
+          campaign.id,
+          "editor",
+          player.id,
+          player.revision,
+          player,
+        ),
+      ResourceNotFoundError,
+    );
+    assert.throws(
+      () =>
+        content.updateSession(
+          campaign.id,
+          "editor",
+          session.id,
+          session.revision,
+          session,
+        ),
+      ResourceNotFoundError,
+    );
+    assert.throws(
+      () =>
+        content.updateStoryBeat(
+          campaign.id,
+          "editor",
+          story.id,
+          story.revision,
+          story,
+        ),
+      ResourceNotFoundError,
+    );
+    assert.throws(
+      () =>
+        encounters.updatePrepared(
+          campaign.id,
+          "editor",
+          prepared.id,
+          prepared.revision,
+          prepared,
+        ),
+      ResourceNotFoundError,
+    );
+    assert.equal(
+      content.listPlayers(other.id, "owner")[0].revision,
+      player.revision,
+    );
+    assert.equal(
+      content.listSessions(other.id, "owner")[0].revision,
+      session.revision,
+    );
+  } finally {
+    database.close();
+  }
+});

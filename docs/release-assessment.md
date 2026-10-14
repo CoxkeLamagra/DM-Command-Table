@@ -1,7 +1,13 @@
-# v11.6.0 release validation
+# v11.7.0 release validation
 
-Monster images now have a separate Token section and persisted `token` rich-text field, retained in Combat snapshots and tracked through existing authenticated local media references. Schema migration 2 automatically moves leading marked token images out of existing monster abilities. Existing captured snapshots can still display their original marked image. The migration does not change image URLs or saved combat state.
+This refactor separates prepared encounter and live Combat persistence behind the same repository facade, centralizes resource helpers and local-image rules, batches Bestiary tag reads, sanitizes Bestiary rich text once and shares bounded catalogue downloads. Catalogue token caching has entry and byte budgets, and transient failures remain retryable.
 
-Validation passed: production dependency audit, repository formatting, lint, TypeScript, all 123 unit/integration tests, the production build and all 17 browser tests using system Chromium. Regression checks cover schema-1 token migration, independent token/action persistence and media references, captured Combat tokens, separate Token/Actions editor contents, action edits followed by save/reopen, and offline token display after Combat reload. Runtime packaging and integrity verification passed for v11.6.0.
+Schema version 2, local storage, existing API shapes, campaign permissions, user/admin features, optional imports, Token sections, preparation replacement, Combat snapshots/undo and GUI updates remain supported. No new dependencies or database migration are required.
 
-These checks do not establish a complete Debian LXC deployment or host proxy/TLS acceptance. System Chromium differs from Playwright’s pinned browser.
+Validation passed: production dependency audit, repository formatting, lint, TypeScript, all 128 unit/integration tests, the production build and all 17 browser tests using system Chromium. New regressions cover constant Bestiary tag-query count, direct persistence sanitization, campaign-scoped failed revision lookups, streamed-size enforcement, rejected-body cancellation, URL origin/credential validation and coalesced/retryable token downloads.
+
+Runtime packaging and integrity verification passed for v11.7.0. The packaged application was mounted read-only into an existing Node 24 runtime container with external networking disabled. Fresh registration/admin, readiness/authentication, campaigns/sessions, separate local token media, prepared loading, Combat save/undo, export/import, screenshot upload/WebP encoding/access, storage checking, backup verification, restore and maintenance passed.
+
+## Validation limits
+
+This is an engineering refactor with focused security regressions, not a complete security audit or penetration test. Tests do not establish a full Debian LXC installation, host proxy/TLS acceptance or deployment-hardware benchmarks. System Chromium differs from Playwright’s pinned browser. The offline check uses an existing runtime container image with the new package mounted into it; it does not validate a new source-image build against registry availability.

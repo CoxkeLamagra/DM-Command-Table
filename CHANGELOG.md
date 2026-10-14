@@ -2,6 +2,15 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.7.0 — 2026-10-14
+
+- Split encounter persistence into prepared, combat command and combat storage modules behind the existing facade; share indexing/audit/revision helpers across content, Bestiary and encounters.
+- Scope failed revision lookups to the requested campaign so errors do not expose other campaigns’ record metadata.
+- Batch Bestiary tags in one campaign query and sanitize monster rich text once at the persistence boundary, including ability-score media references.
+- Share authenticated local image URL rules across browser/server sanitizers and token handling.
+- Centralize fixed-origin catalogue fetches and bounded stream reading; cancel rejected bodies, reject credential URLs, keep transient token failures retryable, and bound token caching by both entry count and 16 MiB of stored image bytes.
+- Preserve offline local runtime, current user/admin functionality, catalogue imports, token sections, preparation replacement, captured combat state/undo and GUI updates. No new dependencies or schema migration are required.
+
 ## 11.6.0 — 2026-10-14
 
 - Give monster token images a separate saved `token` field and Bestiary Token section, keeping Actions & traits free of imported token images.

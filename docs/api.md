@@ -83,3 +83,7 @@ Import results offer **View stat block** before selection. Opening a Bestiary mo
 New imports retain alignment, armor/HP formula details, saving throws, skills, damage/condition defenses, senses, passive Perception, languages and full spell lists in the existing ability/spell fields. Existing saved records render their available fields immediately; reimport with replacement adds catalogue details that older imports did not retain. Existing combat snapshots keep their captured values. Stat blocks render locally without embedding the catalogue webpage.
 
 Monster tokens use a separate optional `token` rich-text field on monsters and Combat snapshots (empty by default). The Bestiary editor displays the full image in **Token**, while the stat-block renderer displays it at the upper right. Tokens use authenticated `/api/screenshots` local media and the existing access/reference/quota policies. Schema migration 2 moves existing leading marked token images out of monster `abilities` into `token`; older captured Combat snapshots remain readable.
+
+The v11.7 refactor preserves request paths, response shapes, revision/conflict codes and campaign permissions. Bestiary rich text is normalized once by the repository, including direct internal callers; the route validates the input schema. Local-only image rules and bounded catalogue downloads use shared helpers.
+
+A record ID outside the campaign specified in the request returns `not_found` on failed content/prepared-encounter updates; revision metadata is only returned for records within that campaign.

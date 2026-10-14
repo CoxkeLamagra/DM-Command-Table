@@ -125,6 +125,7 @@ export function createPlayerRepository(database: DatabaseSync) {
           id,
           expectedRevision,
           result.changes,
+          campaignId,
         );
         changed(database, campaignId, actorUserId, "player", id, "updated");
         index(

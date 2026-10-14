@@ -2,44 +2,16 @@ import { z } from "zod";
 import { catalogueIdentity, parseCatalogue } from "./local-catalogue.ts";
 import type { FiveEToolsMonster } from "./fiveetools.ts";
 
-export const BESTIARY_BASE = "https://dnd5e.lamagra.link";
+import { fetchCatalogue, readCatalogueBody } from "./catalogue-download.ts";
+export { BESTIARY_BASE } from "./catalogue-download.ts";
 export type RemoteMonsterRef = { name: string; source: string; file: string };
 const filename = z.string().regex(/^bestiary-[a-z0-9_-]+\.json$/i);
 async function download(path: string, signal?: AbortSignal): Promise<string> {
-  const response = await fetch(`${BESTIARY_BASE}${path}`, {
-    signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
-      : AbortSignal.timeout(15000),
-    credentials: "omit",
-    referrerPolicy: "no-referrer",
-    redirect: "error",
-  });
-  if (!response.ok)
-    throw new Error("The remote catalogue could not be loaded.");
-  if (!response.body)
-    throw new Error("The remote catalogue returned an empty response.");
-  const reader = response.body.getReader(),
-    decoder = new TextDecoder();
-  let bytes = 0,
-    text = "";
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      bytes += chunk.value.byteLength;
-      if (bytes > 32 * 1024 * 1024) {
-        await reader.cancel();
-        throw new Error("Remote catalogue response is too large.");
-      }
-      text += decoder.decode(chunk.value, { stream: true });
-    }
-    text += decoder.decode();
-  } finally {
-    reader.releaseLock();
-  }
-
-  return text;
+  const response = await fetchCatalogue(path, 15000, signal);
+  const { bytes } = await readCatalogueBody(response, 32 * 1024 * 1024);
+  return new TextDecoder().decode(bytes);
 }
+
 export async function loadRemoteCatalogue(
   signal?: AbortSignal,
 ): Promise<RemoteMonsterRef[]> {

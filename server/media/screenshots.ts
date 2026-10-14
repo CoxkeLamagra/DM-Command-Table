@@ -1,3 +1,4 @@
+import { extractLocalImageIds } from "../../domain/local-media.ts";
 import { storagePaths } from "../config.ts";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -236,13 +237,7 @@ export function syncScreenshotReferences(
   });
 }
 
-export function extractScreenshotIds(value: string): string[] {
-  return [
-    ...value.matchAll(
-      /<img\b[^>]*\bsrc=["']\/api\/screenshots\/([0-9a-f-]+)["'][^>]*>/gi,
-    ),
-  ].map((match) => match[1]);
-}
+export const extractScreenshotIds = extractLocalImageIds;
 function uploadDirectory() {
   return storagePaths().uploads;
 }

@@ -20,7 +20,7 @@ The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn component
 | `tests/`               | Unit/API, browser, package, deployment and installer regressions                                                                     |
 | `vendor/`              | Required upstream stylesheet/license                                                                                                 |
 
-The content facade composes repositories without owning their SQL. Browser transport handles timeouts, connectivity, conflicts and mutation broadcasts. UI drafts are scoped to account/campaign, survive in-flight saves and reconcile revisions. Navigation supports addressable records and responsive sidebar state.
+The content and encounter facades compose repositories without owning their SQL. `server/encounters/prepared-repository.ts` owns prepared encounters; `combat-repository.ts` owns authorized save/undo commands; `combat-storage.ts` owns live-state reads, combatant replacement and history pruning. `server/support/resource-persistence.ts` shares indexing, revision checking, campaign timestamps and audit events. Browser transport handles timeouts, connectivity, conflicts and mutation broadcasts. UI drafts are scoped to account/campaign, survive in-flight saves and reconcile revisions. Navigation supports addressable records and responsive sidebar state.
 
 ## Persistence and authorization
 
@@ -65,3 +65,9 @@ New imports retain alignment, armor/HP formula details, saving throws, skills, d
 Monster token icons appear at the upper right of visual stat blocks. Available tokens are downloaded from the catalogue during import and saved to the existing local image library; Bestiary and captured Combat blocks display these images offline. Reimport older monsters with replacement enabled to add tokens. Missing/unavailable token images do not block monster import. Token previews use temporary browser images. Both Bestiary and Combat stat blocks start expanded; click **Visual stat block** to collapse or expand them.
 
 Monster token images have a dedicated `token` rich-text field. Bestiary persistence and Combat snapshots track this field through the existing local media reference and campaign package lifecycle. Schema migration 2 moves existing leading marked monster tokens from `abilities` to `token` without changing image URLs.
+
+Bestiary listing loads tags once for the campaign rather than per monster. Bestiary writes sanitize rich-text fields at the repository boundary and reuse those values for persistence, indexing and media references. Ability-score images receive the same media reference tracking as tokens/actions/spells/notes.
+
+`domain/local-media.ts` defines local image URL and reference parsing rules for browser/server use. `features/bestiary/catalogue-download.ts` owns catalogue-origin validation, credential-free fetch options, timeout/abort handling, streaming size limits and rejected-body cancellation. Token caching coalesces active downloads, retries transient failures and limits retained bytes to 16 MiB across at most 32 entries.
+
+Revision-error lookups are scoped to the requested campaign; prepared records are scoped through their parent session. The failed-write path cannot return another campaign’s revision metadata.

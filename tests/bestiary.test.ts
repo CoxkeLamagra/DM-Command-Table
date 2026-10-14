@@ -166,3 +166,48 @@ test("separate Bestiary tokens persist and retain media access when actions chan
     database.close();
   }
 });
+
+test("Bestiary list batches tags across monsters and sanitizes at persistence boundary", () => {
+  const { database, campaign, bestiary } = fixture();
+  let tagReads = 0;
+  const prepare = database.prepare.bind(database);
+  database.prepare = (sql) => {
+    const prepared = prepare(sql);
+    return new Proxy(prepared, {
+      get(target, property) {
+        const member = Reflect.get(target, property);
+        if (property === "all" && sql.includes("monster_tags"))
+          return (...args: Parameters<typeof prepared.all>) => {
+            tagReads++;
+            return prepared.all(...args);
+          };
+        return typeof member === "function" ? member.bind(target) : member;
+      },
+    });
+  };
+  try {
+    const tag = bestiary.createTag(campaign.id, "owner", { name: "Forest" });
+    for (let i = 0; i < 10; i++)
+      bestiary.create(campaign.id, "owner", {
+        ...goblin,
+        name: `Goblin ${i}`,
+        tagIds: [tag.id],
+      });
+    tagReads = 0;
+    const listed = bestiary.list(campaign.id, "owner");
+    assert.equal(listed.length, 10);
+    assert.ok(listed.every((monster) => monster.tags[0].id === tag.id));
+    assert.equal(tagReads, 1);
+    const dirty = {
+      ...goblin,
+      stats: "<b>STR 10</b><script>bad()</script>",
+      abilities: '<b>Claw</b><img src="https://evil.example/image.png">',
+    };
+    const clean = bestiary.create(campaign.id, "owner", dirty);
+    assert.equal(clean.stats, "<b>STR 10</b>");
+    assert.equal(clean.abilities, "<b>Claw</b>");
+    assert.match(dirty.stats, /script/);
+  } finally {
+    database.close();
+  }
+});
