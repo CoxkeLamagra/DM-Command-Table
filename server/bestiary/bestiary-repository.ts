@@ -193,7 +193,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
       } catch (error) {
         if (error instanceof Error && error.message.includes("FOREIGN KEY"))
           throw new PublicApiError(
-            "This monster is used by a prepared encounter.",
+            "This monster is used by a prepared encounter. Remove it from all prepared encounters before deleting it from the Bestiary.",
             409,
           );
         throw error;

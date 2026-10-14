@@ -1,4 +1,4 @@
-import { ApiError } from "./errors";
+import { ApiError } from "./errors.ts";
 export async function requestJson<T>(
   path: string,
   init: RequestInit = {},
@@ -20,7 +20,11 @@ export async function requestJson<T>(
     code?: string;
   } & T;
   if (!response.ok) {
-    if (response.status === 409 && typeof window !== "undefined")
+    if (
+      response.status === 409 &&
+      body.code === "revision_conflict" &&
+      typeof window !== "undefined"
+    )
       window.dispatchEvent(
         new CustomEvent("workspace:conflict", { detail: { path, body } }),
       );

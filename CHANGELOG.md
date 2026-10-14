@@ -2,6 +2,11 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.5.2 — 2026-10-14
+
+- Show the actual deletion error for monsters used by prepared encounters, including how to remove the dependency. Reserve the workspace save-conflict banner for genuine revision conflicts.
+- Verify unlinked monster deletion, atomic rollback when a selected monster is referenced, and client classification of conflict responses. No database migration is required.
+
 ## 11.5.1 — 2026-10-14
 
 - Import available catalogue monster tokens into authenticated local image storage and show them in the upper right of visual stat blocks, including captured Combat snapshots.

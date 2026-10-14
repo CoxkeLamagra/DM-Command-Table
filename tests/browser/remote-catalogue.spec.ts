@@ -167,4 +167,25 @@ test("remote catalogue connects automatically and imports searchable monster pre
       "/img/bestiary/tokens/MM/Remote%20goblin.webp",
     ].sort(),
   );
+  await page.getByRole("button", { name: "Bestiary", exact: true }).click();
+  await page.getByRole("button", { name: /^Remote goblin/ }).click();
+  page.on("dialog", (confirmation) => confirmation.accept());
+  const deletePath = "**/monsters/bulk-delete";
+  const dependencyError =
+    "This monster is used by a prepared encounter. Remove it from all prepared encounters before deleting it from the Bestiary.";
+  await page.route(deletePath, (route) =>
+    route.fulfill({ status: 409, json: { error: dependencyError } }),
+  );
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText(dependencyError, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Save conflict detected", { exact: true }),
+  ).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await page.unroute(deletePath);
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: /^Remote goblin/ }),
+  ).toHaveCount(0);
 });
