@@ -296,3 +296,28 @@ test("authentication work is bounded and releases capacity after success or fail
   );
   assert.equal(await withAuthWork(async () => "recovered"), "recovered");
 });
+
+test("origin checks reject cross-site requests without Origin and non-web or malformed origins", () => {
+  const cases: Record<string, string>[] = [
+    { host: "local", "sec-fetch-site": "cross-site" },
+    { host: "local", origin: "ftp://local" },
+    { host: "local", origin: "https://user:pass@local" },
+    { host: "local", origin: "https://local/path" },
+  ];
+  for (const headers of cases)
+    assert.equal(
+      rejectCrossOrigin(
+        new Request("http://local/api/auth", { method: "POST", headers }),
+      )?.status,
+      403,
+    );
+  assert.equal(
+    rejectCrossOrigin(
+      new Request("http://local/api/auth", {
+        method: "POST",
+        headers: { host: "local" },
+      }),
+    ),
+    null,
+  );
+});

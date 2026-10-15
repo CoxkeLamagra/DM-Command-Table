@@ -819,3 +819,81 @@ test("failed updates do not disclose revision metadata from another campaign", a
     database.close();
   }
 });
+
+test("malformed nested API paths cannot fall back to parent mutations or another session", async () => {
+  const { database, campaign, content, encounters } = fixture();
+  try {
+    const sessionInput = {
+      title: "First",
+      date: "",
+      notes: "",
+      status: "planned" as const,
+      sortOrder: 0,
+    };
+    const a = content.createSession(campaign.id, "owner", sessionInput);
+    const b = content.createSession(campaign.id, "owner", {
+      ...sessionInput,
+      title: "Second",
+    });
+    const prepared = encounters.createPrepared(campaign.id, "owner", a.id, {
+      name: "Keep",
+      notes: "",
+      sortOrder: 0,
+      monsters: [],
+      combatants: [],
+    });
+    const base = `http://local/api/campaigns/${campaign.id}/sessions`;
+    const request = async (path: string, method: string, body?: unknown) =>
+      handleApi(
+        new Request(path, {
+          method,
+          headers: { "content-type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        }),
+        database,
+        { userId: "owner", isAdmin: true },
+      );
+    assert.equal(
+      (await request(`${base}/${a.id}/unexpected`, "DELETE")).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(`${base}/${a.id}/encounters/reorder/extra`, "POST", {
+          ...prepared,
+        })
+      ).status,
+      404,
+    );
+    assert.equal(
+      (await request(`${base}/${b.id}/encounters/${prepared.id}`, "DELETE"))
+        .status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(`${base}/${b.id}/encounters/${prepared.id}`, "PATCH", {
+          ...prepared,
+          name: "Wrong parent",
+        })
+      ).status,
+      404,
+    );
+    assert.equal(content.listSessions(campaign.id, "owner").length, 2);
+    assert.equal(
+      encounters.listPrepared(campaign.id, "owner", a.id)[0].name,
+      "Keep",
+    );
+    assert.equal(
+      (
+        await request(`${base}/${a.id}/encounters/${prepared.id}`, "PATCH", {
+          ...prepared,
+          name: "Correct parent",
+        })
+      ).status,
+      200,
+    );
+  } finally {
+    database.close();
+  }
+});

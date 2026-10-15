@@ -1,3 +1,4 @@
+import { acceptsApiRoute } from "../http/api-contract.ts";
 import { parseApiRoute, type ApiRoute } from "../http/api-route.ts";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -37,6 +38,8 @@ export async function handleApi(
     const url = new URL(request.url);
     const { segments } = parsedRoute ?? parseApiRoute(url.pathname);
     const method = request.method.toUpperCase();
+    if (!acceptsApiRoute(segments, method))
+      return apiJson({ error: "API resource not found." }, 404);
     const campaigns = createCampaignRepository(database);
     const memberships = createMembershipRepository(database);
     const support = createSupportRepository(database);

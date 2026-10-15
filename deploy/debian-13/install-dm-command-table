@@ -4,17 +4,17 @@ set +x
 set -euo pipefail
 umask 077
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-RELEASE=v11.9.0
+RELEASE=v12.0.0
 REPOSITORY=https://github.com/CoxkeLamagra/DM-Command-Table.git
 RESUME=false
 if [[ ${1:-} == --resume ]]; then RESUME=true; shift; fi
 if [[ ${1:-} == --help ]]; then
-  echo 'Usage: bash install-dm-command-table [--resume] [--release v11.MINOR.PATCH]'
+  echo 'Usage: bash install-dm-command-table [--resume] [--release v12.MINOR.PATCH]'
   echo 'Fresh Debian 13/systemd installation only. Installs prerequisites, application, backups and automatic GUI updates.'
   exit 0
 fi
 if [[ $# == 2 && $1 == --release ]]; then RELEASE=$2; elif [[ $# != 0 ]]; then echo 'Use --help for usage.' >&2; exit 1; fi
-[[ $RELEASE =~ ^v11\.([0-9]+)\.[0-9]+$ ]] && (( 10#${BASH_REMATCH[1]} >= 3 )) || { echo 'Select a stable v11 release tag from v11.3.0 onward.' >&2; exit 1; }
+[[ $RELEASE =~ ^v12\.[0-9]+\.[0-9]+$ ]] || { echo 'Select a stable v12 release tag.' >&2; exit 1; }
 [[ $(id -u) == 0 ]] || { echo 'Run this installer as root inside the LXC.' >&2; exit 1; }
 source /etc/os-release
 [[ $ID == debian && $VERSION_ID == 13 ]] || { echo 'Debian 13 is required.' >&2; exit 1; }

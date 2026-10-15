@@ -2,6 +2,15 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.0.0 — 2026-10-15
+
+- Split prepared encounter state/persistence from rendering, and Combat HP and condition editors into focused modules while preserving all current user/admin workflows.
+- Memoize encounter ordering and Bestiary lookups, bound summary name work, cache quota/reorder statements, validate repeated Bestiary references once, and avoid filesystem statistics for non-growing transactions.
+- Normalize prepared rich text once at persistence and use the normalized values for local image references; remove the unused legacy HP helper.
+- Reject malformed API path/method aliases before parent mutations, enforce prepared encounter parent-session scope, and share validated origin/Host checks with cross-site browser request hardening.
+- Publish a v12 installer and stable-v12 update selector with complete upgrade guidance. Existing v11 hosts need one root helper upgrade before GUI updates can discover v12.
+- Retain schema version 2 and supported v11 local data, credentials, optional catalogue imports, tokens, prepared numbering/reordering, Combat state/undo and Administration. No new runtime dependencies or data migration are required.
+
 ## 11.9.0 — 2026-10-15
 
 - Automatically expand new prepared encounters and keep Save, Delete and Load encounter actions in each card header, including when collapsed.

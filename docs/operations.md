@@ -108,7 +108,7 @@ Prepared encounters may expand to at most 10,000 combatants, including prepared 
 
 ## Local resource limits
 
-The application uses schema version 2, built on the v11 schema-version-1 baseline named `offline-runtime-baseline`. Startup applies `monster-token-section` to move existing marked Bestiary token images into their separate field. Use separate fresh database and uploads paths for the first v11 installation; upgrades within v11 retain existing paths and data. Unsupported schema identities are rejected without conversion. Never delete existing data to resolve a format error.
+The application uses schema version 2, built on the v11 schema-version-1 baseline named `offline-runtime-baseline`. Startup applies `monster-token-section` to move existing marked Bestiary token images into their separate field. Use separate fresh database and uploads paths for the first v11 installation; v11-to-v12 and subsequent v12 upgrades retain existing paths and data. Unsupported schema identities are rejected without conversion. Never delete existing data to resolve a format error.
 
 Runtime hosts need no Internet access. Catalogue imports can read local browser files or optionally fetch from dnd5e.lamagra.link in the browser, and Debian GUI updates optionally fetch/build/test approved releases before installing them. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
 
@@ -120,7 +120,7 @@ Use `pnpm verify` and CI's Node 24 browser and Docker checks before accepting a 
 
 ## Automatic and offline updates
 
-After the one-time [Debian updater installation](debian-13-lxc.md#updates-from-administration), the Admin button fetches, installs, verifies, builds, runs browser tests and packages the latest stable v11 release. Source preparation runs as a separate build account without application storage/settings/bootstrap variables; failures leave the active release running. The root-owned deployment helper verifies the immutable candidate, takes a stopped-service backup, switches and checks the exact expected health version, restoring code/data on failure.
+After the one-time [Debian updater installation](debian-13-lxc.md#updates-from-administration), the Admin button fetches, installs, verifies, builds, runs browser tests and packages the latest stable v12 release. Source preparation runs as a separate build account without application storage/settings/bootstrap variables; failures leave the active release running. The root-owned deployment helper verifies the immutable candidate, takes a stopped-service backup, switches and checks the exact expected health version, restoring code/data on failure.
 
 Automatic updates need GitHub/package-registry connectivity and preconfigured system tools, supplied by the one-time installer. The browser cannot select commands, sources or paths. Root can pin a target or deliberately choose `staged` for an offline package workflow. Manifests detect transfer corruption rather than establish publisher authenticity; automatic mode trusts the fixed project repository. Keep prior releases/backups and retain failed build output for diagnosis. Routine application updates need no manual build or staging; root-owned helper/service changes remain host maintenance.
 
@@ -148,15 +148,21 @@ Monster token icons appear at the upper right of visual stat blocks. Available t
 
 The v11.7 refactor keeps the existing schema version 2 and requires no additional migration or dependency. Install/update, local backups, media storage and rollback workflows remain the same. The optional catalogue remains the only allowed external runtime source; imported records and images are stored locally.
 
-## Applying v11.8 updater resource limits to an existing host
+## Refreshing updater helpers on a v12 host
 
-Use Administration → Update for the application fixes. After v11.8 is installed, run this once as root in the LXC to update the independently installed broker/build helpers and systemd limits:
+For an existing v11 host, first follow [Upgrading to v12](upgrading-to-v12.md). Once the application is already on v12, run this as root when refreshing its independently installed broker/build helpers and systemd limits:
 
 ```sh
 bash /opt/dm-command-table/current/deploy/debian-13/install-gui-updater
 systemctl show dm-command-table-updater.service -p MemoryMax -p CPUQuotaPerSecUSec -p TasksMax
 ```
 
-The installer is included in the integrity-verified runtime. The unprivileged application cannot replace root helpers itself. Fresh v11.8 installations already apply these settings. Future GUI updates still perform all preparation automatically.
+The installer is included in the integrity-verified runtime. The unprivileged application cannot replace root helpers itself. Fresh v12 installations already apply these settings. Future GUI updates still perform all preparation automatically.
 
 The updater service caps its process group at 2 GiB, two CPU cores worth of time and 512 tasks. Build stages have 20-minute deadlines and the overall source build has a one-hour deadline; ordinary Next builds also use a 1536 MiB JavaScript heap cap. These are ceilings, not reserved resources. The running application is separate and remains available while a candidate is prepared. Smaller or heavily loaded hosts may need an administrator to adjust service resource limits. Older source targets without the verified audit script receive a full `pnpm audit` instead; vulnerable older targets can fail that gate. Deployment recovery still restores the previous verified runtime and backup without rebuilding it.
+
+## v12 operating changes
+
+See [Upgrading to v12](upgrading-to-v12.md) before upgrading a v11 LXC. The independently installed root build helper must be updated once because its old release selector excludes v12; application updates cannot replace root-owned helpers. A v12 helper selects only stable v12 releases by default. Explicit root-pinned tags/SHAs and staged offline deployments remain available. Existing systemd resource ceilings, storage environment/settings and schema identity are retained.
+
+Save transactions now skip disk-stat calls when used SQLite pages do not grow. Growing transactions still enforce the database budget and free-space reserve; Administration still reads full filesystem/WAL metrics. Prepared ordering updates only order/revision/timestamps and retains other browser draft content. Wrong-session or malformed nested API requests reject without changing data.

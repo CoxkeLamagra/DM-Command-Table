@@ -111,7 +111,7 @@ export function UpdatePanel() {
             <p className="mt-1 text-sm text-stone-400">
               Update source:{" "}
               {state.target === "latest"
-                ? "Latest stable v11 release"
+                ? "Latest approved stable release"
                 : state.target === "staged"
                   ? "Host-staged offline package"
                   : state.target}

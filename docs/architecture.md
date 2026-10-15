@@ -1,4 +1,4 @@
-# v11 architecture
+# v12 architecture
 
 The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 2, built on version 1 `offline-runtime-baseline` with the `monster-token-section` migration. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
 
@@ -14,7 +14,7 @@ The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn component
 | `server/api/`          | Authorized resource routing and shared request context                                                                               |
 | `server/content/`      | Player, Session and Story repositories, composed through a small facade with shared indexing, audit, timestamps and revision helpers |
 | `server/`              | Campaign access/copies/packages, Bestiary, encounters, identity, administration, media and security                                  |
-| `db/`                  | v11 schema, SQLite connections, prepared statements and transactions                                                                 |
+| `db/`                  | Supported SQLite schema, connections, prepared statements and transactions                                                           |
 | `scripts/`             | Build/start, packaging, shared storage resolution, backup/restore/maintenance and output cleanup                                     |
 | `deploy/debian-13/`    | Fresh installer, guarded resume, systemd/Nginx and independent GUI update broker/build/deployment                                    |
 | `tests/`               | Unit/API, browser, package, deployment and installer regressions                                                                     |
@@ -50,7 +50,7 @@ The import window connects automatically to the fixed catalogue origin, without 
 
 The Debian installer provisions prerequisites as root, builds as `dmct-build`, deploys verified root-owned code and gives `dmct` write access only to application data. Shared pnpm is publicly executable; tokens remain root-only. Resume accepts only pre-deployment failures without data deletion. Runtime-user readiness checks confirm direct/proxy health, protected endpoints and updater access before token output.
 
-The independent GUI updater resolves the newest stable v11 tag from the fixed project repository. A fresh unprivileged checkout installs locked dependencies and runs audit/format/lint/type/unit/build/browser/package checks without production storage/bootstrap settings. Root verifies, takes a stopped-service backup, switches releases and checks the expected health version. Failure restores matching code/data; preparation failure leaves the live application running. Manual staged packages remain an offline option. Docker lifecycle is host-managed.
+The independent GUI updater resolves the newest stable v12 tag from the fixed project repository. A fresh unprivileged checkout installs locked dependencies and runs audit/format/lint/type/unit/build/browser/package checks without production storage/bootstrap settings. Root verifies, takes a stopped-service backup, switches releases and checks the expected health version. Failure restores matching code/data; preparation failure leaves the live application running. Manual staged packages remain an offline option. Docker lifecycle is host-managed.
 
 ## Verification
 
@@ -75,3 +75,13 @@ Revision-error lookups are scoped to the requested campaign; prepared records ar
 ## Request admission and local resource budgets
 
 API routes share one decoded segment representation across dispatch, persistent rate limits and package concurrency admission. Prefetch and ordinary HTML share nonce CSP. Cookie selection supports HTTPS reverse proxies and HTTP LAN clients. Database transactions enforce local growth reserves; SQLite page limits cover direct allocations. Account campaign/record budgets and administrator storage metrics use the same host-configured limits. See [operations](operations.md) for defaults and deployment boundaries.
+
+## v12 module and efficiency boundaries
+
+`use-prepared-encounters.ts` owns prepared draft recovery, asynchronous persistence, ordering, selection and load-preview state; `prepared-encounters.tsx` renders the cards and header actions. A memoized monster index is shared with encounter summaries and row rendering. Summaries build at most five preview names, reuse that index, and skip unchanged records. Ordering is memoized by encounter data.
+
+Combat detail rendering composes `hit-point-controls.tsx`, `conditions-editor.tsx`, `runtime-controls.tsx` and the local monster stat block. HP and condition form state stays with its editor; the domain combat runtime remains the single HP adjustment implementation. The unused older HP helper and its test have been removed.
+
+Transactions read SQLite page usage before/after writes and fetch filesystem capacity only for growing transactions. Administration still obtains complete main/WAL/free-space metrics on request. Quota and reorder SQL use the per-connection statement cache. Prepared writes validate each distinct Bestiary reference once and sanitize notes once at persistence; routes validate shape without repeating sanitization.
+
+The catch-all API checks a shared method/path contract before dispatch; unknown nested paths cannot fall back to a parent create/delete/save operation. Prepared PATCH/DELETE checks the requested session relationship. Origin and secure-cookie selection share web-origin/Host validation; explicit browser cross-site mutations reject even without Origin. None of these checks caches campaign permissions.

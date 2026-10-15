@@ -2,10 +2,7 @@ import { PublicApiError } from "../http/errors.ts";
 import { statement } from "../../db/statements.ts";
 import { assertPreparedCapacity } from "../../domain/combat.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
-import {
-  preparedCombatantSchema,
-  preparedEncounterFields,
-} from "../http/schemas.ts";
+import { preparedEncounterFields } from "../http/schemas.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
 import {
@@ -76,6 +73,22 @@ export function createPreparedRepository(database: DatabaseSync) {
       );
     },
 
+    requirePreparedSession(
+      campaignId: string,
+      actorUserId: string,
+      sessionId: string,
+      encounterId: string,
+    ): void {
+      requireCampaignRead(database, campaignId, actorUserId);
+      if (
+        !statement(
+          database,
+          `SELECT e.id FROM prepared_encounters e JOIN sessions s ON s.id=e.session_id WHERE e.id=? AND s.id=? AND s.campaign_id=?`,
+        ).get(encounterId, sessionId, campaignId)
+      )
+        throw new ResourceNotFoundError("prepared encounter", encounterId);
+    },
+
     reorderPrepared(
       campaignId: string,
       actorUserId: string,
@@ -85,9 +98,10 @@ export function createPreparedRepository(database: DatabaseSync) {
       requireCampaignEdit(database, campaignId, actorUserId);
       ensureSession(database, campaignId, sessionId);
       return runTransaction(database, () => {
-        const current = database
-          .prepare("SELECT id FROM prepared_encounters WHERE session_id=?")
-          .all(sessionId) as { id: string }[];
+        const current = statement(
+          database,
+          "SELECT id FROM prepared_encounters WHERE session_id=?",
+        ).all(sessionId) as { id: string }[];
         const allowed = new Set(current.map(({ id }) => id));
         if (
           order.length !== current.length ||
@@ -98,12 +112,13 @@ export function createPreparedRepository(database: DatabaseSync) {
             "Prepared encounters changed. Reload before reordering.",
             409,
           );
+        const updateOrder = statement(
+          database,
+          "UPDATE prepared_encounters SET sort_order=?, revision=revision+1, updated_at=? WHERE id=? AND session_id=? AND revision=?",
+        );
+        const now = Date.now();
         order.forEach(({ id, revision }, index) => {
-          const result = database
-            .prepare(
-              "UPDATE prepared_encounters SET sort_order=?, revision=revision+1, updated_at=? WHERE id=? AND session_id=? AND revision=?",
-            )
-            .run(index, Date.now(), id, sessionId, revision);
+          const result = updateOrder.run(index, now, id, sessionId, revision);
           if (!result.changes)
             conflictOrMissing(
               database,
@@ -144,27 +159,17 @@ export function createPreparedRepository(database: DatabaseSync) {
       ensureSession(database, campaignId, sessionId);
       const id = crypto.randomUUID();
       const now = Date.now();
+      const notes = sanitizeRichText(input.notes);
       runTransaction(database, () => {
         statement(
           database,
           `INSERT INTO prepared_encounters
             (id, session_id, name, notes, sort_order, revision, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
-        ).run(
-          id,
-          sessionId,
-          input.name,
-          sanitizeRichText(input.notes),
-          input.sortOrder,
-          now,
-          now,
-        );
+        ).run(id, sessionId, input.name, notes, input.sortOrder, now, now);
         const combatants = preparedEncounterFields.shape.combatants
           .parse(input.combatants ?? [])
-          .map((entry) => {
-            const value = preparedCombatantSchema.parse(entry);
-            return { ...value, notes: sanitizeRichText(value.notes) };
-          });
+          .map((entry) => ({ ...entry, notes: sanitizeRichText(entry.notes) }));
         replacePreparedCombatants(database, id, combatants);
         replacePreparedMonsters(database, campaignId, id, input.monsters);
         touch(
@@ -181,7 +186,7 @@ export function createPreparedRepository(database: DatabaseSync) {
           actorUserId,
           "prepared_encounter",
           id,
-          [input.notes, ...combatants.map(({ notes }) => notes)].join("\n"),
+          [notes, ...combatants.map(({ notes }) => notes)].join("\n"),
         );
       });
       return getPrepared(database, id);
@@ -199,6 +204,7 @@ export function createPreparedRepository(database: DatabaseSync) {
     ): PreparedEncounter {
       requireCampaignEdit(database, campaignId, actorUserId);
       assertPreparedCapacity(input);
+      const notes = sanitizeRichText(input.notes);
       runTransaction(database, () => {
         const result = statement(
           database,
@@ -208,7 +214,7 @@ export function createPreparedRepository(database: DatabaseSync) {
              (SELECT id FROM sessions WHERE campaign_id = ?)`,
         ).run(
           input.name,
-          sanitizeRichText(input.notes),
+          notes,
           input.sortOrder,
           Date.now(),
           id,
@@ -226,10 +232,7 @@ export function createPreparedRepository(database: DatabaseSync) {
           );
         const combatants = preparedEncounterFields.shape.combatants
           .parse(input.combatants ?? [])
-          .map((entry) => {
-            const value = preparedCombatantSchema.parse(entry);
-            return { ...value, notes: sanitizeRichText(value.notes) };
-          });
+          .map((entry) => ({ ...entry, notes: sanitizeRichText(entry.notes) }));
         replacePreparedCombatants(database, id, combatants);
         replacePreparedMonsters(database, campaignId, id, input.monsters);
         touch(
@@ -246,7 +249,7 @@ export function createPreparedRepository(database: DatabaseSync) {
           actorUserId,
           "prepared_encounter",
           id,
-          [input.notes, ...combatants.map(({ notes }) => notes)].join("\n"),
+          [notes, ...combatants.map(({ notes }) => notes)].join("\n"),
         );
       });
       return getPrepared(database, id);
@@ -302,9 +305,13 @@ function replacePreparedMonsters(
       (id, encounter_id, monster_id, display_number, quantity, sort_order)
      VALUES (?, ?, ?, ?, ?, ?)`,
   );
+  const checked = new Set<string>();
   for (const entry of monsters) {
-    if (!valid.get(entry.monsterId, campaignId))
-      throw new ResourceNotFoundError("monster", entry.monsterId);
+    if (!checked.has(entry.monsterId)) {
+      if (!valid.get(entry.monsterId, campaignId))
+        throw new ResourceNotFoundError("monster", entry.monsterId);
+      checked.add(entry.monsterId);
+    }
     insert.run(
       entry.id || crypto.randomUUID(),
       encounterId,
@@ -397,7 +404,7 @@ function replacePreparedCombatants(
       encounterId,
       entry.name,
       entry.kind,
-      sanitizeRichText(entry.notes),
+      entry.notes,
       entry.displayNumber,
       entry.initiative,
       entry.hitPoints,

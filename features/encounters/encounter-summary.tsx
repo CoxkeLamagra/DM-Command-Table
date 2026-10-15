@@ -1,30 +1,34 @@
+import { memo } from "react";
 import { richTextToPlainText } from "@/features/rich-text/rich-text";
 import type { Monster, PreparedEncounter } from "@/domain/types";
 
-export function EncounterSummary({
+export const EncounterSummary = memo(function EncounterSummary({
   encounter,
-  monsters,
+  monstersById,
 }: {
   encounter: PreparedEncounter;
-  monsters: Monster[];
+  monstersById: ReadonlyMap<string, Monster>;
 }) {
   const custom = encounter.combatants ?? [];
   const counts = {
-    monster:
-      encounter.monsters.reduce((sum, entry) => sum + entry.quantity, 0) +
-      custom.filter(({ kind }) => kind === "monster").length,
-    player: custom.filter(({ kind }) => kind === "player").length,
-    npc: custom.filter(({ kind }) => kind === "npc").length,
+    monster: encounter.monsters.reduce((sum, entry) => sum + entry.quantity, 0),
+    player: 0,
+    npc: 0,
   };
-  const names = [
-    ...encounter.monsters.map(
+  for (const { kind } of custom) counts[kind]++;
+  const names = encounter.monsters
+    .slice(0, 5)
+    .map(
       (entry) =>
-        `${entry.quantity} × ${monsters.find(({ id }) => id === entry.monsterId)?.name ?? "Missing Bestiary record"}`,
-    ),
-    ...custom.map(({ name }) => name),
-  ];
+        `${entry.quantity} × ${monstersById.get(entry.monsterId)?.name ?? "Missing Bestiary record"}`,
+    );
+  for (const { name } of custom) {
+    if (names.length === 5) break;
+    names.push(name);
+  }
+  const nameCount = encounter.monsters.length + custom.length;
   const missing = encounter.monsters.some(
-    (entry) => !monsters.some(({ id }) => id === entry.monsterId),
+    (entry) => !monstersById.has(entry.monsterId),
   );
   const notes = richTextToPlainText(encounter.notes).trim();
   return (
@@ -39,8 +43,8 @@ export function EncounterSummary({
         <span className="text-blue-300">{counts.npc} NPCs</span>
       </p>
       <p>
-        {names.slice(0, 5).join(" · ") || "No combatants added yet."}
-        {names.length > 5 ? ` · +${names.length - 5} more` : ""}
+        {names.join(" · ") || "No combatants added yet."}
+        {nameCount > 5 ? ` · +${nameCount - 5} more` : ""}
       </p>
       {notes && (
         <p className="line-clamp-2 text-stone-500">
@@ -56,4 +60,4 @@ export function EncounterSummary({
       )}
     </div>
   );
-}
+});

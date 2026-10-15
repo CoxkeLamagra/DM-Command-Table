@@ -1,3 +1,4 @@
+import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { statSync, statfsSync } from "node:fs";
@@ -20,20 +21,26 @@ export function storageLimits() {
   };
 }
 function number(database: DatabaseSync, sql: string): number {
-  return Number(Object.values(database.prepare(sql).get()!)[0]);
+  return Number(Object.values(statement(database, sql).get()!)[0]);
 }
-export function databaseUsage(database: DatabaseSync) {
-  const pageSize = number(database, "PRAGMA page_size");
-  const usedBytes =
+export function usedDatabaseBytes(database: DatabaseSync): number {
+  return (
     (number(database, "PRAGMA page_count") -
       number(database, "PRAGMA freelist_count")) *
-    pageSize;
-  const filename = (
-    database.prepare("PRAGMA database_list").all() as Array<{
+    number(database, "PRAGMA page_size")
+  );
+}
+function databaseFilename(database: DatabaseSync) {
+  return (
+    statement(database, "PRAGMA database_list").all() as Array<{
       name: string;
       file: string;
     }>
   ).find((entry) => entry.name === "main")?.file;
+}
+export function databaseUsage(database: DatabaseSync) {
+  const usedBytes = usedDatabaseBytes(database);
+  const filename = databaseFilename(database);
   let databaseBytes = 0,
     walBytes = 0,
     freeBytes: number | null = null;
@@ -59,13 +66,15 @@ export function assertDatabaseGrowth(
   database: DatabaseSync,
   beforeUsedBytes: number,
 ) {
-  const current = databaseUsage(database);
+  const usedBytes = usedDatabaseBytes(database);
   // Existing over-budget installations can still shrink, delete and remediate.
-  if (current.usedBytes <= beforeUsedBytes) return;
+  if (usedBytes <= beforeUsedBytes) return;
+  const limits = storageLimits();
+  const filename = databaseFilename(database);
+  const fs = filename ? statfsSync(path.dirname(filename)) : null;
   if (
-    current.usedBytes > current.limits.databaseLimitMb * 1048576 ||
-    (current.freeBytes !== null &&
-      current.freeBytes < current.limits.minimumFreeMb * 1048576)
+    usedBytes > limits.databaseLimitMb * 1048576 ||
+    (fs && fs.bavail * fs.bsize < limits.minimumFreeMb * 1048576)
   )
     throw new PublicApiError(
       "Local database growth budget reached. Remove unused data or ask the host administrator to increase storage limits.",
@@ -75,16 +84,17 @@ export function assertDatabaseGrowth(
 export function assertAccountBudget(database: DatabaseSync, ownerId: string) {
   const limits = storageLimits();
   const campaigns = Number(
-    database
-      .prepare("SELECT COUNT(*) AS n FROM campaigns WHERE owner_id=?")
-      .get(ownerId)!.n,
+    statement(
+      database,
+      "SELECT COUNT(*) AS n FROM campaigns WHERE owner_id=?",
+    ).get(ownerId)!.n,
   );
   if (campaigns > limits.campaignsPerAccount)
     throw new PublicApiError("Account campaign limit reached.", 413);
   const records = Number(
-    database
-      .prepare(
-        `SELECT
+    statement(
+      database,
+      `SELECT
     (SELECT COUNT(*) FROM players p JOIN campaigns c ON c.id=p.campaign_id WHERE c.owner_id=?) +
     (SELECT COUNT(*) FROM monsters m JOIN campaigns c ON c.id=m.campaign_id WHERE c.owner_id=?) +
     (SELECT COUNT(*) FROM sessions s JOIN campaigns c ON c.id=s.campaign_id WHERE c.owner_id=?) +
@@ -92,8 +102,7 @@ export function assertAccountBudget(database: DatabaseSync, ownerId: string) {
     (SELECT COUNT(*) FROM prepared_encounters e JOIN sessions s ON s.id=e.session_id JOIN campaigns c ON c.id=s.campaign_id WHERE c.owner_id=?) +
     (SELECT COUNT(*) FROM tags t JOIN campaigns c ON c.id=t.campaign_id WHERE c.owner_id=?) +
     (SELECT COUNT(*) FROM session_templates WHERE owner_id=?) AS n`,
-      )
-      .get(ownerId, ownerId, ownerId, ownerId, ownerId, ownerId, ownerId)!.n,
+    ).get(ownerId, ownerId, ownerId, ownerId, ownerId, ownerId, ownerId)!.n,
   );
   if (records > limits.recordsPerAccount)
     throw new PublicApiError("Account record limit reached.", 413);
@@ -102,9 +111,10 @@ export function assertCampaignAccountBudget(
   database: DatabaseSync,
   campaignId: string,
 ) {
-  const owner = database
-    .prepare("SELECT owner_id AS id FROM campaigns WHERE id=?")
-    .get(campaignId) as { id: string } | undefined;
+  const owner = statement(
+    database,
+    "SELECT owner_id AS id FROM campaigns WHERE id=?",
+  ).get(campaignId) as { id: string } | undefined;
   if (owner) assertAccountBudget(database, owner.id);
 }
 

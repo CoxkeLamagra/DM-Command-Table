@@ -1,19 +1,18 @@
+import { requestHost, sameHostWebOrigin } from "../security/request-origin.ts";
 export function rejectCrossOrigin(request: Request): Response | null {
+  if (request.headers.get("sec-fetch-site") === "cross-site")
+    return invalidOrigin();
   const origin = request.headers.get("origin");
   if (!origin) return null;
-  const requestHost =
-    request.headers.get("host") ||
-    (process.env.DM_COMMAND_TABLE_TRUST_PROXY === "true"
-      ? request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
-      : null);
-  if (!requestHost) return invalidOrigin();
-  try {
-    const originUrl = new URL(origin);
-    if (originUrl.host !== requestHost) return invalidOrigin();
-    return null;
-  } catch {
-    return invalidOrigin();
-  }
+  return sameHostWebOrigin(
+    origin,
+    requestHost(
+      request.headers,
+      process.env.DM_COMMAND_TABLE_TRUST_PROXY === "true",
+    ),
+  )
+    ? null
+    : invalidOrigin();
 }
 
 function invalidOrigin(): Response {

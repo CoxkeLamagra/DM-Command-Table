@@ -416,3 +416,88 @@ test("prepared ordering is atomic, revision checked and scoped to an editable se
     database.close();
   }
 });
+
+test("prepared writes validate repeated Bestiary references once and retain persistence sanitization", () => {
+  const { database, campaign, content, bestiary } = fixture();
+  try {
+    const session = content.createSession(campaign.id, "owner", {
+      title: "Indexed",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 0,
+    });
+    const monster = bestiary.create(campaign.id, "owner", {
+      name: "Goblin",
+      type: "Humanoid",
+      challengeRating: "1/4",
+      hitPoints: 7,
+      armorClass: 15,
+      speed: "30 ft.",
+      stats: "",
+      abilities: "",
+      spells: "",
+      notes: "",
+      spellSlots: [],
+      source: "MM",
+      favorite: false,
+    });
+    let lookups = 0;
+    const wrapper = {
+      exec: database.exec.bind(database),
+      prepare: (sql: string) => {
+        const prepared = database.prepare(sql);
+        if (
+          sql ===
+          "SELECT id FROM monsters WHERE id = ? AND campaign_id = ? LIMIT 1"
+        ) {
+          prepared.get = new Proxy(prepared.get, {
+            apply(target, _thisArg, args) {
+              lookups++;
+              return Reflect.apply(target, prepared, args);
+            },
+          });
+        }
+        return prepared;
+      },
+    } as unknown as DatabaseSync;
+    const repository = createEncounterRepository(wrapper);
+    const encounter = repository.createPrepared(
+      campaign.id,
+      "owner",
+      session.id,
+      {
+        name: "Many copies",
+        notes: "<p>Safe</p><script>bad()</script>",
+        sortOrder: 0,
+        monsters: Array.from({ length: 100 }, (_, index) => ({
+          id: crypto.randomUUID(),
+          monsterId: monster.id,
+          displayNumber: index + 1,
+          quantity: 1,
+          sortOrder: index,
+        })),
+        combatants: [
+          {
+            id: crypto.randomUUID(),
+            name: "Guard",
+            kind: "npc",
+            notes: "<p>Guard</p><script>bad()</script>",
+            displayNumber: null,
+            initiative: 10,
+            hitPoints: 10,
+            maximumHitPoints: 10,
+            armorClass: 10,
+            sortOrder: 0,
+          },
+        ],
+      },
+    );
+    assert.equal(lookups, 1);
+    assert.equal(encounter.monsters.length, 100);
+    assert.equal(encounter.notes, "<p>Safe</p>");
+    assert.equal(encounter.combatants![0].notes, "<p>Guard</p>");
+  } finally {
+    database.close();
+  }
+});

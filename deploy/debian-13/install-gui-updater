@@ -40,4 +40,4 @@ flock -u 8
 exec 8>&-
 systemctl enable --now dm-command-table-updater.service
 systemctl is-active dm-command-table-updater.service
-echo 'Automatic Admin updates are enabled. Use Update application to install the latest stable v11 release.'
+echo 'Automatic Admin updates are enabled. Use Update application to install the latest stable v12 release.'

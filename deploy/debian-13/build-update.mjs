@@ -16,7 +16,7 @@ export function latestRelease(output) {
   const tags = output
     .split("\n")
     .map((line) => line.split(/\s+/)[1])
-    .filter((ref) => /^refs\/tags\/v11\.\d+\.\d+$/.test(ref ?? ""))
+    .filter((ref) => /^refs\/tags\/v12\.\d+\.\d+$/.test(ref ?? ""))
     .map((ref) => ref.slice("refs/tags/".length));
   tags.sort((a, b) => {
     const left = a.slice(1).split(".").map(Number),
@@ -25,7 +25,7 @@ export function latestRelease(output) {
       if (left[i] !== right[i]) return right[i] - left[i];
     return 0;
   });
-  if (!tags.length) throw new Error("No stable v11 release is available.");
+  if (!tags.length) throw new Error("No stable v12 release is available.");
   return tags[0];
 }
 export function executeBuildCommand(

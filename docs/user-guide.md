@@ -213,3 +213,7 @@ The Bestiary editor has a separate **Token** section for the full monster image.
 ## Storage limits
 
 Administration displays database/WAL usage, free disk space and the host-configured campaign/record budgets. If a save or import reaches a budget, remove unused content or ask the host administrator to adjust the limit. Existing data remains available. New password hashes are applied automatically at account creation/reset and after a successful login with an older hash; no password reset is required for this upgrade.
+
+## v12 release and upgrades
+
+v12 retains the current sidebar, compact layout, four Administration tabs, local catalogue imports and optional remote catalogue, token images, Combat HP/conditions/stat blocks, and numbered prepared encounters. No new account registration or campaign conversion is needed for supported v11 data. Existing LXC hosts follow the one-time [v12 updater helper installation](upgrading-to-v12.md); subsequent v12 updates use Administration → Update Application. Existing host-pinned targets remain host configuration.

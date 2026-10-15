@@ -130,7 +130,7 @@ export async function handleContentRoutes(
               context.userId,
               id,
               revision,
-              clean(values, ["notes"]),
+              values,
             );
           },
         );
@@ -180,10 +180,7 @@ export async function handleContentRoutes(
           ),
         });
       if (method === "POST") {
-        const input = clean(
-          preparedEncounterSchema.parse(await jsonBody(request)),
-          ["notes"],
-        );
+        const input = preparedEncounterSchema.parse(await jsonBody(request));
         return apiJson(
           {
             encounter: encounters.createPrepared(
@@ -196,10 +193,16 @@ export async function handleContentRoutes(
           201,
         );
       }
+      if (encounterId && ["PATCH", "DELETE"].includes(method))
+        encounters.requirePreparedSession(
+          campaignId,
+          context.userId,
+          resourceId,
+          encounterId,
+        );
       if (encounterId && method === "PATCH") {
-        const { revision, ...input } = clean(
-          revisionedPrepared.parse(await jsonBody(request)),
-          ["notes"],
+        const { revision, ...input } = revisionedPrepared.parse(
+          await jsonBody(request),
         );
         return apiJson({
           encounter: encounters.updatePrepared(

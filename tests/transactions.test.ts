@@ -30,3 +30,25 @@ test("nested transactions preserve rollback on Node runtimes without isTransacti
   );
   database.close();
 });
+
+test("non-growing transactions avoid filesystem metadata queries", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec(
+    "CREATE TABLE values_test(value INTEGER); INSERT INTO values_test VALUES(1)",
+  );
+  const queries: string[] = [];
+  const wrapper = {
+    exec: db.exec.bind(db),
+    prepare: (sql: string) => {
+      queries.push(sql);
+      return db.prepare(sql);
+    },
+  } as unknown as DatabaseSync;
+  try {
+    runTransaction(wrapper, () => db.exec("UPDATE values_test SET value=2"));
+    assert.equal(db.prepare("SELECT value FROM values_test").get()!.value, 2);
+    assert.ok(!queries.includes("PRAGMA database_list"));
+  } finally {
+    db.close();
+  }
+});

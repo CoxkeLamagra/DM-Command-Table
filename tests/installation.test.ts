@@ -279,7 +279,7 @@ for (const mode of ["existing", "build-failure", "health-failure"]) {
 
 test("installation probe exercises real HTTP and updater sockets and rejects unhealthy boundaries", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "dmct-install-probe-"));
-  let version = "11.3.0",
+  let version = "12.0.0",
     unauthorized = 401,
     target = "latest";
   const server = createServer((req, res) => {
@@ -310,22 +310,22 @@ test("installation probe exercises real HTTP and updater sockets and rejects unh
       socketPath: root + "/control.sock",
       attempts: 1,
     };
-    await checkInstallation("11.3.0", options);
+    await checkInstallation("12.0.0", options);
     version = "11.2.1";
     await assert.rejects(
-      checkInstallation("11.3.0", options),
+      checkInstallation("12.0.0", options),
       /expected version/,
     );
-    version = "11.3.0";
+    version = "12.0.0";
     unauthorized = 200;
     await assert.rejects(
-      checkInstallation("11.3.0", options),
+      checkInstallation("12.0.0", options),
       /must return 401/,
     );
     unauthorized = 401;
     target = "staged";
     await assert.rejects(
-      checkInstallation("11.3.0", options),
+      checkInstallation("12.0.0", options),
       /Automatic updater/,
     );
   } finally {

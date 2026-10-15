@@ -7,14 +7,17 @@ import {
   UPDATE_REPOSITORY,
 } from "../deploy/debian-13/build-update.mjs";
 
-test("automatic update selects the latest stable v11 tag and rejects target injection", () => {
+test("automatic update selects the latest stable v12 tag and rejects target injection", () => {
   assert.equal(
     latestRelease(
-      "a refs/tags/v11.2.0\nb refs/tags/v11.10.0\nc refs/tags/v12.0.0\nd refs/tags/v11.99.0-rc.1\ne refs/tags/v11.10.0^{}",
+      "a refs/tags/v12.2.0\nb refs/tags/v12.10.0\nc refs/tags/v13.0.0\nd refs/tags/v12.99.0-rc.1\ne refs/tags/v12.10.0^{}\nf refs/tags/v11.99.0",
     ),
-    "v11.10.0",
+    "v12.10.0",
   );
-  assert.throws(() => latestRelease("a refs/tags/v12.0.0"), /No stable v11/);
+  assert.throws(
+    () => latestRelease("a refs/tags/v11.99.0\nb refs/tags/v13.0.0"),
+    /No stable v12/,
+  );
   for (const target of [
     "--help",
     "latest; id",
@@ -38,7 +41,7 @@ test("automatic build clones the fixed repository, verifies frozen dependencies 
     "latest",
     (command: string, args: string[], cwd: string, capture: boolean) => {
       commands.push({ command, args, cwd, capture });
-      if (args[0] === "ls-remote") return `a refs/tags/v11.2.0`;
+      if (args[0] === "ls-remote") return `a refs/tags/v12.2.0`;
       if (args[0] === "rev-parse") return revision;
       return "";
     },

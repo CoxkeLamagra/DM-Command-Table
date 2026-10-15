@@ -12,8 +12,8 @@ export async function checkInstallation(
     retryDelay = 1000,
   } = {},
 ) {
-  if (!/^11\.\d+\.\d+$/.test(version))
-    throw new Error("Expected a stable v11 version.");
+  if (!/^12\.\d+\.\d+$/.test(version))
+    throw new Error("Expected a stable v12 version.");
   let failure;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
