@@ -1,6 +1,6 @@
 # DM Command Table
 
-DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **12.0.1**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing v11 accounts and campaign data remain usable in v12 without a schema migration.
+DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **12.0.2**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing v11 accounts and campaign data remain usable in v12 without a schema migration.
 
 Accounts, campaigns, Players/NPCs, Bestiary records, Stories/Sessions, prepared encounters, combat, search, screenshots and backups live on your server. Bundled libraries support offline operation. Opening Import monsters connects automatically to `dnd5e.lamagra.link`; local JSON imports remain available offline. Debian GUI updates contact GitHub and package registries only when you start an update.
 
@@ -12,7 +12,7 @@ Use a dedicated amd64/arm64 container with systemd, networking, at least 2 CPU c
 set -euo pipefail
 apt-get update
 apt-get install -y ca-certificates curl
-curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.0.1/deploy/debian-13/install-dm-command-table \
+curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.0.2/deploy/debian-13/install-dm-command-table \
   -o /root/install-dm-command-table
 bash /root/install-dm-command-table
 ```
@@ -61,7 +61,7 @@ node scripts/runtime-integrity.mjs dist/runtime
 - [Docker](docs/docker.md): image preparation, persistent storage and offline runtime deployment.
 - [Security/runtime properties](docs/security-efficiency-review.md), [release validation](docs/release-assessment.md) and [Changelog](CHANGELOG.md).
 
-Prepared loading replaces the entire combat roster and uses the last prepared Player entry for each trimmed, case-insensitive name. Monsters and NPCs may repeat. Revisions protect saves and Undo recovers previous combat state.
+Prepared loading asks whether to preserve active Players/NPCs: Yes retains their live state and replaces only monsters; No replaces the entire roster. Full replacement uses the last prepared Player entry for each trimmed, case-insensitive name. Monsters and NPCs may repeat. Revisions protect saves and Undo recovers previous combat state.
 
 This is a hobby project. No open-source license has been assigned; all rights are reserved unless the repository owner adds one. Retained third-party UI/styles include their upstream notice in `vendor/`.
 

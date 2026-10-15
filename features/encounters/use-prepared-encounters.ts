@@ -402,7 +402,7 @@ export function usePreparedEncounters({
       setBusy(false);
     }
   }
-  async function confirmLoad() {
+  async function confirmLoad(preservePlayersAndNpcs: boolean) {
     if (!preview || busy) return;
     setBusy(true);
     try {
@@ -410,6 +410,7 @@ export function usePreparedEncounters({
         campaignId,
         preview.prepared,
         preview.combat.revision,
+        preservePlayersAndNpcs,
       );
       setPreview(null);
       toast.success("Prepared encounter loaded");

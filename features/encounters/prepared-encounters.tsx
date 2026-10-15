@@ -399,12 +399,13 @@ export function PreparedEncounters(props: PreparedEncountersProps) {
       )}
       {preview && (
         <LoadPreview
+          key={`${preview.prepared.id}:${preview.combat.revision}`}
           prepared={preview.prepared}
           combat={preview.combat}
           busy={busy}
           unsaved={dirty.has(preview.prepared.id)}
           onClose={() => setPreview(null)}
-          onConfirm={() => void confirmLoad()}
+          onConfirm={(preserve) => void confirmLoad(preserve)}
           onRefresh={() => void loadInCombat(preview.prepared)}
         />
       )}

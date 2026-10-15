@@ -118,8 +118,9 @@ Imported monster data belongs to the current campaign and remains editable after
 - Add NPCs and custom combatants without the Bestiary, then edit names, types, initiative, HP, maximum HP, AC, and rich-text stat blocks and notes.
 - Use Edit details on a Bestiary entry to create encounter-specific copies without modifying the Bestiary. Custom details are saved and carried into Combat.
 - Players are unique by name (case-insensitive, ignoring surrounding spaces); duplicate Monsters and NPCs are allowed.
-- Review a load preview before confirming: all current combatants being replaced, incoming records and duplicate Player entries being merged and the 10,000-combatant limit. Cancel leaves Combat unchanged; refresh retrieves its latest revision.
-- Load a prepared encounter into Combat by replacing the entire current roster and resetting to round 1.
+- Review a load preview before confirming: current combatants being retained or replaced, incoming records and duplicate Player entries being merged and the 10,000-combatant limit. Cancel leaves Combat unchanged; refresh retrieves its latest revision.
+- If active Combat contains Players or NPCs, choose whether to preserve them in the load preview. **Yes** keeps their current HP, conditions and resources, clears all active monsters and loads only the prepared monsters (including custom monsters). Prepared Players/NPCs are skipped. **No** replaces the entire roster with all prepared combatants. Confirm load stays disabled until you choose; Cancel leaves Combat unchanged.
+- Without active Players/NPCs, loading replaces the whole roster. Both choices reset to round 1 and rebuild initiative order. The combined roster must fit the 10,000-combatant limit; concurrent saves require refreshing the preview. Combat undo can restore the previous roster.
 - Review all sessions chronologically from the Campaign timeline and jump directly to an individual session entry.
 - Organize story beats by chapter and status: **Planned**, **Active now**, or **Happened**.
 - Link Sessions to Story beats from a compact dropdown, review linked Session dates and statuses, and open a linked Session by selecting its name.
@@ -135,7 +136,7 @@ Bestiary creatures capture a stat-block snapshot when added or loaded into Comba
 
 Conditions can tick at the start or end of the affected creature’s own turn, or remain until dismissed. A timed condition expires at its selected boundary unless **Requires save** is enabled; then it flags a saving throw and remains until you resolve it. Choose **Save succeeded: clear** or **Save failed: keep**. A failed persistent save can be prompted again at the next selected boundary. Blank durations remain active. Use **Mark save due** to request an earlier or manual save, and expand **Override timing or duration** for manual adjustments. Skipped creatures do not receive a start-of-turn tick; leaving the active creature’s turn resolves its end-of-turn effects.
 
-Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; loading replaces the entire combat roster with fresh incoming copies. The fresh schema includes all runtime and condition fields from initialization.
+Save, turn commands, combat undo, browser draft recovery and campaign exports retain runtime state. Prepared definitions retain fresh creation values; loading creates fresh incoming copies, with an option to preserve active Players/NPCs and their live state. The fresh schema includes all runtime and condition fields from initialization.
 
 ### Draft recovery and turn preferences
 

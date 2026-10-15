@@ -1,3 +1,9 @@
+# v12.0.2 release validation
+
+Prepared loading now asks whether to preserve active Players/NPCs. Preservation retains their IDs, HP, conditions and resources, removes all active monsters and loads only prepared monsters. Full replacement loads every prepared combatant. Both modes reset round/turn, enforce resulting-roster capacity before expansion and retain revision checks and undo. No schema migration or runtime dependency change is required.
+
+The dependency audit, formatting, ESLint, TypeScript, all **143 unit/integration tests** and production build passed. Regressions cover preserved live state, custom monsters, skipped prepared allies, full replacement, retained-roster capacity before allocation, preview counts, stale revision rejection and undo. All **19 browser tests** passed using system Chromium, including explicit Yes/No selection, preservation of an active NPC’s conditions and their reset on full replacement. Earlier release assessments below retain their original scope.
+
 # v12.0.1 release validation
 
 This patch fixes Combat initiative summaries for independent prepared player copies. A unique roster match by name and type supplies race/class; missing or ambiguous matches still show the correct Player/NPC/Monster type. Combat values remain independent and no schema migration is required.

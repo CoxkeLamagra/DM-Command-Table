@@ -897,3 +897,99 @@ test("malformed nested API paths cannot fall back to parent mutations or another
     database.close();
   }
 });
+
+test("prepared loading can preserve allies atomically and still rejects stale revisions", async () => {
+  const { database, campaign, content, encounters } = fixture();
+  try {
+    const session = content.createSession(campaign.id, "owner", {
+      title: "Next",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 0,
+    });
+    const initial = encounters.getCombat(campaign.id, "owner");
+    const ally = {
+      ...entry(crypto.randomUUID(), 20, 3),
+      kind: "player" as const,
+      name: "Hero",
+      runtime: { ...emptyRuntime(), temporaryHitPoints: 4 },
+    };
+    const current = encounters.saveCombat(
+      campaign.id,
+      "owner",
+      initial.revision,
+      {
+        ...initial,
+        combatants: [
+          ally,
+          {
+            ...entry(crypto.randomUUID(), 10),
+            kind: "monster",
+            name: "Old monster",
+          },
+        ],
+      },
+    );
+    const prepared = encounters.createPrepared(
+      campaign.id,
+      "owner",
+      session.id,
+      {
+        name: "Next",
+        notes: "",
+        sortOrder: 0,
+        monsters: [],
+        combatants: [
+          {
+            ...entry(crypto.randomUUID(), 10),
+            kind: "player",
+            name: "Skip me",
+          },
+          {
+            ...entry(crypto.randomUUID(), 10),
+            kind: "monster",
+            name: "New monster",
+          },
+        ],
+      },
+    );
+    const load = () =>
+      handleApi(
+        new Request(
+          `http://local/api/campaigns/${campaign.id}/combat/load-prepared`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              revision: current.revision,
+              prepared,
+              preservePlayersAndNpcs: true,
+            }),
+          },
+        ),
+        database,
+        { userId: "editor", isAdmin: false },
+      );
+    assert.equal((await load()).status, 200);
+    const saved = encounters.getCombat(campaign.id, "owner");
+    assert.deepEqual(
+      saved.combatants.map(({ name }) => name),
+      ["Hero", "New monster"],
+    );
+    assert.equal(saved.combatants[0].hitPoints, 3);
+    assert.equal(saved.combatants[0].runtime?.temporaryHitPoints, 4);
+    assert.equal((await load()).status, 409);
+    assert.equal(
+      encounters.getCombat(campaign.id, "owner").revision,
+      saved.revision,
+    );
+    const undone = encounters.undoCombat(campaign.id, "owner", saved.revision);
+    assert.deepEqual(undone.combatants.map(({ name }) => name).sort(), [
+      "Hero",
+      "Old monster",
+    ]);
+  } finally {
+    database.close();
+  }
+});

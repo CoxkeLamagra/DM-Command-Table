@@ -56,11 +56,12 @@ export async function loadPreparedCombat(
   campaignId: string,
   prepared: PreparedEncounter,
   revision: number,
+  preservePlayersAndNpcs = false,
 ): Promise<Combat> {
   return (
     await requestJson<{ combat: Combat }>(
       `/api/campaigns/${campaignId}/combat/load-prepared`,
-      json("POST", { prepared, revision }),
+      json("POST", { prepared, revision, preservePlayersAndNpcs }),
     )
   ).combat;
 }

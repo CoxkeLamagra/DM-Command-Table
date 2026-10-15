@@ -172,9 +172,26 @@ export function loadPreparation(
   prepared: PreparedEncounter,
   sources: MonsterSource[],
   id: () => string = () => crypto.randomUUID(),
+  preservePlayersAndNpcs = false,
 ): CombatEncounter {
-  assertPreparedCapacity(prepared);
-  const additions: Combatant[] = prepared.monsters.flatMap((entry) => {
+  const incoming = preservePlayersAndNpcs
+    ? {
+        ...prepared,
+        combatants: (prepared.combatants ?? []).filter(
+          ({ kind }) => kind === "monster",
+        ),
+      }
+    : prepared;
+  assertPreparedCapacity(incoming);
+  const retained = preservePlayersAndNpcs
+    ? combat.combatants.filter(({ kind }) => kind !== "monster")
+    : [];
+  const incomingCount =
+    uniquePlayers(incoming.combatants ?? []).length +
+    incoming.monsters.reduce((sum, { quantity }) => sum + quantity, 0);
+  if (retained.length + incomingCount > MAX_COMBATANTS)
+    throw new CombatCapacityError();
+  const additions: Combatant[] = incoming.monsters.flatMap((entry) => {
     const source = sources.find((value) => value.id === entry.monsterId);
     if (!source) throw new Error("A prepared monster no longer exists.");
     return Array.from({ length: entry.quantity }, (_, offset) => ({
@@ -196,7 +213,7 @@ export function loadPreparation(
       revision: 1,
     }));
   });
-  const copies: Combatant[] = uniquePlayers(prepared.combatants ?? []).map(
+  const copies: Combatant[] = uniquePlayers(incoming.combatants ?? []).map(
     (entry) => ({
       ...entry,
       id: id(),
@@ -213,9 +230,11 @@ export function loadPreparation(
     name: prepared.name || "Prepared encounter",
     round: 1,
     turn: 0,
-    combatants: [...additions, ...copies].map((entry, sortOrder) => ({
-      ...entry,
-      sortOrder,
-    })),
+    combatants: [...retained, ...additions, ...copies].map(
+      (entry, sortOrder) => ({
+        ...entry,
+        sortOrder,
+      }),
+    ),
   });
 }

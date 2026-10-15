@@ -269,6 +269,10 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await expect(
     loadPreview.getByRole("heading", { name: /^Retain/ }),
   ).toHaveCount(0);
+  const replaceAllChoice = page.getByRole("radio", {
+    name: /^No — replace everyone/,
+  });
+  if (await replaceAllChoice.isVisible()) await replaceAllChoice.check();
   await page
     .getByRole("dialog", { name: "Load encounter preview" })
     .getByRole("button", { name: "Confirm load", exact: true })
@@ -337,4 +341,49 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByRole("status", { name: "Combat: Saved", exact: true }),
+  ).toBeVisible();
+  for (const preserve of [true, false]) {
+    await page.getByRole("button", { name: "Sessions", exact: true }).click();
+    const load = page.getByRole("button", {
+      name: "Load encounter Guard patrol",
+      exact: true,
+    });
+    if (!(await load.isVisible())) {
+      await page.getByRole("button", { name: /Test session/ }).click();
+      await page.getByRole("tab", { name: /^Encounters/ }).click();
+    }
+    await load.click();
+    await expect(
+      loadPreview.getByRole("group", {
+        name: "Preserve active Players and NPCs?",
+      }),
+    ).toBeVisible();
+    await expect(
+      loadPreview.getByRole("button", { name: "Confirm load", exact: true }),
+    ).toBeDisabled();
+    await loadPreview
+      .getByRole("radio", {
+        name: preserve ? /^Yes — keep active/ : /^No — replace everyone/,
+      })
+      .check();
+    if (preserve)
+      await expect(
+        loadPreview.getByRole("heading", { name: /^Retain/ }),
+      ).toBeVisible();
+    await loadPreview
+      .getByRole("button", { name: "Confirm load", exact: true })
+      .click();
+    await expect(
+      page.getByText("Captain after save", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      conditions.getByRole("button", {
+        name: "Clear Marked by a curse",
+        exact: true,
+      }),
+    ).toHaveCount(preserve ? 1 : 0);
+  }
 });

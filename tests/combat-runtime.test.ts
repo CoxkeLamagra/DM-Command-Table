@@ -5,7 +5,11 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "../db/migrations.ts";
 import { emptyRuntime, applyHitPointChange } from "../domain/combat-runtime.ts";
-import { applyCombatAction, loadPreparation } from "../domain/combat.ts";
+import {
+  applyCombatAction,
+  loadPreparation,
+  CombatCapacityError,
+} from "../domain/combat.ts";
 import type {
   Combatant,
   CombatEncounter,
@@ -377,5 +381,115 @@ test("prepared players show roster race/class and preserve kind without a roster
       [],
     ),
     "Human · Fighter · Player · AC 15",
+  );
+});
+
+test("preserving active allies replaces only monsters and retains live state", () => {
+  const hero = {
+    ...entry(),
+    hitPoints: 3,
+    initiative: 19,
+    notes: "Live notes",
+  };
+  hero.conditions = [{ id: "condition", name: "Poisoned", remainingTurns: 2 }];
+  hero.runtime = {
+    ...emptyRuntime(),
+    temporaryHitPoints: 4,
+    concentration: "Bless",
+  };
+  const npc = { ...entry(), id: "npc", kind: "npc" as const, name: "Guide" };
+  const oldMonster = {
+    ...entry(),
+    id: "old",
+    kind: "monster" as const,
+    name: "Old monster",
+  };
+  const current = { ...combat([hero, npc, oldMonster]), round: 5, turn: 2 };
+  const prepared: PreparedEncounter = {
+    id: "prepared",
+    sessionId: "session",
+    name: "Next",
+    notes: "",
+    sortOrder: 0,
+    revision: 1,
+    createdAt: "",
+    updatedAt: "",
+    monsters: [
+      {
+        id: "row",
+        monsterId: "goblin",
+        quantity: 2,
+        displayNumber: 1,
+        sortOrder: 0,
+      },
+    ],
+    combatants: [
+      { ...entry(), name: "New player" },
+      { ...npc, id: "new-npc", name: "New NPC" },
+      { ...oldMonster, id: "custom", name: "Custom monster" },
+    ],
+  };
+  const sources = [
+    { id: "goblin", name: "Goblin", hitPoints: 7, armorClass: 12 },
+  ];
+  const result = loadPreparation(current, prepared, sources, undefined, true);
+  assert.equal(result.round, 1);
+  assert.equal(result.turn, 0);
+  assert.equal(result.combatants.length, 5);
+  assert.deepEqual(
+    result.combatants.find(({ id }) => id === hero.id),
+    hero,
+  );
+  assert.deepEqual(
+    result.combatants.find(({ id }) => id === npc.id),
+    { ...npc, sortOrder: 1 },
+  );
+  assert.equal(
+    result.combatants.filter(({ kind }) => kind === "monster").length,
+    3,
+  );
+  assert.equal(
+    result.combatants.some(({ name }) =>
+      ["Old monster", "New player", "New NPC"].includes(name),
+    ),
+    false,
+  );
+  let allocations = 0;
+  assert.throws(
+    () =>
+      loadPreparation(
+        current,
+        {
+          ...prepared,
+          combatants: [],
+          monsters: [{ ...prepared.monsters[0], quantity: 10000 }],
+        },
+        sources,
+        () => {
+          allocations++;
+          return crypto.randomUUID();
+        },
+        true,
+      ),
+    CombatCapacityError,
+  );
+  assert.equal(allocations, 0);
+  assert.equal(current.round, 5);
+  assert.equal(current.combatants.length, 3);
+  const replaced = loadPreparation(
+    current,
+    prepared,
+    sources,
+    undefined,
+    false,
+  );
+  assert.equal(replaced.combatants.length, 5);
+  assert.equal(
+    replaced.combatants.some(({ id }) => id === hero.id || id === npc.id),
+    false,
+  );
+  assert.equal(
+    replaced.combatants.some(({ name }) => name === "New player"),
+    true,
   );
 });

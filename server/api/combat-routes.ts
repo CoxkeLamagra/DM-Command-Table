@@ -60,9 +60,10 @@ export async function handleCombatRoutes(
     }
     if (method === "POST" && resourceId === "load-prepared") {
       requireCampaignEdit(database, campaignId, context.userId);
-      const { revision, prepared } = z
+      const { revision, prepared, preservePlayersAndNpcs } = z
         .object({
           revision: revisionSchema,
+          preservePlayersAndNpcs: z.boolean().default(false),
           prepared: preparedEncounterFields
             .extend({
               id: idSchema,
@@ -85,6 +86,8 @@ export async function handleCombatRoutes(
         current,
         prepared,
         bestiary.list(campaignId, context.userId),
+        undefined,
+        preservePlayersAndNpcs,
       );
       return apiJson({
         combat: encounters.saveCombat(

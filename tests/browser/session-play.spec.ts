@@ -72,6 +72,10 @@ test("draft recovery, session play and load preview preserve preparation and con
   await page
     .getByRole("button", { name: "Load encounter Guard patrol", exact: true })
     .click();
+  const replaceAllChoice = page.getByRole("radio", {
+    name: /^No — replace everyone/,
+  });
+  if (await replaceAllChoice.isVisible()) await replaceAllChoice.check();
   await preview
     .getByRole("button", { name: "Confirm load", exact: true })
     .click();

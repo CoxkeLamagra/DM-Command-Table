@@ -175,6 +175,11 @@ test("encounter preview matches load semantics and replaces every current combat
   assert.equal(preview.replaced.length, 2);
   assert.equal(preview.total, 5);
   assert.equal(preview.mergedPlayers, 1);
+  const preserving = previewPreparation(current, prepared, true);
+  assert.equal(preserving.retained.length, 1);
+  assert.equal(preserving.replaced.length, 1);
+  assert.equal(preserving.customCount, 0);
+  assert.equal(preserving.total, 4);
   assert.equal(current.combatants[0].hitPoints, 5);
   assert.equal(prepared.monsters[0].quantity, 3);
 });

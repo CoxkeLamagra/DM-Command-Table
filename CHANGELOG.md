@@ -2,6 +2,11 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.0.2 — 2026-10-15
+
+- Ask whether to preserve active Players and NPCs when loading a prepared encounter. Yes retains their live HP, conditions and resources while replacing all monsters with prepared monsters; No replaces everyone with all prepared combatants.
+- Show retained/replaced counts in the load preview, require an explicit choice when allies are active, and enforce the combined combatant limit before allocation. Revision conflict protection and Combat undo remain available.
+
 ## 12.0.1 — 2026-10-15
 
 - Correct prepared player descriptions in Combat initiative order: show race, class and Player from an unambiguous same-name player roster entry, while retaining independent combat copies.

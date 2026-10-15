@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import type { Combat, PreparedEncounter } from "@/domain/types";
 import { previewPreparation } from "@/domain/encounter-preview";
 import { MAX_COMBATANTS } from "@/domain/limits";
@@ -24,10 +25,12 @@ export function LoadPreview({
   busy: boolean;
   unsaved: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (preservePlayersAndNpcs: boolean) => void;
   onRefresh: () => void;
 }) {
-  const preview = previewPreparation(combat, prepared);
+  const hasParty = combat.combatants.some(({ kind }) => kind !== "monster");
+  const [preserve, setPreserve] = useState<boolean | null>(null);
+  const preview = previewPreparation(combat, prepared, preserve === true);
   return (
     <Dialog
       open
@@ -39,11 +42,53 @@ export function LoadPreview({
         <DialogHeader>
           <DialogTitle>Load encounter preview</DialogTitle>
           <DialogDescription>
-            Load “{prepared.name || "Prepared encounter"}” into Combat. The
-            entire current roster is replaced. The round resets to 1 and the
-            initiative order is rebuilt.
+            Load “{prepared.name || "Prepared encounter"}” into Combat. The{" "}
+            {preserve === true
+              ? "current monsters are replaced and active Players/NPCs are preserved."
+              : "entire current roster is replaced."}{" "}
+            The round resets to 1 and the initiative order is rebuilt.
           </DialogDescription>
         </DialogHeader>
+        {hasParty && (
+          <fieldset className="space-y-2 rounded border border-amber-300/30 p-3">
+            <legend className="px-1 font-medium">
+              Preserve active Players and NPCs?
+            </legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                className="accent-amber-300"
+                type="radio"
+                name="preserve-party"
+                checked={preserve === true}
+                onChange={() => setPreserve(true)}
+                disabled={busy}
+              />
+              Yes — keep active Players/NPCs and load only prepared monsters
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                className="accent-amber-300"
+                type="radio"
+                name="preserve-party"
+                checked={preserve === false}
+                onChange={() => setPreserve(false)}
+                disabled={busy}
+              />
+              No — replace everyone with all prepared combatants
+            </label>
+          </fieldset>
+        )}
+        {preview.retained.length > 0 && (
+          <section>
+            <h3 className="font-medium text-emerald-300">
+              Retain {preview.retained.length} active Players/NPCs
+            </h3>
+            <p className="text-sm text-stone-300">
+              Their current HP, conditions and resources are preserved. Prepared
+              Players/NPCs are skipped.
+            </p>
+          </section>
+        )}
         {unsaved && (
           <p className="rounded bg-amber-300/10 p-3 text-sm text-amber-200">
             This preview uses your unsaved encounter edits. Loading does not
@@ -71,8 +116,10 @@ export function LoadPreview({
           </h3>
           <p className="text-sm text-stone-300">
             {preview.monsterCount} Bestiary monsters and {preview.customCount}{" "}
-            prepared Players, NPCs or custom monsters. Prepared copies start
-            with no conditions.
+            {preserve === true
+              ? "prepared custom monsters"
+              : "prepared Players, NPCs or custom monsters"}
+            . Prepared copies start with no conditions.
           </p>
         </section>
         {preview.mergedPlayers > 0 && (
@@ -103,8 +150,12 @@ export function LoadPreview({
             Refresh preview
           </Button>
           <Button
-            disabled={busy || preview.total > MAX_COMBATANTS}
-            onClick={onConfirm}
+            disabled={
+              busy ||
+              (hasParty && preserve === null) ||
+              preview.total > MAX_COMBATANTS
+            }
+            onClick={() => onConfirm(preserve === true)}
           >
             {busy ? "Loading…" : "Confirm load"}
           </Button>
