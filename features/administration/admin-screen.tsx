@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   createManagedAccount,
   deleteManagedAccount,
@@ -113,323 +114,387 @@ export function AdminScreen({ current }: { current: User }) {
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5">
       <h1 className="font-serif text-3xl">Administration</h1>
-      <UpdatePanel />
-
-      <section className="rounded-xl border border-white/10 bg-[#13161d] p-5">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-serif text-xl text-amber-200">
-              Server settings
-            </h2>
-            <p className="text-sm text-stone-500">
-              Stored locally in SQLite and applied server-wide.
-            </p>
-          </div>
-          <Button onClick={saveSettings} disabled={!settings || savingSettings}>
-            <Save /> {savingSettings ? "Saving…" : "Save settings"}
-          </Button>
-        </div>
-        {storage && (
-          <div className="mb-4 rounded border border-white/10 p-4 text-sm text-stone-300">
-            <h3 className="mb-2 font-semibold">Local database storage</h3>
-            <p>
-              Used pages: {(storage.usedBytes / 1048576).toFixed(1)} MiB /{" "}
-              {storage.limits.databaseLimitMb} MiB · Database file:{" "}
-              {(storage.databaseBytes / 1048576).toFixed(1)} MiB · WAL:{" "}
-              {(storage.walBytes / 1048576).toFixed(1)} MiB
-            </p>
-            <p>
-              Free disk:{" "}
-              {storage.freeBytes === null
-                ? "In-memory database"
-                : `${Math.floor(storage.freeBytes / 1048576)} MiB`}{" "}
-              · Minimum free: {storage.limits.minimumFreeMb} MiB
-            </p>
-            <p>
-              Per account: {storage.limits.campaignsPerAccount} campaigns and{" "}
-              {storage.limits.recordsPerAccount} content records. Host
-              administrators configure these limits.
-            </p>
-          </div>
-        )}
-        {settings ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Setting
-              label="Secure session cookies"
-              help="Auto detects HTTPS. Always requires HTTPS; Never is for trusted private HTTP only."
-            >
-              <select
-                className={selectClass}
-                value={settings.secureCookieMode}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    secureCookieMode: event.target
-                      .value as ServerSettings["secureCookieMode"],
-                  })
-                }
-              >
-                <option value="auto">Auto-detect HTTPS</option>
-                <option value="always">Always secure</option>
-                <option value="never">Never secure</option>
-              </select>
-            </Setting>
-            <NumberSetting
-              label="Session lifetime"
-              help="Days before a new login expires. Existing sessions keep their current expiry."
-              value={settings.sessionLifetimeDays}
-              min={1}
-              max={365}
-              suffix="days"
-              onChange={(value) => numberSetting("sessionLifetimeDays", value)}
-            />
-            <NumberSetting
-              label="Upload limit"
-              help="Maximum original image size for each screenshot."
-              value={settings.uploadLimitMb}
-              min={1}
-              max={50}
-              suffix="MB"
-              onChange={(value) => numberSetting("uploadLimitMb", value)}
-            />
-            <NumberSetting
-              label="User screenshot quota"
-              help="Maximum screenshot storage per account."
-              value={settings.screenshotQuotaMb}
-              min={1}
-              max={10000}
-              suffix="MB"
-              onChange={(value) => numberSetting("screenshotQuotaMb", value)}
-            />
-            <NumberSetting
-              label="Server screenshot quota"
-              help="Maximum screenshot storage across all accounts."
-              value={settings.screenshotGlobalQuotaMb}
-              min={1}
-              max={100000}
-              suffix="MB"
-              onChange={(value) =>
-                numberSetting("screenshotGlobalQuotaMb", value)
-              }
-            />
-            <NumberSetting
-              label="Combat undo history"
-              help="Number of prior Combat states retained per campaign."
-              value={settings.combatHistoryLimit}
-              min={1}
-              max={1000}
-              suffix="states"
-              onChange={(value) => numberSetting("combatHistoryLimit", value)}
-            />
-            <NumberSetting
-              label="Audit history"
-              help="Maximum audit events retained per campaign or account."
-              value={settings.auditEventLimit}
-              min={100}
-              max={100000}
-              suffix="events"
-              onChange={(value) => numberSetting("auditEventLimit", value)}
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-stone-500">Loading server settings…</p>
-        )}
-        <p className="mt-5 border-t border-white/10 pt-4 text-xs text-stone-500">
-          Database paths, upload paths, and bootstrap secrets remain deployment
-          settings and require a server restart.
-        </p>
-      </section>
-
-      <section className="rounded-xl border border-white/10 bg-[#13161d] p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium">Account registration</p>
-            <p className="text-sm text-stone-500">
-              Allow new users to register from the sign-in screen.
-            </p>
-          </div>
-          <Switch
-            checked={registration}
-            onCheckedChange={async (enabled) => {
-              try {
-                const state = await updateRegistration(enabled);
-                setRegistration(state.registrationEnabled);
-              } catch (error) {
-                report(error);
-              }
-            }}
-          />
-        </div>
-        <div className="mt-5 grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto]">
-          <Input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="Username"
-          />
-          <Input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Display name"
-          />
-          <Input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Initial password"
-          />
-          <Button onClick={create}>
-            <Plus /> Create
-          </Button>
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-white/10 bg-[#13161d]">
-        {users.map((user) => (
-          <div
-            key={user.id}
-            className="grid gap-3 border-b border-white/10 p-4 last:border-0 md:grid-cols-[1fr_1fr_8rem_12rem] md:items-center"
+      <Tabs defaultValue="updates" className="gap-5">
+        <TabsList
+          aria-label="Administration sections"
+          className="grid h-auto! w-full grid-cols-2 gap-1 md:grid-cols-4"
+        >
+          <TabsTrigger
+            className="h-auto min-w-0 whitespace-normal py-2"
+            value="updates"
           >
-            <Input
-              defaultValue={user.username}
-              onBlur={(event) => {
-                if (event.target.value !== user.username)
-                  void patch(user.id, {
-                    action: "update",
-                    id: user.id,
-                    username: event.target.value,
-                    displayName: user.displayName,
-                  });
-              }}
-            />
-            <Input
-              defaultValue={user.displayName}
-              onBlur={(event) => {
-                if (event.target.value !== user.displayName)
-                  void patch(user.id, {
-                    action: "update",
-                    id: user.id,
-                    username: user.username,
-                    displayName: event.target.value,
-                  });
-              }}
-            />
-            <span className="text-sm">
-              {user.isAdmin ? "Administrator" : "User"}
-            </span>
-            <div className="flex justify-end gap-1">
+            Update Application
+          </TabsTrigger>
+          <TabsTrigger
+            className="h-auto min-w-0 whitespace-normal py-2"
+            value="settings"
+          >
+            Server Settings
+          </TabsTrigger>
+          <TabsTrigger
+            className="h-auto min-w-0 whitespace-normal py-2"
+            value="accounts"
+          >
+            Account Administration
+          </TabsTrigger>
+          <TabsTrigger
+            className="h-auto min-w-0 whitespace-normal py-2"
+            value="screenshots"
+          >
+            Screenshot Library
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="updates"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          <UpdatePanel />
+        </TabsContent>
+        <TabsContent
+          value="settings"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          <section className="rounded-xl border border-white/10 bg-[#13161d] p-5">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-xl text-amber-200">
+                  Server settings
+                </h2>
+                <p className="text-sm text-stone-500">
+                  Stored locally in SQLite and applied server-wide.
+                </p>
+              </div>
               <Button
-                size="icon-sm"
-                variant="ghost"
-                disabled={user.id === current.userId}
-                title="Toggle administrator"
-                onClick={() =>
-                  patch(user.id, {
-                    action: "update",
-                    id: user.id,
-                    isAdmin: !user.isAdmin,
-                  })
-                }
+                onClick={saveSettings}
+                disabled={!settings || savingSettings}
               >
-                <Shield />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={user.id === current.userId}
-                onClick={() => {
-                  const value = prompt(
-                    "Enter the new password (minimum 8 characters):",
-                  );
-                  if (value)
-                    void patch(user.id, {
-                      action: "update",
-                      id: user.id,
-                      password: value,
-                    });
-                }}
-              >
-                Reset password
-              </Button>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                disabled={user.id === current.userId}
-                onClick={() => remove(user.id)}
-              >
-                <Trash2 />
+                <Save /> {savingSettings ? "Saving…" : "Save settings"}
               </Button>
             </div>
-          </div>
-        ))}
-      </section>
-
-      <section className="rounded-xl border border-white/10 bg-[#13161d] p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-medium">Uploaded screenshots</h2>
-            <p className="text-sm text-stone-500">
-              Local images available to rich-text notes.
+            {storage && (
+              <div className="mb-4 rounded border border-white/10 p-4 text-sm text-stone-300">
+                <h3 className="mb-2 font-semibold">Local database storage</h3>
+                <p>
+                  Used pages: {(storage.usedBytes / 1048576).toFixed(1)} MiB /{" "}
+                  {storage.limits.databaseLimitMb} MiB · Database file:{" "}
+                  {(storage.databaseBytes / 1048576).toFixed(1)} MiB · WAL:{" "}
+                  {(storage.walBytes / 1048576).toFixed(1)} MiB
+                </p>
+                <p>
+                  Free disk:{" "}
+                  {storage.freeBytes === null
+                    ? "In-memory database"
+                    : `${Math.floor(storage.freeBytes / 1048576)} MiB`}{" "}
+                  · Minimum free: {storage.limits.minimumFreeMb} MiB
+                </p>
+                <p>
+                  Per account: {storage.limits.campaignsPerAccount} campaigns
+                  and {storage.limits.recordsPerAccount} content records. Host
+                  administrators configure these limits.
+                </p>
+              </div>
+            )}
+            {settings ? (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <Setting
+                  label="Secure session cookies"
+                  help="Auto detects HTTPS. Always requires HTTPS; Never is for trusted private HTTP only."
+                >
+                  <select
+                    className={selectClass}
+                    value={settings.secureCookieMode}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        secureCookieMode: event.target
+                          .value as ServerSettings["secureCookieMode"],
+                      })
+                    }
+                  >
+                    <option value="auto">Auto-detect HTTPS</option>
+                    <option value="always">Always secure</option>
+                    <option value="never">Never secure</option>
+                  </select>
+                </Setting>
+                <NumberSetting
+                  label="Session lifetime"
+                  help="Days before a new login expires. Existing sessions keep their current expiry."
+                  value={settings.sessionLifetimeDays}
+                  min={1}
+                  max={365}
+                  suffix="days"
+                  onChange={(value) =>
+                    numberSetting("sessionLifetimeDays", value)
+                  }
+                />
+                <NumberSetting
+                  label="Upload limit"
+                  help="Maximum original image size for each screenshot."
+                  value={settings.uploadLimitMb}
+                  min={1}
+                  max={50}
+                  suffix="MB"
+                  onChange={(value) => numberSetting("uploadLimitMb", value)}
+                />
+                <NumberSetting
+                  label="User screenshot quota"
+                  help="Maximum screenshot storage per account."
+                  value={settings.screenshotQuotaMb}
+                  min={1}
+                  max={10000}
+                  suffix="MB"
+                  onChange={(value) =>
+                    numberSetting("screenshotQuotaMb", value)
+                  }
+                />
+                <NumberSetting
+                  label="Server screenshot quota"
+                  help="Maximum screenshot storage across all accounts."
+                  value={settings.screenshotGlobalQuotaMb}
+                  min={1}
+                  max={100000}
+                  suffix="MB"
+                  onChange={(value) =>
+                    numberSetting("screenshotGlobalQuotaMb", value)
+                  }
+                />
+                <NumberSetting
+                  label="Combat undo history"
+                  help="Number of prior Combat states retained per campaign."
+                  value={settings.combatHistoryLimit}
+                  min={1}
+                  max={1000}
+                  suffix="states"
+                  onChange={(value) =>
+                    numberSetting("combatHistoryLimit", value)
+                  }
+                />
+                <NumberSetting
+                  label="Audit history"
+                  help="Maximum audit events retained per campaign or account."
+                  value={settings.auditEventLimit}
+                  min={100}
+                  max={100000}
+                  suffix="events"
+                  onChange={(value) => numberSetting("auditEventLimit", value)}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-stone-500">Loading server settings…</p>
+            )}
+            <p className="mt-5 border-t border-white/10 pt-4 text-xs text-stone-500">
+              Database paths, upload paths, and bootstrap secrets remain
+              deployment settings and require a server restart.
             </p>
-          </div>
-          <label className="cursor-pointer rounded-md bg-amber-300 px-3 py-2 text-sm text-black">
-            <Plus className="mr-1 inline size-4" /> Upload
-            <input
-              hidden
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                try {
-                  await uploadScreenshot(file);
-                  setScreenshots(await listScreenshots());
-                } catch (error) {
-                  report(error);
-                }
-              }}
-            />
-          </label>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {screenshots.map((shot) => (
-            <div
-              key={shot.id}
-              className="overflow-hidden rounded-lg border border-white/10"
-            >
-              <Image
-                unoptimized
-                width={320}
-                height={112}
-                src={shot.url}
-                alt={shot.name}
-                className="h-28 w-full bg-black/30 object-contain"
+          </section>
+        </TabsContent>
+        <TabsContent
+          value="accounts"
+          forceMount
+          className="space-y-5 data-[state=inactive]:hidden"
+        >
+          <h2 className="font-serif text-xl text-amber-200">
+            Account Administration
+          </h2>
+          <section className="rounded-xl border border-white/10 bg-[#13161d] p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Account registration</p>
+                <p className="text-sm text-stone-500">
+                  Allow new users to register from the sign-in screen.
+                </p>
+              </div>
+              <Switch
+                checked={registration}
+                onCheckedChange={async (enabled) => {
+                  try {
+                    const state = await updateRegistration(enabled);
+                    setRegistration(state.registrationEnabled);
+                  } catch (error) {
+                    report(error);
+                  }
+                }}
               />
-              <div className="flex items-center gap-2 p-2">
-                <span className="min-w-0 flex-1 truncate text-xs">
-                  {shot.name}
+            </div>
+            <div className="mt-5 grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto]">
+              <Input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="Username"
+              />
+              <Input
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Display name"
+              />
+              <Input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Initial password"
+              />
+              <Button onClick={create}>
+                <Plus /> Create
+              </Button>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-white/10 bg-[#13161d]">
+            {users.map((user) => (
+              <div
+                key={user.id}
+                className="grid gap-3 border-b border-white/10 p-4 last:border-0 md:grid-cols-[1fr_1fr_8rem_12rem] md:items-center"
+              >
+                <Input
+                  defaultValue={user.username}
+                  onBlur={(event) => {
+                    if (event.target.value !== user.username)
+                      void patch(user.id, {
+                        action: "update",
+                        id: user.id,
+                        username: event.target.value,
+                        displayName: user.displayName,
+                      });
+                  }}
+                />
+                <Input
+                  defaultValue={user.displayName}
+                  onBlur={(event) => {
+                    if (event.target.value !== user.displayName)
+                      void patch(user.id, {
+                        action: "update",
+                        id: user.id,
+                        username: user.username,
+                        displayName: event.target.value,
+                      });
+                  }}
+                />
+                <span className="text-sm">
+                  {user.isAdmin ? "Administrator" : "User"}
                 </span>
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  onClick={async () => {
-                    if (!confirm("Delete this screenshot?")) return;
-                    try {
-                      await deleteScreenshot(shot.id);
-                      setScreenshots((all) =>
-                        all.filter(({ id }) => id !== shot.id),
+                <div className="flex justify-end gap-1">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={user.id === current.userId}
+                    title="Toggle administrator"
+                    onClick={() =>
+                      patch(user.id, {
+                        action: "update",
+                        id: user.id,
+                        isAdmin: !user.isAdmin,
+                      })
+                    }
+                  >
+                    <Shield />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={user.id === current.userId}
+                    onClick={() => {
+                      const value = prompt(
+                        "Enter the new password (minimum 8 characters):",
                       );
+                      if (value)
+                        void patch(user.id, {
+                          action: "update",
+                          id: user.id,
+                          password: value,
+                        });
+                    }}
+                  >
+                    Reset password
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={user.id === current.userId}
+                    onClick={() => remove(user.id)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </section>
+        </TabsContent>
+        <TabsContent
+          value="screenshots"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          <section className="rounded-xl border border-white/10 bg-[#13161d] p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-medium">Screenshot Library</h2>
+                <p className="text-sm text-stone-500">
+                  Local images available to rich-text notes.
+                </p>
+              </div>
+              <label className="cursor-pointer rounded-md bg-amber-300 px-3 py-2 text-sm text-black">
+                <Plus className="mr-1 inline size-4" /> Upload
+                <input
+                  hidden
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      await uploadScreenshot(file);
+                      setScreenshots(await listScreenshots());
                     } catch (error) {
                       report(error);
                     }
                   }}
-                >
-                  <Trash2 />
-                </Button>
-              </div>
+                />
+              </label>
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {screenshots.map((shot) => (
+                <div
+                  key={shot.id}
+                  className="overflow-hidden rounded-lg border border-white/10"
+                >
+                  <Image
+                    unoptimized
+                    width={320}
+                    height={112}
+                    src={shot.url}
+                    alt={shot.name}
+                    className="h-28 w-full bg-black/30 object-contain"
+                  />
+                  <div className="flex items-center gap-2 p-2">
+                    <span className="min-w-0 flex-1 truncate text-xs">
+                      {shot.name}
+                    </span>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (!confirm("Delete this screenshot?")) return;
+                        try {
+                          await deleteScreenshot(shot.id);
+                          setScreenshots((all) =>
+                            all.filter(({ id }) => id !== shot.id),
+                          );
+                        } catch (error) {
+                          report(error);
+                        }
+                      }}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

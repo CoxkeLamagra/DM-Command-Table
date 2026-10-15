@@ -2,6 +2,12 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.8.1 — 2026-10-15
+
+- Divide Administration into Update Application, Server Settings, Account Administration and Screenshot Library tabs.
+- Preserve unsaved fields and update monitoring when switching sections, with keyboard navigation and a two-column mobile tab layout.
+- Keep all current administration controls and document the new navigation.
+
 ## 11.8.0 — 2026-10-15
 
 - Canonicalize API routes once before rate and package-work admission; reject ambiguous import/export aliases.

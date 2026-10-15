@@ -19,6 +19,17 @@
 
 Campaigns are private by default. Only the owner can share or delete a campaign. Owners and editors can save changes; viewers cannot modify campaign data.
 
+### Administration sections
+
+Administration opens **Update Application** and provides four tabs. Tabs wrap into two columns on small screens and support keyboard navigation. Switching sections retains unsaved settings/account fields and update progress while Administration remains open.
+
+| Section                | Controls                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Update Application     | Start an update, follow progress and read retained logs                                                    |
+| Server Settings        | Cookie/session settings, screenshot quotas, retention and database storage metrics                         |
+| Account Administration | Registration, account creation, usernames/display names, administrator roles, password resets and deletion |
+| Screenshot Library     | Browse, upload and delete local screenshots                                                                |
+
 ### Local user administration
 
 - The first locally registered account automatically becomes an administrator.

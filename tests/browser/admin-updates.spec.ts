@@ -55,7 +55,7 @@ test("update endpoints require administrator access and reject unapproved comman
   ).toBe(403);
 });
 
-test("administrator sees disabled update control without the Debian service", async ({
+test("administrator sections preserve drafts, support keyboard/mobile navigation and keep update controls", async ({
   page,
 }) => {
   await page.goto("/");
@@ -75,6 +75,75 @@ test("administrator sees disabled update control without the Debian service", as
     page.getByText("GUI updates require the Debian LXC update service.", {
       exact: false,
     }),
+  ).toBeVisible();
+  const sections = page.getByRole("tablist", {
+    name: "Administration sections",
+  });
+  await expect(sections.getByRole("tab")).toHaveCount(4);
+  await sections
+    .getByRole("tab", { name: "Update Application", exact: true })
+    .focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    sections.getByRole("tab", { name: "Server Settings", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  const settings = page.getByRole("tabpanel", {
+    name: "Server Settings",
+    exact: true,
+  });
+  const lifetime = settings.getByRole("spinbutton", {
+    name: "Session lifetime",
+    exact: false,
+  });
+  await lifetime.fill("42");
+  await sections
+    .getByRole("tab", { name: "Account Administration", exact: true })
+    .click();
+  const accounts = page.getByRole("tabpanel", {
+    name: "Account Administration",
+    exact: true,
+  });
+  await accounts
+    .getByPlaceholder("Username", { exact: true })
+    .fill("unsaved-account");
+  await expect(
+    accounts.getByText("Account registration", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    accounts.getByRole("button", { name: "Create", exact: true }),
+  ).toBeVisible();
+  await sections
+    .getByRole("tab", { name: "Screenshot Library", exact: true })
+    .click();
+  const library = page.getByRole("tabpanel", {
+    name: "Screenshot Library",
+    exact: true,
+  });
+  await expect(
+    library.getByRole("heading", { name: "Screenshot Library", exact: true }),
+  ).toBeVisible();
+  await expect(library.getByText("Upload", { exact: true })).toBeVisible();
+  await expect(settings).not.toBeVisible();
+  await expect(accounts).not.toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const bounds = await sections.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await sections
+    .getByRole("tab", { name: "Account Administration", exact: true })
+    .click();
+  await expect(
+    accounts.getByPlaceholder("Username", { exact: true }),
+  ).toHaveValue("unsaved-account");
+  await sections
+    .getByRole("tab", { name: "Server Settings", exact: true })
+    .click();
+  await expect(lifetime).toHaveValue("42");
+  await sections
+    .getByRole("tab", { name: "Update Application", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Application updates" }),
   ).toBeVisible();
 });
 
