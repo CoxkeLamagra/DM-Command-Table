@@ -1,3 +1,9 @@
+# v12.0.1 release validation
+
+This patch fixes Combat initiative summaries for independent prepared player copies. A unique roster match by name and type supplies race/class; missing or ambiguous matches still show the correct Player/NPC/Monster type. Combat values remain independent and no schema migration is required.
+
+The dependency audit, formatting, ESLint, TypeScript, all **141 unit/integration tests** and production build passed. New coverage loads a prepared player and checks its race/class summary, removed or ambiguous roster fallback, linked renamed players, and NPC/Monster separation. All **3 targeted browser tests** for prepared encounter loading/drafts and mixed-source combatants passed using system Chromium. The preceding major-release assessment is retained below with its original scope.
+
 # v12.0.0 release validation
 
 v12 refactors the current application while retaining local storage and existing user/admin workflows. Prepared encounter state/persistence is separate from rendering; Combat composes dedicated HP, condition, resource and stat-block components. Memoized ordering/indexed summaries, cached SQL, distinct-reference validation and cheaper transaction growth checks reduce repeated work. The obsolete unused HP helper is removed.

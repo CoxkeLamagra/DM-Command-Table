@@ -46,6 +46,7 @@ import {
 } from "../shared/api";
 import type { Combat, Combatant, Monster, Player } from "@/domain/types";
 
+import { combatantSummary } from "./combatant-summary";
 import { CombatantEditor } from "@/features/combat/combatant-editor";
 export function CombatScreen({
   campaignId,
@@ -761,39 +762,6 @@ function combatantKindDot(kind: Combatant["kind"]) {
     : kind === "monster"
       ? "bg-red-400"
       : "bg-blue-400";
-}
-function combatantSummary(
-  item: Combatant,
-  players: Player[],
-  monsters: Monster[],
-) {
-  const player = item.playerId
-    ? players.find(({ id }) => id === item.playerId)
-    : undefined;
-  const monster =
-    item.snapshot ??
-    (item.monsterId
-      ? monsters.find(({ id }) => id === item.monsterId)
-      : undefined);
-  if (player)
-    return [
-      player.race,
-      player.className,
-      item.kind === "npc" ? "NPC" : "Player",
-      `AC ${item.armorClass}`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-  if (monster)
-    return [
-      monster.type,
-      `CR ${monster.challengeRating}`,
-      "Monster",
-      `AC ${item.armorClass}`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-  return `${item.kind === "npc" ? "NPC" : "Monster"} · AC ${item.armorClass}`;
 }
 function normalize(combat: Combat): Combat {
   return normalizeCombat(combat);

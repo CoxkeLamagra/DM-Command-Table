@@ -2,6 +2,11 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.0.1 — 2026-10-15
+
+- Correct prepared player descriptions in Combat initiative order: show race, class and Player from an unambiguous same-name player roster entry, while retaining independent combat copies.
+- Always display Player for player combatants even if their original roster entry was removed or renamed; keep NPC and Monster labels distinct.
+
 ## 12.0.0 — 2026-10-15
 
 - Split prepared encounter state/persistence from rendering, and Combat HP and condition editors into focused modules while preserving all current user/admin workflows.

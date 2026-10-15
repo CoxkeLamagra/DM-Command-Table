@@ -1,3 +1,5 @@
+import { combatantSummary } from "../features/combat/combatant-summary.ts";
+import type { Player } from "../domain/types.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
@@ -315,4 +317,65 @@ test("saved snapshots outlive Bestiary edits/deletion; runtime, conditions, undo
       .get(imageId)!.count,
   );
   database.close();
+});
+
+test("prepared players show roster race/class and preserve kind without a roster link", () => {
+  const hero = entry();
+  const roster: Player = {
+    id: "roster-hero",
+    campaignId: "campaign",
+    name: "Hero",
+    kind: "player",
+    race: "Human",
+    className: "Fighter",
+    level: 3,
+    hitPoints: 20,
+    armorClass: 15,
+    notes: "",
+    revision: 1,
+    createdAt: "",
+    updatedAt: "",
+  };
+  const loaded = loadPreparation(
+    combat([]),
+    {
+      id: "prepared",
+      sessionId: "session",
+      name: "Party",
+      notes: "",
+      sortOrder: 0,
+      monsters: [],
+      combatants: [hero],
+      revision: 1,
+      createdAt: "",
+      updatedAt: "",
+    },
+    [],
+  );
+  assert.equal(loaded.combatants[0].playerId, null);
+  assert.equal(
+    combatantSummary(loaded.combatants[0], [roster], []),
+    "Human · Fighter · Player · AC 15",
+  );
+  assert.equal(combatantSummary(hero, [], []), "Player · AC 15");
+  assert.equal(
+    combatantSummary(hero, [roster, { ...roster, id: "duplicate" }], []),
+    "Player · AC 15",
+  );
+  assert.equal(
+    combatantSummary({ ...hero, kind: "npc" }, [roster], []),
+    "NPC · AC 15",
+  );
+  assert.equal(
+    combatantSummary({ ...hero, kind: "monster" }, [roster], []),
+    "Monster · AC 15",
+  );
+  assert.equal(
+    combatantSummary(
+      { ...hero, playerId: roster.id, name: "Renamed" },
+      [roster],
+      [],
+    ),
+    "Human · Fighter · Player · AC 15",
+  );
 });
