@@ -102,7 +102,7 @@ Imported monster data belongs to the current campaign and remains editable after
 - Assign **Planned**, **Active now**, or **Happened** status to Sessions and Story beats.
 - Search Session and Story content with typeahead filtering.
 - Search campaign records with result-type filters for Sessions, Stories, Players, NPCs, and Bestiary monsters. Highlight matches and open the exact result directly.
-- Choose comfortable or compact list spacing from the sidebar; the preference is remembered in this browser.
+- Lists always use compact spacing while retaining accessible touch targets. The sidebar shows your username beside Sign out; its version link opens the GitHub repository. Use the icon in the header to collapse or expand the desktop menu.
 - Start with compact collapsed Sessions and Story beats, expand individual entries as needed, or expand and collapse every entry at once.
 - Prepare multiple named encounters inside each session.
 - Open Session play view to use notes, linked story details, prepared encounters and searchable Player/NPC references together. Roster HP is a campaign reference; use Combat for live HP.

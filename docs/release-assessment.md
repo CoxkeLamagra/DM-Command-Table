@@ -1,33 +1,13 @@
-# v11.8.2 release validation
+# v11.8.3 release validation
 
-Administration tabs now use a dark bar, yellow selected background with black text, gray inactive labels and readable hover/focus states. This corrects the light shared-component defaults without changing tab behavior.
-
-Validation passed: full dependency audit gate, formatting, lint, TypeScript, all 136 unit/integration tests, production build and all three Administration browser tests. Rendered-color checks verified the dark bar, gray inactive labels and black selected text on yellow, including hover on each tab. The desktop appearance was visually inspected. No new dependencies or storage changes are introduced.
-
-## Previous v11.8.1 validation
-
-The evidence below describes the preceding release's broader regression and offline-runtime checks; those full browser/container suites were not repeated for this color-only patch.
-
-Administration is divided into Update Application, Server Settings, Account Administration and Screenshot Library tabs. Sections retain drafts and update monitoring while mounted, support keyboard navigation and use two columns on small screens. All existing controls are retained.
-
-This release also retains fixes and hardening from the October 15 source/live assessment. API admission now shares canonical route parsing; HTTPS browser sessions receive Secure cookies through an internal HTTP proxy hop; prefetch HTML receives CSP. Development dependencies are updated, with a tracked and verified local mitigation for the remaining upstream braces advisory. Passwords use stronger new hashes and conditional legacy upgrades. Local database/account budgets, administrator metrics, build deadlines and updater service caps are included.
-
-Schema version 2, local storage, current permissions, user/admin workflows, optional catalogue imports, Token sections, preparation replacement, Combat snapshots/undo and GUI updates remain supported. No new runtime dependency or database migration is required. Existing HTTP LAN clients remain supported.
+The sidebar version text now opens the GitHub repository in a separate tab. The application always uses compact list spacing; the old density preference and toggle are removed. Username and Sign out share one line, the duplicate @username is removed, and the icon-only collapse/expand control sits in the existing header. Collapse preference, accessible control names, mobile navigation, campaign controls and draft-aware sign out are preserved.
 
 ## Executed checks
 
-Frozen dependency installation, full dependency audit with local mitigation verification, formatting, ESLint, TypeScript, all 136 unit/integration tests and the production build passed. Regressions cover route aliases and package admission, cookie selection, transactional storage/account rejection and rollback, SQLite direct-write page limits, legacy password upgrades/reset races, runtime packaging and build descendant termination. The original occupied-package-slots proof now returns 503 for both canonical and encoded imports.
+The full dependency audit gate, formatting, ESLint, TypeScript, all 136 unit/integration tests and production build passed. All 19 browser tests passed using system Chromium. Browser regressions cover permanent compact spacing despite an old comfortable preference, version links in expanded/collapsed menus, account footer placement, icon-only header controls, remembered collapse state and mobile navigation. Existing Administration, campaign, Bestiary and Combat workflows remain covered by the browser suite. Expanded, collapsed and mobile sidebar screenshots were visually inspected; the username and sign-out control were confirmed to share a horizontal centerline.
 
-All 19 browser tests passed using system Chromium, including Administration section navigation, keyboard/mobile access, draft retention, update monitoring, HTTPS-edge Secure cookies, working HTTP LAN login, CSP on both prefetch header variants, and canonical/encoded imports sharing the strict rate bucket.
+No runtime dependency, API or schema change is introduced. The application remains local-first, with optional catalogue imports and administrator-triggered source updates as before. The version link makes an external request only when a user opens the repository.
 
-The v11.8.1 runtime package passed manifest verification. Mounted read-only into an existing Node 24 runtime container with networking disabled, it passed fresh registration/admin, readiness/authentication, campaigns/sessions, separate local token media, preparation loading, Combat save/undo, export/import, screenshot upload/WebP encoding/access, storage checking, backup verification, restore and maintenance. Its temporary data volume provided 512 MiB to accommodate the default 128 MiB free-space reserve.
+## Validation limits
 
-A read-only boundary investigation and independent candidate review were completed. Review identified older-source audit-command compatibility and tag budget coverage; the final change uses a full audit fallback for older targets and includes transactional tag accounting. Encounter child rows retain their existing capacity limits and the global database budget, as documented.
-
-## Deployment and validation limits
-
-Apply the application release through Administration → Update, then sign in again for updated HTTPS cookie attributes. Existing hosts must run the documented [one-time root helper installer](operations.md#applying-v118-updater-resource-limits-to-an-existing-host) to apply OS-level updater caps; fresh installs already include them. The application cannot replace those root-owned helpers itself. No live deployment, production data mutation or live re-assessment was performed for these fixes.
-
-Raw `pnpm audit` continues to report development-only braces GHSA-vfj7-8cjw-p6xm. The gate permits only that exact patched version/advisory and probes the installed nesting guard; it fails unrelated findings. See [security notes](security-efficiency-review.md) and [operations](operations.md) for password benchmark evidence, storage-budget semantics, WAL/backup monitoring and build ceilings.
-
-These checks do not establish a fresh bare Debian LXC installation, acceptance through the actual hosted TLS/proxy chain or deployment-hardware capacity. Browser verification uses system Chromium because the pinned Playwright browser download is unavailable in this environment. The offline check uses an existing container image with the new runtime mounted into it; it does not validate a fresh source-image build against registry availability.
+Browser verification uses system Chromium. These checks do not establish a fresh bare Debian LXC installation, a live-host deployment or production TLS/proxy acceptance. The broad offline container smoke test passed for v11.8.1; it was not repeated for this sidebar-only patch. Existing v11.8 security controls and root-helper deployment requirements remain documented in [operations](operations.md) and [security notes](security-efficiency-review.md).

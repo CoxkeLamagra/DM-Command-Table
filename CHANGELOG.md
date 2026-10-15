@@ -2,6 +2,13 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.8.3 — 2026-10-15
+
+- Make sidebar version text link to the GitHub repository in expanded and collapsed menus.
+- Use compact list spacing throughout the application and remove the density selector.
+- Put username and Sign out on one line, remove the duplicate @username, and move the icon-only collapse control into the sidebar header.
+- Preserve collapse preference, keyboard labels, mobile navigation and draft-aware sign out.
+
 ## 11.8.2 — 2026-10-15
 
 - Match Administration tabs to the application theme: dark tab bar, yellow active tab with black text, and gray inactive labels with readable hover/focus states.

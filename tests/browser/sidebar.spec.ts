@@ -3,12 +3,44 @@ import { test, expect } from "@playwright/test";
 test("sidebar collapses to accessible icons, remembers the preference and keeps mobile navigation expanded", async ({
   page,
 }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("dmct-compact-layout", "false"),
+  );
   await page.goto("/");
   await page.getByLabel("Username", { exact: true }).fill("browser-test");
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
   await page.locator('form button[type="submit"]').click();
   const sidebar = page.getByRole("complementary", { name: "Workspace menu" });
   const main = page.getByRole("main");
+  await expect(main).toHaveAttribute("data-density", "compact");
+  await expect(
+    sidebar.getByRole("button", { name: /Use (compact|comfortable) layout/ }),
+  ).toHaveCount(0);
+  const username = sidebar.getByText("browser-test", { exact: true });
+  await expect(username).toBeVisible();
+  await expect(sidebar.getByText("@browser-test", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    username
+      .locator("..")
+      .getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
+  const version = sidebar.getByRole("link", {
+    name: /Version .*GitHub repository/,
+  });
+  await expect(version).toHaveAttribute(
+    "href",
+    "https://github.com/CoxkeLamagra/DM-Command-Table",
+  );
+  await expect(version).toHaveAttribute("rel", "noopener noreferrer");
+  const collapse = sidebar.getByRole("button", {
+    name: "Collapse menu",
+    exact: true,
+  });
+  await expect(collapse).toHaveText("");
+  expect((await collapse.boundingBox())!.y).toBeLessThan(80);
+
   const fullWidth = await sidebar.evaluate(
     (element) => element.getBoundingClientRect().width,
   );
@@ -22,6 +54,7 @@ test("sidebar collapses to accessible icons, remembers the preference and keeps 
     (element) => element.getBoundingClientRect().width,
   );
   expect(narrowWidth).toBeLessThan(fullWidth);
+  await expect(version).toBeVisible();
   expect(
     await main.evaluate((element) => element.getBoundingClientRect().left),
   ).toBe(narrowWidth);

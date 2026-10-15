@@ -14,7 +14,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
-  Rows3,
   Settings,
   Shield,
   Swords,
@@ -157,30 +156,11 @@ export function Shell() {
   const [openStoryId, setOpenStoryId] = useState<string>();
   const [openPlayerId, setOpenPlayerId] = useState<string>();
   const [openMonsterId, setOpenMonsterId] = useState<string>();
-  const [compact, setCompact] = useState(() => {
-    try {
-      return (
-        typeof window !== "undefined" &&
-        localStorage.getItem("dmct-compact-layout") === "true"
-      );
-    } catch {
-      return false;
-    }
-  });
   function resetRecordTargets() {
     setOpenSessionId(undefined);
     setOpenStoryId(undefined);
     setOpenPlayerId(undefined);
     setOpenMonsterId(undefined);
-  }
-  function toggleDensity() {
-    const next = !compact;
-    setCompact(next);
-    try {
-      localStorage.setItem("dmct-compact-layout", String(next));
-    } catch {
-      /* The current preference still applies. */
-    }
   }
   const sync = useSync(workspace.current?.id, workspace.current?.revision);
   const routeInitialized = useRef(false);
@@ -314,13 +294,27 @@ export function Shell() {
         <div
           className={`flex h-20 items-center gap-3 border-b border-white/10 px-5 ${sidebarCollapsed ? "lg:justify-center lg:px-3" : ""}`}
         >
-          <span className="grid size-10 place-items-center rounded-xl bg-amber-300 text-black">
+          <span
+            className={`grid size-10 shrink-0 place-items-center rounded-xl bg-amber-300 text-black ${labelClass}`}
+          >
             <Swords />
           </span>
           <div className={`min-w-0 flex-1 ${labelClass}`}>
             <p className="font-serif text-lg">DM Command Table</p>
             <p className="text-xs text-stone-400">Campaign workspace</p>
           </div>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="hidden shrink-0 lg:inline-flex"
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
+            title={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="workspace-sidebar"
+          >
+            {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+          </Button>
           <Button
             className="lg:hidden"
             size="icon-sm"
@@ -329,20 +323,6 @@ export function Shell() {
             aria-label="Close menu"
           >
             <X />
-          </Button>
-        </div>
-        <div className="hidden border-b border-white/10 p-3 lg:block">
-          <Button
-            variant="ghost"
-            className="w-full"
-            onClick={toggleSidebar}
-            aria-label={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
-            title={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
-            aria-expanded={!sidebarCollapsed}
-            aria-controls="workspace-sidebar"
-          >
-            {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-            <span className={labelClass}>Collapse menu</span>
           </Button>
         </div>
         <div className="border-b border-white/10 p-4">
@@ -452,49 +432,42 @@ export function Shell() {
           )}
         </nav>
         <div className="border-t border-white/10 p-4">
-          <Button
-            variant="ghost"
-            className="mb-2 w-full"
-            aria-label={
-              compact ? "Use comfortable layout" : "Use compact layout"
-            }
-            title={compact ? "Use comfortable layout" : "Use compact layout"}
-            aria-pressed={compact}
-            onClick={toggleDensity}
+          <div className="flex items-center gap-2">
+            <p
+              className={`min-w-0 flex-1 truncate text-sm ${labelClass}`}
+              title={workspace.user?.username}
+            >
+              {workspace.user?.username}
+            </p>
+            <Button
+              variant="ghost"
+              className={`shrink-0 ${sidebarCollapsed ? "lg:w-full lg:justify-center lg:px-0" : ""}`}
+              aria-label="Sign out"
+              title="Sign out"
+              onClick={() => {
+                if (confirmDiscardChanges())
+                  void (async () => {
+                    const userId = workspace.user?.userId;
+                    await workspace.signOut();
+                    if (userId) {
+                      try {
+                        clearUserDrafts(localStorage, userId);
+                      } catch {}
+                    }
+                  })();
+              }}
+            >
+              <LogOut />
+              <span className={labelClass}>Sign out</span>
+            </Button>
+          </div>
+          <a
+            href="https://github.com/CoxkeLamagra/DM-Command-Table"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Version ${APPLICATION_VERSION} — GitHub repository`}
+            className="mt-2 block rounded text-xs text-stone-400 hover:text-amber-200 focus-visible:outline-2 focus-visible:outline-amber-300"
           >
-            <Rows3 />
-            <span className={labelClass}>
-              {compact ? "Comfortable layout" : "Compact layout"}
-            </span>
-          </Button>
-          <p className={`truncate text-sm ${labelClass}`}>
-            {workspace.user?.displayName}
-          </p>
-          <p className={`truncate text-xs text-stone-400 ${labelClass}`}>
-            @{workspace.user?.username}
-          </p>
-          <Button
-            variant="ghost"
-            className={`mt-2 w-full ${sidebarCollapsed ? "lg:justify-center lg:px-0" : "justify-start"}`}
-            aria-label="Sign out"
-            title="Sign out"
-            onClick={() => {
-              if (confirmDiscardChanges())
-                void (async () => {
-                  const userId = workspace.user?.userId;
-                  await workspace.signOut();
-                  if (userId) {
-                    try {
-                      clearUserDrafts(localStorage, userId);
-                    } catch {}
-                  }
-                })();
-            }}
-          >
-            <LogOut />
-            <span className={labelClass}>Sign out</span>
-          </Button>
-          <div className="mt-2 block text-xs text-stone-400">
             <span className={labelClass}>Version {APPLICATION_VERSION}</span>
             {sidebarCollapsed && (
               <span
@@ -504,7 +477,7 @@ export function Shell() {
                 v{APPLICATION_VERSION}
               </span>
             )}
-          </div>
+          </a>
         </div>
       </aside>
       {menuOpen && (
@@ -553,7 +526,7 @@ export function Shell() {
       )}
       <DraftAccount.Provider value={workspace.user?.userId ?? null}>
         <main
-          data-density={compact ? "compact" : "comfortable"}
+          data-density="compact"
           className={`min-h-screen p-4 sm:p-7 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"} lg:p-10`}
         >
           {workspace.current && section === "campaign" && (

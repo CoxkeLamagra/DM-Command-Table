@@ -159,7 +159,7 @@ test("next-session shortcuts and typed search open exact records with safe highl
   ).toBeVisible();
 });
 
-test("mobile rosters fit the screen, density persists, and combat switches Initiative/Details without losing edits", async ({
+test("mobile rosters fit the screen, compact spacing is always enabled, and combat switches Initiative/Details without losing edits", async ({
   page,
 }) => {
   await login(page);
@@ -175,13 +175,6 @@ test("mobile rosters fit the screen, density persists, and combat switches Initi
       .getByRole("main")
       .evaluate((element) => element.scrollWidth <= element.clientWidth),
   ).toBe(true);
-  await page.getByRole("button", { name: "Open menu", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Use compact layout", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Players / NPC’s", exact: true })
-    .click();
   await expect(page.getByRole("main")).toHaveAttribute(
     "data-density",
     "compact",
