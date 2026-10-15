@@ -22,6 +22,7 @@ function fixture() {
     ".next/static",
     "public",
     "scripts",
+    "deploy/debian-13",
   ])
     mkdirSync(path.join(directory, folder), { recursive: true });
   writeFileSync(
@@ -38,11 +39,23 @@ function fixture() {
     "local-backup.mjs",
     "maintenance.mjs",
     "restore-local.mjs",
+    "runtime-integrity.mjs",
     "storage-config.mjs",
     "browser-test-server.mjs",
     "package-runtime.mjs",
   ])
     writeFileSync(path.join(directory, "scripts", filename), "// fixture");
+  for (const filename of [
+    "install-gui-updater",
+    "build-update.mjs",
+    "update-broker.mjs",
+    "update-dm-command-table",
+    "dm-command-table-updater.service",
+  ])
+    writeFileSync(
+      path.join(directory, "deploy/debian-13", filename),
+      "# fixture",
+    );
   writeFileSync(
     path.join(directory, "package.json"),
     JSON.stringify({ version: "11.0.0" }),
@@ -68,6 +81,7 @@ test("runtime packages preserve relative dependencies and remain self-contained"
       "local-backup.mjs",
       "maintenance.mjs",
       "restore-local.mjs",
+      "runtime-integrity.mjs",
       "storage-config.mjs",
     ]);
     const dependency = path.join(destination, "node_modules/next");

@@ -128,6 +128,18 @@ export type ServerSettings = {
   auditEventLimit: number;
 };
 export type Administration = {
+  storage?: {
+    usedBytes: number;
+    databaseBytes: number;
+    walBytes: number;
+    freeBytes: number | null;
+    limits: {
+      databaseLimitMb: number;
+      minimumFreeMb: number;
+      campaignsPerAccount: number;
+      recordsPerAccount: number;
+    };
+  };
   users: ManagedUser[];
   registrationEnabled: boolean;
   serverSettings: ServerSettings;

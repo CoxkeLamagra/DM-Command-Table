@@ -56,7 +56,7 @@ Prepared encounters are nested under Sessions; there is no top-level `C/encounte
 | GET, DELETE              | `/api/screenshots/:id` | Read or authorized deletion of a local image                                           |
 | GET                      | `/api/health`          | Public readiness and version                                                           |
 
-Typical errors are 400 for invalid input, 401 for missing/invalid authentication, 403 for forbidden operations or origin mismatch, 404 for missing resources, 409 for conflicting state and 429 for rate limits. Exact status and error text depend on the route. Do not expose cookies, passwords or bootstrap tokens in logs or exports.
+Typical errors are 400 for invalid input, 401 for missing/invalid authentication, 403 for forbidden operations or origin mismatch, 404 for missing resources, 409 for conflicting state, 413 for size/storage budgets and 429 for rate limits. Exact status and error text depend on the route. Do not expose cookies, passwords or bootstrap tokens in logs or exports.
 
 Combatants accept optional `runtime` and `snapshot` fields. Runtime contains nonnegative `temporaryHitPoints`, nullable `concentration`, `deathSaves` (integer successes/failures from 0 through 3), and up to 100 resources (`id`, `name`, `maximum`, `remaining`, `reset`). Resource counts are integers from 0 through 10,000 with remaining no greater than maximum; reset is `manual` or `start-turn`. A Bestiary-linked combatant captures its stat block and slot resources when first saved without a supplied snapshot/runtime. Prepared loads create fresh snapshots and resources per instance.
 
@@ -87,3 +87,7 @@ Monster tokens use a separate optional `token` rich-text field on monsters and C
 The v11.7 refactor preserves request paths, response shapes, revision/conflict codes and campaign permissions. Bestiary rich text is normalized once by the repository, including direct internal callers; the route validates the input schema. Local-only image rules and bounded catalogue downloads use shared helpers.
 
 A record ID outside the campaign specified in the request returns `not_found` on failed content/prepared-encounter updates; revision metadata is only returned for records within that campaign.
+
+## Admission and storage limits
+
+Import/export route aliases receive the same rate and concurrency limits as canonical paths. Malformed encodings and extra import/package segments return 400. Storage or account budget violations return 413 with a public explanation; blocked mutations roll back. Administrator state includes storage usage and configured host limits. See [operations](operations.md) for budget configuration.

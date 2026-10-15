@@ -108,7 +108,7 @@ test("v11 passwords verify without accepting obsolete or malformed credential fo
   assert.equal(
     await verifyPassword(
       "current-password",
-      encoded.replace("scrypt-v1$", "scrypt$"),
+      encoded.replace("scrypt-v2$", "scrypt$"),
     ),
     false,
   );

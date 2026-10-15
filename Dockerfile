@@ -3,6 +3,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm install -g corepack@0.34.6 && corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 FROM dependencies AS builder

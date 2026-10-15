@@ -1,10 +1,8 @@
+import { parseApiRoute } from "./api-route.ts";
 import { PublicApiError } from "./errors.ts";
 let active = 0;
 export function isPackageWork(pathname: string): boolean {
-  return (
-    pathname === "/api/campaigns/import" ||
-    /^\/api\/campaigns\/[^/]+\/package$/.test(pathname)
-  );
+  return parseApiRoute(pathname).isPackageWork;
 }
 // Bound expensive image-package work before reading request bodies; reject rather than queue.
 export async function withPackageWork<T>(

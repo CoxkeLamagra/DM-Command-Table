@@ -1,6 +1,6 @@
 # DM Command Table
 
-DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **11.7.0**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing v11 accounts and campaign data remain usable.
+DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **11.8.0**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing v11 accounts and campaign data remain usable.
 
 Accounts, campaigns, Players/NPCs, Bestiary records, Stories/Sessions, prepared encounters, combat, search, screenshots and backups live on your server. Bundled libraries support offline operation. Opening Import monsters connects automatically to `dnd5e.lamagra.link`; local JSON imports remain available offline. Debian GUI updates contact GitHub and package registries only when you start an update.
 
@@ -12,7 +12,7 @@ Use a dedicated amd64/arm64 container with systemd, networking, at least 2 CPU c
 set -euo pipefail
 apt-get update
 apt-get install -y ca-certificates curl
-curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v11.7.0/deploy/debian-13/install-dm-command-table \
+curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v11.8.0/deploy/debian-13/install-dm-command-table \
   -o /root/install-dm-command-table
 bash /root/install-dm-command-table
 ```
@@ -43,7 +43,7 @@ pnpm package:runtime
 node scripts/runtime-integrity.mjs dist/runtime
 ```
 
-`verify` runs the production dependency audit, repository formatting, ESLint, TypeScript, unit/API tests and production build. Browser tests use disposable data on port 3100. Debian can use its signed Chromium package with `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium pnpm test:browser`.
+`verify` runs the full dependency audit with verified local mitigation checks, repository formatting, ESLint, TypeScript, unit/API tests and production build. Browser tests use disposable data on port 3100. Debian can use its signed Chromium package with `DM_COMMAND_TABLE_TEST_CHROMIUM_PATH=/usr/bin/chromium pnpm test:browser`.
 
 `clean` removes generated build/test output and TypeScript caches, preserving application data, environment files, dependencies and source. Packaging requires a new destination; the default is `dist/runtime`. Development/build entry points disable Next.js telemetry.
 

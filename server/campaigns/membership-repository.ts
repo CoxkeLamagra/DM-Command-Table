@@ -1,3 +1,4 @@
+import { assertAccountBudget } from "../security/storage-budget.ts";
 import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { runTransaction } from "../../db/transaction.ts";
@@ -131,6 +132,7 @@ export function createMembershipRepository(database: DatabaseSync) {
           database,
           "UPDATE campaigns SET owner_id = ?, revision = revision + 1, updated_at = ? WHERE id = ?",
         ).run(newOwnerId, now, campaignId);
+        assertAccountBudget(database, newOwnerId);
         recordAuditEvent(database, {
           campaignId,
           actorUserId,

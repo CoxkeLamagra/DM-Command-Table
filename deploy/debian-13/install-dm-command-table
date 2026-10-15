@@ -4,7 +4,7 @@ set +x
 set -euo pipefail
 umask 077
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-RELEASE=v11.7.0
+RELEASE=v11.8.0
 REPOSITORY=https://github.com/CoxkeLamagra/DM-Command-Table.git
 RESUME=false
 if [[ ${1:-} == --resume ]]; then RESUME=true; shift; fi

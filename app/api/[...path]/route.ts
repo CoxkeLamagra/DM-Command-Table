@@ -1,4 +1,5 @@
-import { isPackageWork, withPackageWork } from "@/server/http/package-work";
+import { parseApiRoute } from "@/server/http/api-route";
+import { withPackageWork } from "@/server/http/package-work";
 import { getDatabase } from "@/db/sqlite";
 import { handleApi } from "@/server/api/api-router";
 import { getUser } from "@/server/identity/auth";
@@ -17,9 +18,14 @@ async function handle(request: Request): Promise<Response> {
   const database = getDatabase();
   const user = await getUser(database);
   if (!user) return apiJson({ error: "Authentication required." }, 401);
+  let route;
+  try {
+    route = parseApiRoute(new URL(request.url).pathname);
+  } catch (error) {
+    return apiError(error);
+  }
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
-    const pathname = new URL(request.url).pathname;
-    const strictImport = pathname === "/api/campaigns/import";
+    const strictImport = route.isImport;
     const rateLimit = enforceRateLimit(
       database,
       request,
@@ -31,12 +37,17 @@ async function handle(request: Request): Promise<Response> {
     if (rateLimit) return rateLimit;
   }
   const operation = () =>
-    handleApi(request, database, {
-      userId: user.userId,
-      isAdmin: user.isAdmin,
-    });
+    handleApi(
+      request,
+      database,
+      {
+        userId: user.userId,
+        isAdmin: user.isAdmin,
+      },
+      route,
+    );
   try {
-    return isPackageWork(new URL(request.url).pathname)
+    return route.isPackageWork
       ? await withPackageWork(operation)
       : await operation();
   } catch (error) {

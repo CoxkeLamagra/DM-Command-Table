@@ -1,6 +1,6 @@
 {
   "name": "dm-command-table",
-  "version": "11.7.0",
+  "version": "11.8.0",
   "private": true,
   "engines": {
     "node": ">=24.19.0 <25"
@@ -15,12 +15,13 @@
     "check:storage": "node scripts/check-local-storage.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm audit --prod && pnpm format:check && pnpm lint && pnpm exec tsc --noEmit && pnpm test && pnpm build",
+    "verify": "pnpm audit:dependencies && pnpm format:check && pnpm lint && pnpm exec tsc --noEmit && pnpm test && pnpm build",
     "test:browser": "playwright test",
     "restore:check": "node scripts/restore-local.mjs",
     "package:runtime": "node scripts/package-runtime.mjs",
     "maintenance": "node scripts/maintenance.mjs",
-    "clean": "node scripts/clean-workspace.mjs"
+    "clean": "node scripts/clean-workspace.mjs",
+    "audit:dependencies": "node scripts/audit-dependencies.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

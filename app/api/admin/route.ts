@@ -1,3 +1,4 @@
+import { databaseUsage } from "@/server/security/storage-budget";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
@@ -32,6 +33,7 @@ async function admin() {
 }
 function state(database: ReturnType<typeof getDatabase>) {
   return {
+    storage: databaseUsage(database),
     users: listUsers(database),
     registrationEnabled: registrationStatus(database).registrationEnabled,
     serverSettings: getServerSettings(database),

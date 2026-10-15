@@ -1,3 +1,4 @@
+import { applyDatabasePageLimit } from "../server/security/storage-budget.ts";
 import { storagePaths, assertStorageReady } from "../server/config.ts";
 import { chmodSync, mkdirSync } from "node:fs";
 import path from "node:path";
@@ -15,6 +16,7 @@ export function openDatabase(databasePath: string): DatabaseSync {
     configure(opened);
     runMigrations(opened);
     verifySchema(opened);
+    applyDatabasePageLimit(opened);
     return opened;
   } catch (error) {
     opened.close();

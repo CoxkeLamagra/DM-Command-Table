@@ -1,3 +1,4 @@
+import { assertCampaignAccountBudget } from "../security/storage-budget.ts";
 import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { recordAuditEvent } from "../support/audit.ts";
@@ -73,6 +74,8 @@ export function changed(
   resourceId: string,
   action: string,
 ): void {
+  if (action === "created" || action === "tag_created")
+    assertCampaignAccountBudget(database, campaignId);
   statement(
     database,
     "UPDATE campaigns SET revision = revision + 1, updated_at = ? WHERE id = ?",

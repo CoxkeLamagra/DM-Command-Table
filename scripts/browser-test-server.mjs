@@ -203,6 +203,11 @@ database
 createCampaignRepository(database).create(offlineUser, {
   name: "Offline catalogue campaign",
 });
+database
+  .prepare(
+    "INSERT INTO users(id,display_name,username,password_hash,is_admin,created_at,updated_at) VALUES(?,'Security tester','browser-security',?,0,?,?)",
+  )
+  .run(crypto.randomUUID(), await hashPassword("browser-test-pass"), now, now);
 database.close();
 const child = spawn(process.execPath, [".next/standalone/server.js"], {
   stdio: "inherit",

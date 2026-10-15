@@ -1,3 +1,4 @@
+import { shouldUseSecureCookie } from "../security/cookies.ts";
 import { statement } from "../../db/statements.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
@@ -13,7 +14,7 @@ import { getServerSettings } from "../administration/server-settings.ts";
 import { runTransaction } from "../../db/transaction.ts";
 
 const DUMMY_PASSWORD_HASH =
-  "scrypt-v1$AAAAAAAAAAAAAAAAAAAAAA==$" + Buffer.alloc(64).toString("base64");
+  "scrypt-v2$AAAAAAAAAAAAAAAAAAAAAA==$" + Buffer.alloc(64).toString("base64");
 
 const sessionCredentials = new WeakMap<User, string>();
 
@@ -115,7 +116,17 @@ export async function authenticateUser(
     row?.passwordHash ?? DUMMY_PASSWORD_HASH,
   );
   if (!row?.passwordHash || !valid) return null;
-  return userForCredential(database, row.userId, row.passwordHash);
+  let credential = row.passwordHash;
+  if (credential.startsWith("scrypt-v1$")) {
+    const upgraded = await hashPassword(password);
+    const changed = statement(
+      database,
+      "UPDATE users SET password_hash=?,updated_at=? WHERE id=? AND password_hash=?",
+    ).run(upgraded, Date.now(), row.userId, credential);
+    if (!changed.changes) return null;
+    credential = upgraded;
+  }
+  return userForCredential(database, row.userId, credential);
 }
 
 export async function getUser(database = getDatabase()): Promise<User | null> {
@@ -289,16 +300,10 @@ function assertRegistrationAllowed(
 }
 
 async function secureCookieEnabled(database: DatabaseSync): Promise<boolean> {
-  const setting = getServerSettings(database).secureCookieMode;
-  if (setting === "always") return true;
-  if (setting === "never") return false;
-  if (process.env.DM_COMMAND_TABLE_TRUST_PROXY !== "true") return false;
   const { headers } = await import("next/headers");
-  const requestHeaders = await headers();
-  return (
-    requestHeaders
-      .get("x-forwarded-proto")
-      ?.split(",")
-      .some((value) => value.trim() === "https") ?? false
+  return shouldUseSecureCookie(
+    getServerSettings(database).secureCookieMode,
+    await headers(),
+    process.env.DM_COMMAND_TABLE_TRUST_PROXY === "true",
   );
 }

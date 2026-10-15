@@ -175,13 +175,13 @@ For a plain-HTTP private network deployment, keep:
 DM_COMMAND_TABLE_SECURE_COOKIES=false
 ```
 
-The default value, `auto`, marks cookies secure when `DM_COMMAND_TABLE_TRUST_PROXY=true` and the reverse proxy reports HTTPS through `X-Forwarded-Proto`. You can set `DM_COMMAND_TABLE_SECURE_COOKIES=true` to require secure cookies unconditionally. Use `false` only for a trusted plain-HTTP private network.
+The default value, `auto`, marks cookies secure when a trusted proxy reports HTTPS through the first `X-Forwarded-Proto` value, or the browser sends an HTTPS Origin matching Host. This also supports HTTPS terminated before an internal HTTP proxy hop. You can set `DM_COMMAND_TABLE_SECURE_COOKIES=true` to require secure cookies unconditionally. Use `false` only for a trusted plain-HTTP private network.
 
 Production startup requires `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN` before the first account can be created. Generate a random value, enter it in the first-account registration form, and remove or rotate it after setup. The first account becomes administrator and automatically disables public registration. After the administrator exists, use **Administration** to enable or disable self-registration or create additional accounts directly.
 
 Uploaded images are decoded and re-encoded as WebP before storage. Each account has a 100 MiB quota by default; change it with `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`. Users can access their own screenshots and screenshots referenced by campaigns they can access. Administrators retain access to the complete screenshot-management library.
 
-The application sends a Content Security Policy, frame protection, MIME-sniffing protection, a restrictive permissions policy, and a referrer policy. Public deployments must use HTTPS; secure session cookies are enabled in auto mode when proxy trust is enabled and the reverse proxy reports HTTPS. Add HSTS at the HTTPS reverse proxy after confirming that the hostname is served exclusively over HTTPS.
+The application sends a Content Security Policy, frame protection, MIME-sniffing protection, a restrictive permissions policy, and a referrer policy. Public deployments must use HTTPS; secure session cookies are enabled in auto mode for trusted forwarded HTTPS or a matching HTTPS browser Origin. Add HSTS at the HTTPS reverse proxy after confirming that the hostname is served exclusively over HTTPS.
 
 ## Visual monster stat blocks
 
@@ -194,3 +194,7 @@ Monster token icons appear at the upper right of visual stat blocks. Available t
 To delete a Bestiary monster used by a prepared encounter, first remove that monster from every prepared encounter that uses it. The application explains this dependency without showing a save-conflict banner. Bulk deletion is atomic: if one selected monster cannot be deleted, the entire selection remains. Genuine stale revision saves still show the save-conflict warning.
 
 The Bestiary editor has a separate **Token** section for the full monster image. Paste an image there, or edit/clear that field to replace or remove it, then save the monster. **Actions & traits** contains the rules text independently. Existing imported token images move into Token automatically when upgrading; no reimport is needed. Combat continues to display the icon from its captured snapshot.
+
+## Storage limits
+
+Administration displays database/WAL usage, free disk space and the host-configured campaign/record budgets. If a save or import reaches a budget, remove unused content or ask the host administrator to adjust the limit. Existing data remains available. New password hashes are applied automatically at account creation/reset and after a successful login with an older hash; no password reset is required for this upgrade.

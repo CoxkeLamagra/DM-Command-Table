@@ -1,3 +1,4 @@
+import { assertAccountBudget } from "../security/storage-budget.ts";
 import { runTransaction } from "../../db/transaction.ts";
 import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
@@ -70,31 +71,38 @@ export function createSupportRepository(database: DatabaseSync) {
       });
       const id = input.id ?? crypto.randomUUID();
       const now = Date.now();
-      statement(
-        database,
-        `INSERT INTO session_templates
+      return runTransaction(database, () => {
+        const existing = statement(
+          database,
+          "SELECT id FROM session_templates WHERE id=? AND owner_id=?",
+        ).get(id, ownerId);
+        statement(
+          database,
+          `INSERT INTO session_templates
           (id, owner_id, name, content, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, content = excluded.content,
            updated_at = excluded.updated_at
          WHERE session_templates.owner_id = excluded.owner_id`,
-      ).run(
-        id,
-        ownerId,
-        input.name.trim() || "Session template",
-        safeContent,
-        now,
-        now,
-      );
-      const row = statement(
-        database,
-        `SELECT id, owner_id AS ownerId, name, content,
+        ).run(
+          id,
+          ownerId,
+          input.name.trim() || "Session template",
+          safeContent,
+          now,
+          now,
+        );
+        if (!existing) assertAccountBudget(database, ownerId);
+        const row = statement(
+          database,
+          `SELECT id, owner_id AS ownerId, name, content,
                 created_at AS createdAt, updated_at AS updatedAt
            FROM session_templates WHERE id = ? AND owner_id = ?`,
-      ).get(id, ownerId) as TemplateRow | undefined;
-      if (!row) throw new ResourceNotFoundError("session template", id);
-      return toTemplate(row);
+        ).get(id, ownerId) as TemplateRow | undefined;
+        if (!row) throw new ResourceNotFoundError("session template", id);
+        return toTemplate(row);
+      });
     },
 
     deleteTemplate(ownerId: string, id: string): void {

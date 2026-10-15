@@ -6,6 +6,7 @@ test("nested transactions preserve rollback on Node runtimes without isTransacti
   const database = new DatabaseSync(":memory:");
   const trackedDatabase = {
     exec: database.exec.bind(database),
+    prepare: database.prepare.bind(database),
   } as DatabaseSync;
   database.exec("CREATE TABLE changes(value TEXT)");
   runTransaction(trackedDatabase, () => {

@@ -17,6 +17,11 @@ RuntimeDirectoryMode=0750
 StateDirectory=dm-command-table-updater
 StateDirectoryMode=0700
 UMask=0077
+MemoryMax=2G
+CPUQuota=200%
+TasksMax=512
+KillMode=control-group
+OOMPolicy=stop
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 # Keep this independent of dm-command-table.service so updates survive its restart.
 # The updater needs systemctl, runuser and write access to releases/configuration.

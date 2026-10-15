@@ -28,6 +28,31 @@ export function latestRelease(output) {
   if (!tags.length) throw new Error("No stable v11 release is available.");
   return tags[0];
 }
+export function executeBuildCommand(
+  command,
+  args,
+  cwd,
+  capture = false,
+  env = process.env,
+  timeoutSeconds = 1200,
+) {
+  const result = spawnSync(
+    "/usr/bin/timeout",
+    ["--signal=KILL", String(timeoutSeconds), command, ...args],
+    {
+      cwd,
+      env,
+      encoding: "utf8",
+      stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
+  if (result.error || result.status !== 0)
+    throw new Error(
+      `Update command failed or timed out: ${command} ${args.join(" ")}`,
+    );
+  return result.stdout ?? "";
+}
 export function buildUpdate(directory, target = "latest", execute) {
   validateTarget(target);
   const root = path.resolve(directory),
@@ -48,20 +73,7 @@ export function buildUpdate(directory, target = "latest", execute) {
     )
       delete env[key];
   delete env.NODE_ENV;
-  const runner =
-    execute ??
-    ((command, args, cwd, capture = false) => {
-      const result = spawnSync(command, args, {
-        cwd,
-        env,
-        encoding: "utf8",
-        stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
-        maxBuffer: 8 * 1024 * 1024,
-      });
-      if (result.error || result.status !== 0)
-        throw new Error(`Update command failed: ${command} ${args.join(" ")}`);
-      return result.stdout ?? "";
-    });
+  const runner = execute ?? executeBuildCommand;
   const run = (command, args, cwd, capture = false) =>
     runner(command, args, cwd, capture, env);
   const step = (id) => console.log(`@@STEP ${id}`);
@@ -100,7 +112,9 @@ export function buildUpdate(directory, target = "latest", execute) {
   );
   step("verify");
   for (const args of [
-    ["audit", "--prod"],
+    existsSync(path.join(source, "scripts/audit-dependencies.mjs"))
+      ? ["audit:dependencies"]
+      : ["audit"],
     ["format:check"],
     ["lint"],
     ["exec", "tsc", "--noEmit"],

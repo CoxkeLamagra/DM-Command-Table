@@ -2,6 +2,16 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.8.0 — 2026-10-15
+
+- Canonicalize API routes once before rate and package-work admission; reject ambiguous import/export aliases.
+- Set secure HTTPS browser cookies across an internal HTTP proxy hop while retaining HTTP LAN operation. Apply nonce CSP to prefetch responses.
+- Update vulnerable development dependencies and locally patch excessive braces nesting with a verified, narrowly scoped audit exception.
+- Strengthen new password hashes, upgrade legacy credentials after successful login, and retain bounded password work and reset-race protection.
+- Add configurable database growth and account budgets plus administrator storage metrics.
+- Bound build stages and updater service resources; include the root updater installer in verified runtime packages. Existing hosts need one root installer run to apply OS-level caps.
+- Preserve existing user/admin workflows and offline local runtime; no database migration or new runtime dependency is required.
+
 ## 11.7.0 — 2026-10-14
 
 - Split encounter persistence into prepared, combat command and combat storage modules behind the existing facade; share indexing/audit/revision helpers across content, Bestiary and encounters.

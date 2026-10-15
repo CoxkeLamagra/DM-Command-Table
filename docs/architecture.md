@@ -71,3 +71,7 @@ Bestiary listing loads tags once for the campaign rather than per monster. Besti
 `domain/local-media.ts` defines local image URL and reference parsing rules for browser/server use. `features/bestiary/catalogue-download.ts` owns catalogue-origin validation, credential-free fetch options, timeout/abort handling, streaming size limits and rejected-body cancellation. Token caching coalesces active downloads, retries transient failures and limits retained bytes to 16 MiB across at most 32 entries.
 
 Revision-error lookups are scoped to the requested campaign; prepared records are scoped through their parent session. The failed-write path cannot return another campaign’s revision metadata.
+
+## Request admission and local resource budgets
+
+API routes share one decoded segment representation across dispatch, persistent rate limits and package concurrency admission. Prefetch and ordinary HTML share nonce CSP. Cookie selection supports HTTPS reverse proxies and HTTP LAN clients. Database transactions enforce local growth reserves; SQLite page limits cover direct allocations. Account campaign/record budgets and administrator storage metrics use the same host-configured limits. See [operations](operations.md) for defaults and deployment boundaries.

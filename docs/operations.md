@@ -4,27 +4,42 @@ Keep one application instance and persistent local storage. Debian LXC is primar
 
 ## Environment reference
 
-| Variable                                      | Default                              | Purpose                                                                             |
-| --------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------- |
-| `DM_COMMAND_TABLE_DB_PATH`                    | `data/dm-command-table.sqlite`       | SQLite file; use an absolute production path                                        |
-| `DM_COMMAND_TABLE_UPLOAD_PATH`                | `uploads` beside the database        | Local screenshot directory                                                          |
-| `DM_COMMAND_TABLE_BACKUP_PATH`                | `backups` beside the database        | Verified backup destination                                                         |
-| `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN`            | empty                                | Required for initial administrator registration in production                       |
-| `DM_COMMAND_TABLE_TRUST_PROXY`                | `false`                              | Accept forwarded client address and HTTPS scheme from a trusted proxy               |
-| `DM_COMMAND_TABLE_SECURE_COOKIES`             | `auto`                               | `true` always secure, `false` never secure, `auto` uses HTTPS only with proxy trust |
-| `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`        | `100`                                | Per-account media quota in MiB                                                      |
-| `DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB` | `1024`                               | Server-wide media quota in MiB                                                      |
-| `DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT`       | `100`                                | Maximum retained undo snapshots per encounter                                       |
-| `DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT`          | `10000`                              | Maximum retained audit events                                                       |
-| `PORT`                                        | `3000` in deployment templates       | HTTP listener port                                                                  |
-| `HOSTNAME`                                    | loopback in LXC; `0.0.0.0` in Docker | Standalone server listener address                                                  |
-| `DM_COMMAND_TABLE_BIND_ADDRESS`               | `127.0.0.1`                          | Bind override for `pnpm start` only                                                 |
-| `DMCT_BIND_ADDRESS`                           | `127.0.0.1`                          | Compose host port bind; not an application setting                                  |
-| `NEXT_TELEMETRY_DISABLED`                     | `1` in deployment templates          | Disable Next.js telemetry                                                           |
+| Variable                                      | Default                              | Purpose                                                                                                                  |
+| --------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `DM_COMMAND_TABLE_DB_PATH`                    | `data/dm-command-table.sqlite`       | SQLite file; use an absolute production path                                                                             |
+| `DM_COMMAND_TABLE_UPLOAD_PATH`                | `uploads` beside the database        | Local screenshot directory                                                                                               |
+| `DM_COMMAND_TABLE_BACKUP_PATH`                | `backups` beside the database        | Verified backup destination                                                                                              |
+| `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN`            | empty                                | Required for initial administrator registration in production                                                            |
+| `DM_COMMAND_TABLE_TRUST_PROXY`                | `false`                              | Accept forwarded client address and HTTPS scheme from a trusted proxy                                                    |
+| `DM_COMMAND_TABLE_SECURE_COOKIES`             | `auto`                               | `true` always secure, `false` never secure, `auto` recognizes trusted forwarded HTTPS or a matching HTTPS browser Origin |
+| `DM_COMMAND_TABLE_SCREENSHOT_QUOTA_MB`        | `100`                                | Per-account media quota in MiB                                                                                           |
+| `DM_COMMAND_TABLE_SCREENSHOT_GLOBAL_QUOTA_MB` | `1024`                               | Server-wide media quota in MiB                                                                                           |
+| `DM_COMMAND_TABLE_COMBAT_HISTORY_LIMIT`       | `100`                                | Maximum retained undo snapshots per encounter                                                                            |
+| `DM_COMMAND_TABLE_AUDIT_EVENT_LIMIT`          | `10000`                              | Maximum retained audit events                                                                                            |
+| `PORT`                                        | `3000` in deployment templates       | HTTP listener port                                                                                                       |
+| `HOSTNAME`                                    | loopback in LXC; `0.0.0.0` in Docker | Standalone server listener address                                                                                       |
+| `DM_COMMAND_TABLE_BIND_ADDRESS`               | `127.0.0.1`                          | Bind override for `pnpm start` only                                                                                      |
+| `DMCT_BIND_ADDRESS`                           | `127.0.0.1`                          | Compose host port bind; not an application setting                                                                       |
+| `NEXT_TELEMETRY_DISABLED`                     | `1` in deployment templates          | Disable Next.js telemetry                                                                                                |
 
 The first account becomes administrator and closes public registration. Administration stores registration and server settings in SQLite. Saved cookie, quota, undo and audit settings take precedence over their environment defaults. Session lifetime defaults to 30 days and upload size to 8 MiB; both are changed in Administration, not via an environment variable. Screenshot upload size can be 1–50 MiB; set proxy body limits accordingly. Campaign package imports have their own size limit.
 
 The development server uses Next.js environment loading. Standalone startup and Node maintenance scripts should receive exported variables. On LXC, systemd and the updater read `/etc/dm-command-table.env`. Compose interpolates `.env` into the service environment. Keep these files private; do not assume a source `.env.local` configures production commands.
+
+## Database and account budgets
+
+The host can set these positive integer environment values in `/etc/dm-command-table.env` (or the container environment), then restart the application:
+
+| Variable                                 | Default  | Meaning                                                                                                |
+| ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `DM_COMMAND_TABLE_DATABASE_LIMIT_MB`     | `1024`   | Main SQLite page budget in MiB                                                                         |
+| `DM_COMMAND_TABLE_MIN_FREE_SPACE_MB`     | `128`    | Minimum filesystem free space for transactional database growth                                        |
+| `DM_COMMAND_TABLE_CAMPAIGNS_PER_ACCOUNT` | `100`    | Campaigns owned by one account                                                                         |
+| `DM_COMMAND_TABLE_RECORDS_PER_ACCOUNT`   | `100000` | Owned players, monsters, sessions, story beats, prepared encounters, tags and saved templates combined |
+
+Administration shows used database pages, main/WAL file bytes, filesystem free space and configured limits. Growth beyond a budget returns HTTP 413 and rolls back. Existing databases above the page budget are retained, with further page allocation blocked; deletion and shrinking operations remain possible. Account limits are charged to the campaign owner, including imports, copies and ownership transfers. Encounter child rows remain subject to existing encounter capacity limits and the global database budget, rather than the account record count.
+
+These are application safeguards, not filesystem quotas. WAL files, backups, retained releases, media and failed builds need separate disk monitoring and host storage limits. The free-space reserve is checked when wrapped transactions grow used pages; it cannot guarantee free space against concurrent processes or every direct SQLite write. SQLite's page ceiling also protects direct database allocations. Use a data volume larger than the default 128 MiB reserve.
 
 ## LXC manual operations
 
@@ -132,3 +147,16 @@ New imports retain alignment, armor/HP formula details, saving throws, skills, d
 Monster token icons appear at the upper right of visual stat blocks. Available tokens are downloaded from the catalogue during import and saved to the existing local image library; Bestiary and captured Combat blocks display these images offline. Reimport older monsters with replacement enabled to add tokens. Missing/unavailable token images do not block monster import. Token previews use temporary browser images. Both Bestiary and Combat stat blocks start expanded; click **Visual stat block** to collapse or expand them.
 
 The v11.7 refactor keeps the existing schema version 2 and requires no additional migration or dependency. Install/update, local backups, media storage and rollback workflows remain the same. The optional catalogue remains the only allowed external runtime source; imported records and images are stored locally.
+
+## Applying v11.8 updater resource limits to an existing host
+
+Use Administration → Update for the application fixes. After v11.8 is installed, run this once as root in the LXC to update the independently installed broker/build helpers and systemd limits:
+
+```sh
+bash /opt/dm-command-table/current/deploy/debian-13/install-gui-updater
+systemctl show dm-command-table-updater.service -p MemoryMax -p CPUQuotaPerSecUSec -p TasksMax
+```
+
+The installer is included in the integrity-verified runtime. The unprivileged application cannot replace root helpers itself. Fresh v11.8 installations already apply these settings. Future GUI updates still perform all preparation automatically.
+
+The updater service caps its process group at 2 GiB, two CPU cores worth of time and 512 tasks. Build stages have 20-minute deadlines and the overall source build has a one-hour deadline; ordinary Next builds also use a 1536 MiB JavaScript heap cap. These are ceilings, not reserved resources. The running application is separate and remains available while a candidate is prepared. Smaller or heavily loaded hosts may need an administrator to adjust service resource limits. Older source targets without the verified audit script receive a full `pnpm audit` instead; vulnerable older targets can fail that gate. Deployment recovery still restores the previous verified runtime and backup without rebuilding it.

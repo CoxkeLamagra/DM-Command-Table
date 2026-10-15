@@ -30,7 +30,7 @@ if [[ $TARGET != staged ]]; then
   install -d -o root -g root -m 0755 "$BASE/builds"
   BUILD=$(mktemp -d "$BASE/builds/update-XXXXXXXX")
   chown dmct-build:dmct-build "$BUILD"
-  runuser -u dmct-build -- /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/var/cache/dm-command-table-build LANG=C.UTF-8 CI=1 NEXT_TELEMETRY_DISABLED=1 /usr/bin/node /usr/local/lib/dm-command-table/build-update.mjs "$BUILD" "$TARGET"
+  runuser -u dmct-build -- /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/var/cache/dm-command-table-build LANG=C.UTF-8 CI=1 NEXT_TELEMETRY_DISABLED=1 /usr/bin/timeout --signal=KILL 3600 /usr/bin/node /usr/local/lib/dm-command-table/build-update.mjs "$BUILD" "$TARGET"
   CANDIDATE=$BUILD/runtime
 else
   [[ -d $CANDIDATE ]] || { echo 'No staged runtime exists. Use the default automatic update or stage a package for offline installation.' >&2; exit 1; }

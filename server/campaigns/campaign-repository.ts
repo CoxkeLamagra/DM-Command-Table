@@ -1,3 +1,4 @@
+import { assertAccountBudget } from "../security/storage-budget.ts";
 import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
@@ -43,6 +44,7 @@ export function createCampaignRepository(database: DatabaseSync) {
           now,
           now,
         );
+        assertAccountBudget(database, ownerId);
         syncScreenshotReferences(
           database,
           id,

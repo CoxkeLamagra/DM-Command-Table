@@ -22,6 +22,14 @@ export function apiJson(value: unknown, status = 200): Response {
 }
 
 export function apiError(error: unknown): Response {
+  if (error instanceof Error && "errcode" in error && error.errcode === 13)
+    return apiJson(
+      {
+        error:
+          "Database storage limit reached. Remove unused data or contact the host administrator.",
+      },
+      413,
+    );
   if (error instanceof CombatCapacityError)
     return apiJson({ error: error.message }, 400);
   if (error instanceof RequestTooLargeError)

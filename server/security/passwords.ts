@@ -21,7 +21,7 @@ export function validateCredentials(
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   const hash = await derive(password, salt, 64);
-  return `scrypt-v1$${salt.toString("base64")}$${hash.toString("base64")}`;
+  return `scrypt-v2$${salt.toString("base64")}$${hash.toString("base64")}`;
 }
 
 export async function verifyPassword(
@@ -31,7 +31,7 @@ export async function verifyPassword(
   if (password.length > 128) return false;
   const [algorithm, saltValue, hashValue, extra] = stored.split("$");
   if (
-    algorithm !== "scrypt-v1" ||
+    !["scrypt-v1", "scrypt-v2"].includes(algorithm) ||
     !saltValue ||
     !hashValue ||
     extra !== undefined
@@ -44,11 +44,12 @@ export async function verifyPassword(
       Buffer.from(saltValue, "base64").length !== 16
     )
       return false;
-    const actual = await derive(
-      password,
-      Buffer.from(saltValue, "base64"),
-      expected.length,
-    );
+    // Both supported formats perform both work profiles, avoiding a large
+    // account-existence timing difference during the gradual upgrade.
+    const salt = Buffer.from(saltValue, "base64");
+    const legacy = await derive(password, salt, expected.length, true);
+    const current = await derive(password, salt, expected.length);
+    const actual = algorithm === "scrypt-v1" ? legacy : current;
     return (
       expected.length === actual.length && timingSafeEqual(expected, actual)
     );
@@ -64,6 +65,7 @@ function derive(
   password: string,
   salt: Buffer,
   length: number,
+  legacy = false,
 ): Promise<Buffer> {
   if (activePasswordWork >= 4)
     return Promise.reject(
@@ -78,7 +80,12 @@ function derive(
       password,
       salt,
       length,
-      { N: 16_384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 },
+      {
+        N: legacy ? 16_384 : 32_768,
+        r: 8,
+        p: legacy ? 1 : 3,
+        maxmem: 64 * 1024 * 1024,
+      },
       (error, value) => {
         if (error) reject(error);
         else resolve(value);

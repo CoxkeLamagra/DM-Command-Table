@@ -60,6 +60,9 @@ test("automatic build clones the fixed repository, verifies frozen dependencies 
     "--frozen-lockfile",
     "--prod=false",
   ]);
+  assert.deepEqual(commands.find((x) => x.args[0] === "audit")?.args, [
+    "audit",
+  ]);
   const names = commands.map((x) => x.args[0]);
   assert.ok(names.indexOf("test") < names.indexOf("build"));
   assert.ok(names.indexOf("test:browser") > names.indexOf("build"));
@@ -123,5 +126,38 @@ test("build subprocesses exclude production storage and bootstrap settings", () 
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
+  }
+});
+
+test("build command deadlines terminate ordinary descendant processes", async () => {
+  const { executeBuildCommand } =
+    await import("../deploy/debian-13/build-update.mjs");
+  const { mkdtempSync, readFileSync, rmSync, existsSync } =
+    await import("node:fs");
+  const directory = mkdtempSync("/tmp/dmct-build-deadline-");
+  try {
+    const childSource = `require('node:fs').writeFileSync(${JSON.stringify(directory + "/pid")},String(process.pid));setInterval(()=>{},1000);`;
+    const source = `require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(childSource)}],{stdio:'ignore'});setInterval(()=>{},1000);`;
+    assert.throws(
+      () =>
+        executeBuildCommand(
+          process.execPath,
+          ["-e", source],
+          directory,
+          true,
+          process.env,
+          1.5,
+        ),
+      /timed out/,
+    );
+    const pid = Number(readFileSync(directory + "/pid", "utf8"));
+    const file = "/proc/" + pid + "/stat";
+    for (let i = 0; i < 40 && existsSync(file); i++) {
+      if (/\) [ZX] /.test(readFileSync(file, "utf8"))) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (existsSync(file)) assert.match(readFileSync(file, "utf8"), /\) [ZX] /);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });

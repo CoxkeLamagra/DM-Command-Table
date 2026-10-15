@@ -20,6 +20,7 @@ import {
   uploadScreenshot,
 } from "../shared/api";
 import type {
+  Administration,
   ManagedUser,
   Screenshot,
   ServerSettings,
@@ -27,6 +28,7 @@ import type {
 } from "@/domain/types";
 
 export function AdminScreen({ current }: { current: User }) {
+  const [storage, setStorage] = useState<Administration["storage"]>();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
   const [registration, setRegistration] = useState(false);
@@ -39,6 +41,7 @@ export function AdminScreen({ current }: { current: User }) {
   useEffect(() => {
     void Promise.all([getAdministration(), listScreenshots()])
       .then(([state, shots]) => {
+        setStorage(state.storage);
         setUsers(state.users);
         setRegistration(state.registrationEnabled);
         setSettings(state.serverSettings);
@@ -126,6 +129,29 @@ export function AdminScreen({ current }: { current: User }) {
             <Save /> {savingSettings ? "Saving…" : "Save settings"}
           </Button>
         </div>
+        {storage && (
+          <div className="mb-4 rounded border border-white/10 p-4 text-sm text-stone-300">
+            <h3 className="mb-2 font-semibold">Local database storage</h3>
+            <p>
+              Used pages: {(storage.usedBytes / 1048576).toFixed(1)} MiB /{" "}
+              {storage.limits.databaseLimitMb} MiB · Database file:{" "}
+              {(storage.databaseBytes / 1048576).toFixed(1)} MiB · WAL:{" "}
+              {(storage.walBytes / 1048576).toFixed(1)} MiB
+            </p>
+            <p>
+              Free disk:{" "}
+              {storage.freeBytes === null
+                ? "In-memory database"
+                : `${Math.floor(storage.freeBytes / 1048576)} MiB`}{" "}
+              · Minimum free: {storage.limits.minimumFreeMb} MiB
+            </p>
+            <p>
+              Per account: {storage.limits.campaignsPerAccount} campaigns and{" "}
+              {storage.limits.recordsPerAccount} content records. Host
+              administrators configure these limits.
+            </p>
+          </div>
+        )}
         {settings ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Setting

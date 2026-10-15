@@ -26,8 +26,22 @@ try {
     "maintenance.mjs",
     "restore-local.mjs",
     "storage-config.mjs",
+    "runtime-integrity.mjs",
   ])
     cpSync(path.join("scripts", filename), path.join(runtimeScripts, filename));
+  const updater = path.join(destination, "deploy/debian-13");
+  mkdirSync(updater, { recursive: true });
+  for (const filename of [
+    "install-gui-updater",
+    "build-update.mjs",
+    "update-broker.mjs",
+    "update-dm-command-table",
+    "dm-command-table-updater.service",
+  ])
+    cpSync(
+      path.join("deploy/debian-13", filename),
+      path.join(updater, filename),
+    );
   const metadata = JSON.parse(readFileSync("package.json", "utf8"));
   writeRuntimeManifest(destination, metadata.version);
   console.log(destination);

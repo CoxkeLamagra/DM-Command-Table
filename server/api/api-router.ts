@@ -1,3 +1,4 @@
+import { parseApiRoute, type ApiRoute } from "../http/api-route.ts";
 import type { DatabaseSync } from "node:sqlite";
 import {
   exportCampaignPackage,
@@ -30,14 +31,11 @@ export async function handleApi(
   request: Request,
   database: DatabaseSync,
   context: ApiContext,
+  parsedRoute?: ApiRoute,
 ): Promise<Response> {
   try {
     const url = new URL(request.url);
-    const segments = url.pathname
-      .replace(/^\/api\/?/, "")
-      .split("/")
-      .filter(Boolean)
-      .map(decodeURIComponent);
+    const { segments } = parsedRoute ?? parseApiRoute(url.pathname);
     const method = request.method.toUpperCase();
     const campaigns = createCampaignRepository(database);
     const memberships = createMembershipRepository(database);

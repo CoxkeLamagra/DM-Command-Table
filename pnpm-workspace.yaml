@@ -3,6 +3,8 @@ minimumReleaseAge: 10080
 minimumReleaseAgeIgnoreMissingTime: false
 minimumReleaseAgeExclude:
   - source-map-js@1.2.2
+  # Exact security update; do not relax the age policy for unrelated packages.
+  - brace-expansion@5.0.12
 trustLockfile: false
 strictDepBuilds: true
 allowBuilds:
@@ -13,8 +15,11 @@ packageImportMethod: clone-or-copy
 verifyDepsBeforeRun: false
 optimisticRepeatInstall: false
 overrides:
+  "brace-expansion@>=5.0.0 <5.0.12": 5.0.12
   "@babel/core": ^7.29.6
   baseline-browser-mapping: ^2.11.0
   browserslist: ^4.28.7
   fast-uri: 3.1.8
   source-map-js: 1.2.2
+patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch

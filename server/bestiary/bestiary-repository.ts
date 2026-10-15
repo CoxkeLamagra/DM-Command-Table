@@ -233,12 +233,14 @@ export function createBestiaryRepository(database: DatabaseSync) {
         color: input.color ?? null,
       };
       if (!tag.name) throw new PublicApiError("A tag name is required.");
-      statement(
-        database,
-        "INSERT INTO tags (id, campaign_id, name, color) VALUES (?, ?, ?, ?)",
-      ).run(tag.id, campaignId, tag.name, tag.color);
-      touch(database, campaignId, actorUserId, tag.id, "tag_created");
-      return tag;
+      return runTransaction(database, () => {
+        statement(
+          database,
+          "INSERT INTO tags (id, campaign_id, name, color) VALUES (?, ?, ?, ?)",
+        ).run(tag.id, campaignId, tag.name, tag.color);
+        touch(database, campaignId, actorUserId, tag.id, "tag_created");
+        return tag;
+      });
     },
 
     listTags(campaignId: string, actorUserId: string): Tag[] {
