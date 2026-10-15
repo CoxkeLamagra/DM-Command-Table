@@ -19,7 +19,42 @@ test("combat HP controls preserve edits, show save state and confirm encounter a
     .click();
   const hp = page.getByLabel("Current hit points", { exact: true });
   await expect(hp).toHaveValue("10");
-  const amount = page.getByLabel("Damage or healing amount");
+  const maximum = page.getByLabel("Maximum hit points", { exact: true });
+  const health = page.getByLabel("Health percentage", { exact: true });
+  await maximum.fill("100");
+  for (const [value, color] of [
+    [100, "emerald"],
+    [75, "emerald"],
+    [74, "orange"],
+    [51, "orange"],
+    [50, "red"],
+    [0, "red"],
+  ] as const) {
+    await hp.fill(String(value));
+    await expect(health).toHaveText(`${value}% health`);
+    await expect(health).toHaveClass(new RegExp(`text-${color}-300`));
+  }
+  await maximum.fill("0");
+  await expect(health).toHaveText("0% health");
+  await maximum.fill("10");
+  await hp.fill("10");
+  await expect(
+    page
+      .getByRole("region", { name: "Hit points", exact: true })
+      .getByRole("progressbar"),
+  ).toHaveCount(0);
+  const adjustment = page.getByRole("group", {
+    name: "HP adjustment",
+    exact: true,
+  });
+  await expect(
+    adjustment.getByRole("button", { name: "Damage", exact: true }),
+  ).toBeVisible();
+  await expect(
+    adjustment.getByRole("button", { name: "Heal", exact: true }),
+  ).toBeVisible();
+  const amount = adjustment.getByLabel("Damage or healing amount");
+  await expect(amount).toHaveValue("1");
   await amount.fill("4");
   await page.getByRole("button", { name: "Damage", exact: true }).click();
   await expect(hp).toHaveValue("6");

@@ -55,7 +55,9 @@ An administrator cannot delete their own account or remove their own administrat
 - Add monsters from the campaign bestiary with their linked stat blocks.
 - Assign optional numbers to Monsters and NPCs so identically named combatants remain easy to distinguish.
 - Track initiative, turn order, rounds, armor class, current and maximum HP, and conditions.
-- Apply damage or healing by amount, with an immediate Undo HP change control.
+- In the details pane, enter the amount between **−** (Damage) and **+** (Heal); the amount defaults to 1. Use the adjacent undo icon to undo the last HP change.
+- Short numeric fields use compact widths. The health percentage beside HP is green at 75% or above, orange above 50% and below 75%, and red at 50% or below (including a zero maximum). Temporary HP is separate from this percentage. The details HP bar is removed; initiative order and overview remain unchanged.
+- A monster’s expanded visual stat block appears directly below HP controls, before conditions, resources and notes.
 - Keep Save and Next turn visible while scrolling. Reset and clear operations live in Encounter actions and explain their effects before confirmation.
 - Highlight combatants at `0 HP` as downed and automatically skip them when advancing to the next turn.
 - Reset the round counter without removing combatants.

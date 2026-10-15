@@ -2,6 +2,12 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.8.4 — 2026-10-15
+
+- Condense right-pane Combat numeric fields and place the expanded visual stat block directly below HP controls, leaving initiative order and overview unchanged.
+- Replace the details HP bar with a percentage badge: green at 75% or above, orange above 50% and below 75%, red at 50% or below.
+- Put the damage/healing amount between minus/plus controls (default 1), preserving temporary HP, healing limits and HP undo.
+
 ## 11.8.3 — 2026-10-15
 
 - Make sidebar version text link to the GitHub repository in expanded and collapsed menus.

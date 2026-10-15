@@ -61,7 +61,7 @@ export function RuntimeControls({
   return (
     <section
       aria-label="Combat resources"
-      className="mt-6 space-y-4 border-t border-white/10 pt-5"
+      className="mt-4 space-y-3 border-t border-white/10 pt-3"
     >
       <h3 className="font-serif text-lg text-amber-200">
         Live combat resources
@@ -70,11 +70,12 @@ export function RuntimeControls({
         Tracked for this combatant only. Rolls, saving throws and rest recovery
         are resolved manually.
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2">
         <label className="text-sm">
           Temporary HP
           <Input
             aria-label="Temporary hit points"
+            className="w-20 text-center tabular-nums"
             type="number"
             min={0}
             value={runtime.temporaryHitPoints}

@@ -11,7 +11,6 @@ import { ChevronDown, Minus, Plus, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import {
   ConditionIcon,
   DEFAULT_CONDITIONS,
@@ -45,7 +44,7 @@ export function CombatantEditor({
   const [timing, setTiming] =
     useState<NonNullable<CombatCondition["timing"]>>("start-turn");
   const [requiresSave, setRequiresSave] = useState(false);
-  const [hpAmount, setHpAmount] = useState("");
+  const [hpAmount, setHpAmount] = useState("1");
   if (!combatant)
     return (
       <div className="rounded-xl border border-dashed border-white/10 p-12 text-center text-stone-400">
@@ -92,10 +91,10 @@ export function CombatantEditor({
         )
       : 0;
   return (
-    <aside className="rounded-xl border border-white/10 bg-[#13161d] p-5 xl:self-start">
+    <aside className="rounded-xl border border-white/10 bg-[#13161d] p-4 xl:self-start">
       <div className="flex items-start gap-2">
         <Input
-          className="h-11 min-w-0 flex-1 font-serif text-lg text-amber-100"
+          className="h-9 min-w-0 flex-1 font-serif text-lg text-amber-100"
           aria-label="Combatant name"
           value={combatant.name}
           disabled={!editable}
@@ -105,7 +104,7 @@ export function CombatantEditor({
         {combatant.kind !== "player" && (
           <Input
             aria-label="Combatant number"
-            className="h-11 w-24 text-center font-serif"
+            className="h-9 w-16 shrink-0 text-center font-serif"
             type="number"
             min={1}
             placeholder="#"
@@ -132,11 +131,11 @@ export function CombatantEditor({
           </Button>
         )}
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_5rem_5rem] gap-2">
         <label className="text-xs text-stone-400">
           Type
           <select
-            className={`mt-1 h-10 w-full rounded-md border border-white/10 bg-[#191d27] px-2 text-sm font-medium ${combatantKindText(combatant.kind)}`}
+            className={`mt-1 h-9 w-full rounded-md border border-white/10 bg-[#191d27] px-2 text-sm font-medium ${combatantKindText(combatant.kind)}`}
             value={combatant.kind}
             disabled={!editable || !!combatant.playerId}
             onChange={(event) =>
@@ -161,93 +160,114 @@ export function CombatantEditor({
           change={(armorClass) => update({ armorClass })}
         />
       </div>
-      <section className="mt-5">
-        <div className="mb-2 flex justify-between text-sm">
-          <span className="text-stone-400">Hit points</span>
-          <span>
-            {combatant.hitPoints} / {combatant.maximumHitPoints}
+      <section
+        aria-label="Hit points"
+        className="mt-3 flex flex-wrap items-end gap-3"
+      >
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block shrink-0 text-xs text-stone-400">
+            HP
+            <Input
+              aria-label="Current hit points"
+              className="mt-1 block h-9 w-20 text-center tabular-nums"
+              type="number"
+              value={combatant.hitPoints}
+              disabled={!editable}
+              onChange={(event) =>
+                update({ hitPoints: Number(event.target.value) })
+              }
+            />
+          </label>
+          <span className="pb-2 text-stone-400">/</span>
+          <label className="block shrink-0 text-xs text-stone-400">
+            Max HP
+            <Input
+              aria-label="Maximum hit points"
+              className="mt-1 block h-9 w-20 text-center tabular-nums"
+              type="number"
+              min={0}
+              value={combatant.maximumHitPoints}
+              disabled={!editable}
+              onChange={(event) =>
+                update({
+                  maximumHitPoints: Math.max(0, Number(event.target.value)),
+                })
+              }
+            />
+          </label>
+          <span
+            aria-label="Health percentage"
+            className={`mb-1 shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold tabular-nums ${hpPercent >= 75 ? "bg-emerald-400/10 text-emerald-300" : hpPercent > 50 ? "bg-orange-400/10 text-orange-300" : "bg-red-400/10 text-red-300"}`}
+          >
+            {Number(hpPercent.toFixed(1))}% health
           </span>
         </div>
-        <Progress value={hpPercent} className="h-2.5 bg-white/10" />
         {editable && (
-          <div className="mt-3 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs text-stone-400">
-                Amount
-                <Input
-                  aria-label="Damage or healing amount"
-                  type="number"
-                  min="0"
-                  step="any"
-                  className="mt-1 w-24"
-                  value={hpAmount}
-                  onChange={(event) => setHpAmount(event.target.value)}
-                />
-              </label>
+          <div
+            role="group"
+            aria-label="HP adjustment"
+            className="flex flex-wrap items-end gap-2"
+          >
+            <div className="flex items-end gap-1">
               <Button
+                size="icon"
                 variant="outline"
+                aria-label="Damage"
+                title="Apply damage"
                 disabled={
                   !Number.isFinite(Number(hpAmount)) || Number(hpAmount) <= 0
                 }
                 onClick={() => adjustHp(Number(hpAmount), "damage")}
               >
-                Damage
+                <Minus />
               </Button>
+              <label className="block shrink-0 text-xs text-stone-400">
+                Amount ±
+                <Input
+                  aria-label="Damage or healing amount"
+                  type="number"
+                  min="0"
+                  step="any"
+                  className="mt-1 block h-9 w-20 text-center tabular-nums"
+                  value={hpAmount}
+                  onChange={(event) => setHpAmount(event.target.value)}
+                />
+              </label>
               <Button
+                size="icon"
                 variant="outline"
+                aria-label="Heal"
+                title="Apply healing"
                 disabled={
                   !Number.isFinite(Number(hpAmount)) || Number(hpAmount) <= 0
                 }
                 onClick={() => adjustHp(Number(hpAmount), "heal")}
               >
-                Heal
-              </Button>
-              <Button variant="ghost" disabled={!canUndoHp} onClick={undoHp}>
-                <Undo2 /> Undo HP change
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => adjustHp(1, "damage")}
-              >
-                <Minus />
-              </Button>
-              <Input
-                aria-label="Current hit points"
-                className="w-20 text-center"
-                type="number"
-                value={combatant.hitPoints}
-                onChange={(event) =>
-                  update({ hitPoints: Number(event.target.value) })
-                }
-              />
-              <span className="text-stone-400">/</span>
-              <Input
-                aria-label="Maximum hit points"
-                className="w-20 text-center"
-                type="number"
-                min={0}
-                value={combatant.maximumHitPoints}
-                onChange={(event) =>
-                  update({
-                    maximumHitPoints: Math.max(0, Number(event.target.value)),
-                  })
-                }
-              />
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => adjustHp(1, "heal")}
-              >
                 <Plus />
               </Button>
             </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Undo HP change"
+              title="Undo HP change"
+              disabled={!canUndoHp}
+              onClick={undoHp}
+            >
+              <Undo2 />
+            </Button>
           </div>
         )}
       </section>
-      <section className="mt-6 border-t border-white/10 pt-5">
+      {combatant.kind === "monster" && (
+        <details open className="my-3">
+          <summary className="cursor-pointer text-sm text-amber-200">
+            Visual stat block
+          </summary>
+          <MonsterStatBlock monster={combatant.snapshot ?? undefined} />
+        </details>
+      )}
+      <section className="mt-4 border-t border-white/10 pt-3">
         <h3 className="font-serif text-lg text-amber-200">Status conditions</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {combatant.conditions.length ? (
@@ -561,14 +581,6 @@ export function CombatantEditor({
           <p className="text-sm text-stone-400">No encounter notes.</p>
         )}
       </div>
-      {combatant.kind === "monster" && (
-        <details open className="my-3">
-          <summary className="cursor-pointer text-sm text-amber-200">
-            Visual stat block
-          </summary>
-          <MonsterStatBlock monster={combatant.snapshot ?? undefined} />
-        </details>
-      )}
     </aside>
   );
 }
@@ -604,7 +616,7 @@ function NumberField({
     <label className="text-xs text-stone-400">
       {label}
       <Input
-        className="mt-1"
+        className="mt-1 h-9 text-center tabular-nums"
         type="number"
         value={value}
         disabled={disabled}
