@@ -106,7 +106,9 @@ Imported monster data belongs to the current campaign and remains editable after
 - Search campaign records with result-type filters for Sessions, Stories, Players, NPCs, and Bestiary monsters. Highlight matches and open the exact result directly.
 - Lists always use compact spacing while retaining accessible touch targets. The sidebar shows your username beside Sign out; its version link opens the GitHub repository. Use the icon in the header to collapse or expand the desktop menu.
 - Start with compact collapsed Sessions and Story beats, expand individual entries as needed, or expand and collapse every entry at once.
-- Prepare multiple named encounters inside each session.
+- Prepare multiple named encounters inside each session. New encounters expand immediately so you can add combatants.
+- Encounters are numbered from 1 within each session, in display order. Deleting or reordering renumbers the list. Collapse encounters and drag their grip handles to reorder them; up/down buttons provide a keyboard and touch alternative. The order saves automatically, preserving other unsaved encounter edits. Concurrent changes reject the reorder instead of partially applying it.
+- Save, Delete and Load encounter are available in each encounter header even when collapsed. Loading still opens the existing preview/confirmation; empty encounters cannot be loaded from this control.
 - Open Session play view to use notes, linked story details, prepared encounters and searchable Player/NPC references together. Roster HP is a campaign reference; use Combat for live HP.
 - Switch between Notes, Encounters, and Linked stories tabs without losing drafts. Save session & encounters saves the whole preparation workspace, including hidden tabs.
 - Review collapsed encounters with colour-coded type counts, monster quantities, a combatant preview, and a notes excerpt.

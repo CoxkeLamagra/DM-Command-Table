@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
   ChevronDown,
   ChevronRight,
   ChevronsUpDown,
@@ -29,6 +32,7 @@ import {
   RichTextEditor,
 } from "@/features/rich-text/rich-text";
 import {
+  reorderPreparedEncounters,
   createPreparedEncounter,
   deletePreparedEncounter,
   getCombat,
@@ -124,6 +128,10 @@ export function PreparedEncounters({
   });
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const orderedItems = [...items].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id),
+  );
   const [monsters, setMonsters] = useState<Monster[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [addingTo, setAddingTo] = useState<string>();
@@ -167,10 +175,56 @@ export function PreparedEncounters({
       const item = await createPreparedEncounter(
         campaignId,
         sessionId,
-        items.length,
+        Math.max(-1, ...items.map(({ sortOrder }) => sortOrder)) + 1,
       );
       setItems((all) => [...all, item]);
+      setExpanded((ids) => new Set(ids).add(item.id));
+      setVisited((ids) => new Set(ids).add(item.id));
       setOpen(true);
+    } catch (error) {
+      report(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function reorder(fromId: string, toId: string) {
+    setDragging(null);
+    if (
+      !editable ||
+      busy ||
+      savingSession ||
+      fromId === toId ||
+      expanded.has(fromId) ||
+      expanded.has(toId)
+    )
+      return;
+    const order = [...orderedItems];
+    const from = order.findIndex(({ id }) => id === fromId),
+      to = order.findIndex(({ id }) => id === toId);
+    if (from < 0 || to < 0) return;
+    order.splice(to, 0, order.splice(from, 1)[0]);
+    setBusy(true);
+    try {
+      const saved = await reorderPreparedEncounters(
+        campaignId,
+        sessionId,
+        order.map(({ id, revision }) => ({ id, revision })),
+      );
+      const byId = new Map(saved.map((item) => [item.id, item]));
+      setItems((all) =>
+        all.map((item) => {
+          const result = byId.get(item.id);
+          return result
+            ? {
+                ...item,
+                sortOrder: result.sortOrder,
+                revision: result.revision,
+                updatedAt: result.updatedAt,
+              }
+            : item;
+        }),
+      );
+      toast.success("Encounter order saved");
     } catch (error) {
       report(error);
     } finally {
@@ -403,7 +457,7 @@ export function PreparedEncounters({
   return (
     <div className="mt-5 border-t border-white/10 pt-4">
       {recovery.banner}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           type="button"
           aria-expanded={open}
@@ -437,7 +491,12 @@ export function PreparedEncounters({
             </Button>
           )}
           {editable && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={add}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || savingSession}
+              onClick={add}
+            >
               <Plus /> Encounter
             </Button>
           )}
@@ -450,32 +509,147 @@ export function PreparedEncounters({
               No encounters prepared yet.
             </p>
           ) : (
-            items.map((item) => (
+            orderedItems.map((item, index) => (
               <div
                 key={item.id}
+                data-prepared-encounter={item.id}
+                onDragOver={(event) => {
+                  if (
+                    dragging &&
+                    !expanded.has(item.id) &&
+                    !busy &&
+                    !savingSession
+                  ) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (dragging) void reorder(dragging, item.id);
+                }}
                 className="rounded-lg border border-white/10 bg-black/20 p-4"
               >
-                <button
-                  type="button"
-                  aria-expanded={expanded.has(item.id)}
-                  aria-controls={`encounter-details-${item.id}`}
-                  className="flex w-full items-center gap-2 text-left"
-                  onClick={() => toggleEncounter(item.id)}
-                >
-                  {expanded.has(item.id) ? (
-                    <ChevronDown className="size-4 shrink-0" />
-                  ) : (
-                    <ChevronRight className="size-4 shrink-0" />
+                <div className="flex flex-wrap items-center gap-2">
+                  {editable && (
+                    <div className="flex items-center">
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Drag encounter ${item.name}`}
+                        title="Drag collapsed encounter to reorder"
+                        disabled={
+                          busy || savingSession || expanded.has(item.id)
+                        }
+                        draggable={
+                          !busy && !savingSession && !expanded.has(item.id)
+                        }
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData("text/plain", item.id);
+                          event.dataTransfer.effectAllowed = "move";
+                          setDragging(item.id);
+                        }}
+                        onDragEnd={() => setDragging(null)}
+                      >
+                        <GripVertical />
+                      </Button>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label={`Move encounter ${item.name} up`}
+                        disabled={
+                          busy ||
+                          savingSession ||
+                          expanded.has(item.id) ||
+                          index === 0 ||
+                          expanded.has(orderedItems[index - 1]?.id)
+                        }
+                        onClick={() =>
+                          reorder(item.id, orderedItems[index - 1].id)
+                        }
+                      >
+                        <ArrowUp />
+                      </Button>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label={`Move encounter ${item.name} down`}
+                        disabled={
+                          busy ||
+                          savingSession ||
+                          expanded.has(item.id) ||
+                          index === orderedItems.length - 1 ||
+                          expanded.has(orderedItems[index + 1]?.id)
+                        }
+                        onClick={() =>
+                          reorder(item.id, orderedItems[index + 1].id)
+                        }
+                      >
+                        <ArrowDown />
+                      </Button>
+                    </div>
                   )}
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {item.name || "Untitled encounter"}
-                  </span>
-                  <SaveStatus
-                    dirty={dirty.has(item.id)}
-                    saving={savingSession || savingEncounter === item.id}
-                    label={`Encounter ${item.name}`}
-                  />
-                </button>
+                  <button
+                    type="button"
+                    aria-expanded={expanded.has(item.id)}
+                    aria-controls={`encounter-details-${item.id}`}
+                    className="flex min-w-0 flex-1 basis-40 items-center gap-2 text-left"
+                    onClick={() => toggleEncounter(item.id)}
+                  >
+                    {expanded.has(item.id) ? (
+                      <ChevronDown className="size-4 shrink-0" />
+                    ) : (
+                      <ChevronRight className="size-4 shrink-0" />
+                    )}
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-amber-200">
+                      {index + 1}.
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {item.name || "Untitled encounter"}
+                    </span>
+                    <SaveStatus
+                      dirty={dirty.has(item.id)}
+                      saving={savingSession || savingEncounter === item.id}
+                      label={`Encounter ${item.name}`}
+                    />
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={!editable || busy || savingSession}
+                      aria-label={`Save encounter ${item.name}`}
+                      title="Save this encounter"
+                      onClick={() => save(item)}
+                    >
+                      <Save />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={!editable || busy || savingSession}
+                      aria-label={`Delete encounter ${item.name}`}
+                      onClick={() => remove(item)}
+                    >
+                      <Trash2 />
+                    </Button>
+                    {editable && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Load encounter ${item.name}`}
+                        disabled={
+                          (!item.monsters.length && !item.combatants?.length) ||
+                          busy ||
+                          savingSession
+                        }
+                        onClick={() => loadInCombat(item)}
+                      >
+                        <Play /> Load encounter
+                      </Button>
+                    )}
+                  </div>
+                </div>
                 <EncounterSummary encounter={item} monsters={monsters} />
                 {visited.has(item.id) && (
                   <div
@@ -491,25 +665,6 @@ export function PreparedEncounters({
                           patch(item.id, { name: event.target.value })
                         }
                       />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={!editable || busy}
-                        aria-label={`Save encounter ${item.name}`}
-                        title="Save this encounter"
-                        onClick={() => save(item)}
-                      >
-                        <Save />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={!editable || busy}
-                        aria-label={`Delete encounter ${item.name}`}
-                        onClick={() => remove(item)}
-                      >
-                        <Trash2 />
-                      </Button>
                     </div>
                     <div className="mt-3">
                       {editable ? (
@@ -627,18 +782,6 @@ export function PreparedEncounters({
                         }
                       />
                     ))}
-                    {editable && (
-                      <Button
-                        className="mt-3 w-full"
-                        disabled={
-                          (!item.monsters.length && !item.combatants?.length) ||
-                          busy
-                        }
-                        onClick={() => loadInCombat(item)}
-                      >
-                        <Play /> Load in Combat
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>

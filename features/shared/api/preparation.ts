@@ -94,3 +94,16 @@ export async function saveSessionPreparation(
     json("POST", { session, encounters }),
   );
 }
+
+export async function reorderPreparedEncounters(
+  campaignId: string,
+  sessionId: string,
+  order: Pick<PreparedEncounter, "id" | "revision">[],
+): Promise<PreparedEncounter[]> {
+  return (
+    await requestJson<{ encounters: PreparedEncounter[] }>(
+      `/api/campaigns/${campaignId}/sessions/${sessionId}/encounters/reorder`,
+      json("POST", { order }),
+    )
+  ).encounters;
+}

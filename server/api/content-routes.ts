@@ -149,6 +149,28 @@ export async function handleContentRoutes(
 
     if (resourceId && segments[4] === "encounters") {
       const encounterId = segments[5];
+      if (
+        encounterId === "reorder" &&
+        method === "POST" &&
+        segments.length === 6
+      ) {
+        const input = z
+          .object({
+            order: z
+              .array(z.object({ id: idSchema, revision: revisionSchema }))
+              .max(500),
+          })
+          .parse(await jsonBody(request));
+        return apiJson({
+          encounters: encounters.reorderPrepared(
+            campaignId,
+            context.userId,
+            resourceId,
+            input.order,
+          ),
+        });
+      }
+
       if (method === "GET")
         return apiJson({
           encounters: encounters.listPrepared(

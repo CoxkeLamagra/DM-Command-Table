@@ -2,6 +2,13 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.9.0 — 2026-10-15
+
+- Automatically expand new prepared encounters and keep Save, Delete and Load encounter actions in each card header, including when collapsed.
+- Number prepared encounters from 1 within each session and display them in number order.
+- Reorder collapsed encounters using drag handles or up/down controls; save order atomically with revision checks while preserving other draft content.
+- Retain load previews, combat roster replacement, draft recovery and existing permissions. No schema migration is required.
+
 ## 11.8.5 — 2026-10-15
 
 - Move Combat status conditions above the visual stat block while preserving the compact HP controls and all other layout behavior.

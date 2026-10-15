@@ -16,10 +16,24 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
   await expect(
     page.getByRole("tab", { name: "Encounters (3)", exact: true }),
   ).toBeVisible();
-  await page
+  const newEncounter = page
     .locator("button[aria-expanded]")
-    .filter({ hasText: "New encounter" })
+    .filter({ hasText: "New encounter" });
+  await expect(newEncounter).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("button", { name: "Add combatants", exact: true }),
+  ).toBeVisible();
+  await newEncounter.click();
+  await expect(
+    page.getByRole("button", {
+      name: "Save encounter New encounter",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Save encounter New encounter", exact: true })
     .click();
+  await expect(newEncounter).toHaveAttribute("aria-expanded", "false");
   page.once("dialog", async (dialog) => dialog.accept());
   await page
     .getByRole("button", {
@@ -38,6 +52,42 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     .filter({ hasText: "Road ambush" });
   await expect(patrol).toHaveAttribute("aria-expanded", "false");
   await expect(ambush).toHaveAttribute("aria-expanded", "false");
+  const cards = page.locator("[data-prepared-encounter]");
+  await expect(
+    page.getByRole("button", {
+      name: "Load encounter Guard patrol",
+      exact: true,
+    }),
+  ).toBeVisible();
+  const moved = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/encounters/reorder") &&
+      response.request().method() === "POST",
+  );
+  await page
+    .getByRole("button", { name: "Drag encounter Road ambush", exact: true })
+    .dragTo(cards.filter({ has: patrol }));
+  expect((await moved).status()).toBe(200);
+  await expect(cards.first()).toContainText("Road ambush");
+  await expect(ambush).toContainText("1.");
+  await page.reload();
+  await page.getByRole("button", { name: /Test session/ }).click();
+  await page.getByRole("tab", { name: /^Encounters/ }).click();
+  await expect(cards.first()).toContainText("Road ambush");
+  const restored = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/encounters/reorder") &&
+      response.request().method() === "POST",
+  );
+  await page
+    .getByRole("button", {
+      name: "Move encounter Guard patrol up",
+      exact: true,
+    })
+    .click();
+  expect((await restored).status()).toBe(200);
+  await expect(cards.first()).toContainText("Guard patrol");
+
   await patrol.click();
   const editor = page.getByRole("button", {
     name: "Edit details for Town guard",
@@ -100,7 +150,24 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
     .getByRole("button", { name: "Collapse all", exact: true })
     .click();
   await expect(patrol).toHaveAttribute("aria-expanded", "false");
+  for (const direction of ["down", "up"]) {
+    const response = page.waitForResponse(
+      (value) =>
+        value.url().endsWith("/encounters/reorder") &&
+        value.request().method() === "POST",
+    );
+    await page
+      .getByRole("button", {
+        name: `Move encounter Guard patrol ${direction}`,
+        exact: true,
+      })
+      .click();
+    expect((await response).status()).toBe(200);
+  }
   await patrol.click();
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Captain draft");
   let ready!: () => void;
   let release!: () => void;
   const responseReady = new Promise<void>((resolve) => {
@@ -182,8 +249,10 @@ test("encounter drafts survive collapse, search and in-flight saves and load int
       exact: true,
     }),
   ).toHaveAttribute("aria-expanded", "false");
+  await patrol.click();
+  await expect(patrol).toHaveAttribute("aria-expanded", "false");
   await section
-    .getByRole("button", { name: "Load in Combat", exact: true })
+    .getByRole("button", { name: "Load encounter Guard patrol", exact: true })
     .first()
     .click();
   const loadPreview = page.getByRole("dialog", {

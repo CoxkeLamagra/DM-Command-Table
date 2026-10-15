@@ -1,3 +1,4 @@
+import { PublicApiError } from "../http/errors.ts";
 import { statement } from "../../db/statements.ts";
 import { assertPreparedCapacity } from "../../domain/combat.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
@@ -73,6 +74,60 @@ export function createPreparedRepository(database: DatabaseSync) {
           groupedCopies.get(row.id) ?? [],
         ),
       );
+    },
+
+    reorderPrepared(
+      campaignId: string,
+      actorUserId: string,
+      sessionId: string,
+      order: { id: string; revision: number }[],
+    ): PreparedEncounter[] {
+      requireCampaignEdit(database, campaignId, actorUserId);
+      ensureSession(database, campaignId, sessionId);
+      return runTransaction(database, () => {
+        const current = database
+          .prepare("SELECT id FROM prepared_encounters WHERE session_id=?")
+          .all(sessionId) as { id: string }[];
+        const allowed = new Set(current.map(({ id }) => id));
+        if (
+          order.length !== current.length ||
+          new Set(order.map(({ id }) => id)).size !== current.length ||
+          order.some(({ id }) => !allowed.has(id))
+        )
+          throw new PublicApiError(
+            "Prepared encounters changed. Reload before reordering.",
+            409,
+          );
+        order.forEach(({ id, revision }, index) => {
+          const result = database
+            .prepare(
+              "UPDATE prepared_encounters SET sort_order=?, revision=revision+1, updated_at=? WHERE id=? AND session_id=? AND revision=?",
+            )
+            .run(index, Date.now(), id, sessionId, revision);
+          if (!result.changes)
+            conflictOrMissing(
+              database,
+              "prepared_encounters",
+              "prepared encounter",
+              id,
+              revision,
+              campaignId,
+            );
+        });
+        touch(
+          database,
+          campaignId,
+          actorUserId,
+          "session",
+          sessionId,
+          "encounters_reordered",
+        );
+        return createPreparedRepository(database).listPrepared(
+          campaignId,
+          actorUserId,
+          sessionId,
+        );
+      });
     },
 
     createPrepared(

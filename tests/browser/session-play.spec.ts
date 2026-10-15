@@ -57,12 +57,11 @@ test("draft recovery, session play and load preview preserve preparation and con
     page.getByText("Session and prepared encounters saved", { exact: true }),
   ).toBeVisible();
   await page.getByRole("tab", { name: /^Encounters/ }).click();
+  await expect(
+    page.locator("button[aria-expanded]").filter({ hasText: "Guard patrol" }),
+  ).toHaveAttribute("aria-expanded", "false");
   await page
-    .locator("button[aria-expanded]")
-    .filter({ hasText: "Guard patrol" })
-    .click();
-  await page
-    .getByRole("button", { name: "Load in Combat", exact: true })
+    .getByRole("button", { name: "Load encounter Guard patrol", exact: true })
     .click();
   const preview = page.getByRole("dialog", { name: "Load encounter preview" });
   await expect(preview.getByText(/Result:/)).toBeVisible();
@@ -71,7 +70,7 @@ test("draft recovery, session play and load preview preserve preparation and con
     page.getByRole("heading", { name: "Sessions", exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Load in Combat", exact: true })
+    .getByRole("button", { name: "Load encounter Guard patrol", exact: true })
     .click();
   await preview
     .getByRole("button", { name: "Confirm load", exact: true })

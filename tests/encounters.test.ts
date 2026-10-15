@@ -316,3 +316,103 @@ test("campaign NPCs persist their type and import into combat with duplicate pro
   assert.equal(updated.kind, "player");
   database.close();
 });
+
+test("prepared ordering is atomic, revision checked and scoped to an editable session", () => {
+  const { database, campaign, content, encounters } = fixture();
+  try {
+    const session = content.createSession(campaign.id, "owner", {
+      title: "Ordering",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 0,
+    });
+    const other = content.createSession(campaign.id, "owner", {
+      title: "Other",
+      date: "",
+      notes: "",
+      status: "planned",
+      sortOrder: 1,
+    });
+    const input = {
+      name: "First",
+      notes: "<p>Keep me</p>",
+      sortOrder: 0,
+      monsters: [],
+      combatants: [],
+    };
+    const a = encounters.createPrepared(
+      campaign.id,
+      "owner",
+      session.id,
+      input,
+    );
+    const b = encounters.createPrepared(campaign.id, "owner", session.id, {
+      ...input,
+      name: "Second",
+      sortOrder: 1,
+    });
+    const foreign = encounters.createPrepared(
+      campaign.id,
+      "owner",
+      other.id,
+      input,
+    );
+    assert.throws(
+      () =>
+        encounters.reorderPrepared(campaign.id, "owner", session.id, [
+          b,
+          foreign,
+        ]),
+      { status: 409 },
+    );
+    assert.throws(
+      () =>
+        encounters.reorderPrepared(campaign.id, "owner", session.id, [a, a]),
+      { status: 409 },
+    );
+    assert.throws(
+      () =>
+        encounters.reorderPrepared(campaign.id, "owner", session.id, [
+          b,
+          { ...a, revision: a.revision + 1 },
+        ]),
+      { name: "RevisionConflictError" },
+    );
+    assert.deepEqual(
+      encounters
+        .listPrepared(campaign.id, "owner", session.id)
+        .map(({ id, revision }) => ({ id, revision })),
+      [a, b].map(({ id, revision }) => ({ id, revision })),
+    );
+    const reordered = encounters.reorderPrepared(
+      campaign.id,
+      "owner",
+      session.id,
+      [b, a],
+    );
+    assert.deepEqual(
+      reordered.map(({ id, sortOrder }) => ({ id, sortOrder })),
+      [
+        { id: b.id, sortOrder: 0 },
+        { id: a.id, sortOrder: 1 },
+      ],
+    );
+    assert.equal(reordered[1].notes, "<p>Keep me</p>");
+    database
+      .prepare(
+        "INSERT INTO users VALUES('viewer','Viewer','viewer','unused',0,1,1)",
+      )
+      .run();
+    database
+      .prepare(
+        "INSERT INTO campaign_members VALUES(?, 'viewer', 'viewer', 1, 1)",
+      )
+      .run(campaign.id);
+    assert.throws(() =>
+      encounters.reorderPrepared(campaign.id, "viewer", session.id, reordered),
+    );
+  } finally {
+    database.close();
+  }
+});

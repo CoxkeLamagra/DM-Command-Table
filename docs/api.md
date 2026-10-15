@@ -91,3 +91,7 @@ A record ID outside the campaign specified in the request returns `not_found` on
 ## Admission and storage limits
 
 Import/export route aliases receive the same rate and concurrency limits as canonical paths. Malformed encodings and extra import/package segments return 400. Storage or account budget violations return 413 with a public explanation; blocked mutations roll back. Administrator state includes storage usage and configured host limits. See [operations](operations.md) for budget configuration.
+
+## Prepared encounter ordering
+
+`POST C/sessions/:sessionId/encounters/reorder` accepts `{ "order": [{ "id": "...", "revision": 1 }] }` (at most 500 entries). Supply every current encounter in that session exactly once. Editors/owners can reorder; viewers cannot. Within one transaction the server checks session membership and expected revisions, assigns zero-based `sortOrder` values, increments encounter revisions and returns `{ encounters }` in the new order. Missing/duplicate/foreign entries or stale revisions reject the entire operation. Only order/revision/timestamps change; notes and combatants are preserved. The UI presents positions as consecutive numbers starting at 1 and retains unsaved content when incorporating the response.
