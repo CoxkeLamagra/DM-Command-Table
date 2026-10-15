@@ -21,7 +21,7 @@ Campaigns are private by default. Only the owner can share or delete a campaign.
 
 ### Administration sections
 
-Administration opens **Update Application** and provides four tabs. Tabs wrap into two columns on small screens and support keyboard navigation. Switching sections retains unsaved settings/account fields and update progress while Administration remains open.
+Administration opens **Update Application** and provides four tabs. The tab bar has a dark background, a yellow selected tab with black text, and gray inactive labels. Tabs wrap into two columns on small screens and support keyboard navigation. Switching sections retains unsaved settings/account fields and update progress while Administration remains open.
 
 | Section                | Controls                                                                                                   |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------- |

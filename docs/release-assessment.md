@@ -1,4 +1,12 @@
-# v11.8.1 release validation
+# v11.8.2 release validation
+
+Administration tabs now use a dark bar, yellow selected background with black text, gray inactive labels and readable hover/focus states. This corrects the light shared-component defaults without changing tab behavior.
+
+Validation passed: full dependency audit gate, formatting, lint, TypeScript, all 136 unit/integration tests, production build and all three Administration browser tests. Rendered-color checks verified the dark bar, gray inactive labels and black selected text on yellow, including hover on each tab. The desktop appearance was visually inspected. No new dependencies or storage changes are introduced.
+
+## Previous v11.8.1 validation
+
+The evidence below describes the preceding release's broader regression and offline-runtime checks; those full browser/container suites were not repeated for this color-only patch.
 
 Administration is divided into Update Application, Server Settings, Account Administration and Screenshot Library tabs. Sections retain drafts and update monitoring while mounted, support keyboard navigation and use two columns on small screens. All existing controls are retained.
 

@@ -2,6 +2,10 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.8.2 — 2026-10-15
+
+- Match Administration tabs to the application theme: dark tab bar, yellow active tab with black text, and gray inactive labels with readable hover/focus states.
+
 ## 11.8.1 — 2026-10-15
 
 - Divide Administration into Update Application, Server Settings, Account Administration and Screenshot Library tabs.

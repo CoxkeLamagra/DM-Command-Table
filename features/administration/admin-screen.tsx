@@ -117,30 +117,18 @@ export function AdminScreen({ current }: { current: User }) {
       <Tabs defaultValue="updates" className="gap-5">
         <TabsList
           aria-label="Administration sections"
-          className="grid h-auto! w-full grid-cols-2 gap-1 md:grid-cols-4"
+          className="grid h-auto! w-full grid-cols-2 gap-1 border border-white/10 bg-[#0d1016] md:grid-cols-4"
         >
-          <TabsTrigger
-            className="h-auto min-w-0 whitespace-normal py-2"
-            value="updates"
-          >
+          <TabsTrigger className={administrationTabClass} value="updates">
             Update Application
           </TabsTrigger>
-          <TabsTrigger
-            className="h-auto min-w-0 whitespace-normal py-2"
-            value="settings"
-          >
+          <TabsTrigger className={administrationTabClass} value="settings">
             Server Settings
           </TabsTrigger>
-          <TabsTrigger
-            className="h-auto min-w-0 whitespace-normal py-2"
-            value="accounts"
-          >
+          <TabsTrigger className={administrationTabClass} value="accounts">
             Account Administration
           </TabsTrigger>
-          <TabsTrigger
-            className="h-auto min-w-0 whitespace-normal py-2"
-            value="screenshots"
-          >
+          <TabsTrigger className={administrationTabClass} value="screenshots">
             Screenshot Library
           </TabsTrigger>
         </TabsList>
@@ -552,3 +540,6 @@ function NumberSetting({
 }
 const selectClass =
   "h-9 w-full rounded-md border border-white/10 bg-[#0d1016] px-3 text-sm text-stone-100 outline-none focus:border-amber-300/50";
+
+const administrationTabClass =
+  "h-auto min-w-0 whitespace-normal py-2 text-stone-400 hover:bg-white/5 hover:text-stone-100 focus-visible:ring-amber-300/50 data-[state=active]:bg-amber-300! data-[state=active]:text-black!";
