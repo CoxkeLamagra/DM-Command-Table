@@ -114,7 +114,9 @@ test("v11 token migration separates existing token images without touching actio
     runMigrations(database);
     runMigrations(database);
     const monster = database
-      .prepare("SELECT token,abilities FROM monsters")
+      .prepare(
+        "SELECT json_extract(payload,'$.token') AS token,json_extract(payload,'$.abilities') AS abilities FROM monster_definitions",
+      )
       .get();
     assert.deepEqual({ ...monster }, { token, abilities: "Actions\nClaw" });
   } finally {

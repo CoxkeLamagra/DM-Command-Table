@@ -102,6 +102,44 @@ test("remote catalogue connects automatically and imports searchable monster pre
       exact: true,
     }),
   ).toBeVisible();
+  const originalCampaign = /\/campaigns\/([^/]+)/.exec(page.url())![1];
+  const original = (
+    await (
+      await page.request.get(`/api/campaigns/${originalCampaign}/monsters`)
+    ).json()
+  ).monsters.find(
+    (monster: { name: string }) => monster.name === "Remote goblin",
+  );
+  const imagesBefore = (
+    await (await page.request.get("/api/screenshots")).json()
+  ).screenshots.length;
+  const createdCampaign = await page.request.post("/api/campaigns", {
+    data: { name: "Shared Bestiary regression" },
+  });
+  expect(createdCampaign.status()).toBe(201);
+  const secondCampaign = (await createdCampaign.json()).campaign.id;
+  await page.goto(`/campaigns/${secondCampaign}/bestiary`);
+  await page
+    .getByRole("button", { name: "Import monsters", exact: true })
+    .click();
+  await dialog.getByPlaceholder("Type at least two characters…").fill("goblin");
+  await dialog.getByLabel("Select Remote goblin", { exact: true }).check();
+  await dialog
+    .getByRole("button", { name: "Import selected (1)", exact: true })
+    .click();
+  await expect(dialog).toBeHidden();
+  const shared = (
+    await (
+      await page.request.get(`/api/campaigns/${secondCampaign}/monsters`)
+    ).json()
+  ).monsters[0];
+  expect(shared.id).not.toBe(original.id);
+  expect(shared.token).toBe(original.token);
+  expect(
+    (await (await page.request.get("/api/screenshots")).json()).screenshots
+      .length,
+  ).toBe(imagesBefore);
+  await page.goto(`/campaigns/${originalCampaign}/bestiary`);
   await page.getByRole("button", { name: /^Remote goblin/ }).click();
   await expect(
     dialog.getByRole("region", { name: "Remote goblin stat block" }),
@@ -136,6 +174,16 @@ test("remote catalogue connects automatically and imports searchable monster pre
   await actionsEditor.pressSequentially("Edited attack");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Monster saved", { exact: true })).toBeVisible();
+  const unchanged = (
+    await (
+      await page.request.get(`/api/campaigns/${secondCampaign}/monsters`)
+    ).json()
+  ).monsters[0];
+  expect(unchanged.abilities).not.toContain("Edited attack");
+  expect(unchanged.token).toBe(original.token);
+  expect(
+    (await page.request.delete(`/api/campaigns/${secondCampaign}`)).ok(),
+  ).toBe(true);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /^Remote goblin/ }).click();
   await expect(tokenEditor.locator("img")).toHaveCount(1);
@@ -182,10 +230,9 @@ test("remote catalogue connects automatically and imports searchable monster pre
     .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(0);
   expect(requests.sort()).toEqual(
-    [
-      ...Object.keys(payloads),
-      "/img/bestiary/tokens/MM/Remote%20goblin.webp",
-    ].sort(),
+    [...Object.keys(payloads), "/img/bestiary/tokens/MM/Remote%20goblin.webp"]
+      .flatMap((path) => [path, path])
+      .sort(),
   );
   await page.getByRole("button", { name: "Bestiary", exact: true }).click();
   await page.getByRole("button", { name: /^Remote goblin/ }).click();

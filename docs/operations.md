@@ -108,7 +108,7 @@ Prepared loading supports at most 10,000 resulting combatants, including retaine
 
 ## Local resource limits
 
-The application uses schema version 2, built on the v11 schema-version-1 baseline named `offline-runtime-baseline`. Startup applies `monster-token-section` to move existing marked Bestiary token images into their separate field. Use separate fresh database and uploads paths for the first v11 installation; v11-to-v12 and subsequent v12 upgrades retain existing paths and data. Unsupported schema identities are rejected without conversion. Never delete existing data to resolve a format error.
+The application uses schema version 3, built on the v11 schema-version-1 baseline named `offline-runtime-baseline`. Migration 3 `shared-bestiary-definitions` separates campaign entries from immutable rules payloads and adds token hashes. Back up before updating: an older runtime must be restored with its matching pre-migration database backup, never pointed at schema 3. Startup applies `monster-token-section` to move existing marked Bestiary token images into their separate field. Use separate fresh database and uploads paths for the first v11 installation; v11-to-v12 and subsequent v12 upgrades retain existing paths and data. Unsupported schema identities are rejected without conversion. Never delete existing data to resolve a format error.
 
 Runtime hosts need no Internet access. Catalogue imports can read local browser files or optionally fetch from dnd5e.lamagra.link in the browser, and Debian GUI updates optionally fetch/build/test approved releases before installing them. Building dependencies is a separate preparation step; transfer the packaged runtime or Docker image to an offline host. Updates do not change installed systemd/Nginx templates or environment settings.
 
@@ -146,7 +146,7 @@ New imports retain alignment, armor/HP formula details, saving throws, skills, d
 
 Monster token icons appear at the upper right of visual stat blocks. Available tokens are downloaded from the catalogue during import and saved to the existing local image library; Bestiary and captured Combat blocks display these images offline. Reimport older monsters with replacement enabled to add tokens. Missing/unavailable token images do not block monster import. Token previews use temporary browser images. Both Bestiary and Combat stat blocks start expanded; click **Visual stat block** to collapse or expand them.
 
-The v11.7 refactor keeps the existing schema version 2 and requires no additional migration or dependency. Install/update, local backups, media storage and rollback workflows remain the same. The optional catalogue remains the only allowed external runtime source; imported records and images are stored locally.
+The historical v11.7 refactor retained schema 2; v12.1 now applies migration 3 without adding dependencies. Install/update, local backups, media storage and rollback workflows remain the same. The optional catalogue remains the only allowed external runtime source; imported records and images are stored locally.
 
 ## Refreshing updater helpers on a v12 host
 
@@ -166,3 +166,5 @@ The updater service caps its process group at 2 GiB, two CPU cores worth of time
 See [Upgrading to v12](upgrading-to-v12.md) before upgrading a v11 LXC. The independently installed root build helper must be updated once because its old release selector excludes v12; application updates cannot replace root-owned helpers. A v12 helper selects only stable v12 releases by default. Explicit root-pinned tags/SHAs and staged offline deployments remain available. Existing systemd resource ceilings, storage environment/settings and schema identity are retained.
 
 Save transactions now skip disk-stat calls when used SQLite pages do not grow. Growing transactions still enforce the database budget and free-space reserve; Administration still reads full filesystem/WAL metrics. Prepared ordering updates only order/revision/timestamps and retains other browser draft content. Wrong-session or malformed nested API requests reject without changing data.
+
+Imported Bestiary reuse retains stable campaign monster IDs, so existing prepared encounters, Combat, search and image references continue to work. Revision-1 source-bearing records can share; previously revised/unknown-provenance records remain private. New content edits permanently fork campaign-private definitions. Token reuse is limited to images owned by the importing account. Existing image duplicates are not bulk-deleted, and reference/undo-aware deletion remains required. Definitions with no remaining campaign entry are collected automatically; no external catalogue or service is required to resolve saved records.

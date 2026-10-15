@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createBestiaryRepository } from "../bestiary/bestiary-repository.ts";
 import { apiJson, jsonBody } from "../http/http.ts";
 import { monsterSchema } from "../http/schemas.ts";
@@ -20,16 +21,25 @@ export async function handleBestiaryRoutes(
     if (method === "GET")
       return apiJson({ monsters: bestiary.list(campaignId, context.userId) });
     if (method === "POST") {
-      const input = monsterSchema.parse(await jsonBody(request));
+      const { catalogueImport, ...input } = monsterSchema
+        .extend({ catalogueImport: z.boolean().default(false) })
+        .parse(await jsonBody(request));
       return apiJson(
-        { monster: bestiary.create(campaignId, context.userId, input) },
+        {
+          monster: bestiary.create(
+            campaignId,
+            context.userId,
+            input,
+            catalogueImport,
+          ),
+        },
         201,
       );
     }
     if (resourceId && method === "PATCH") {
-      const { revision, ...input } = revisionedMonster.parse(
-        await jsonBody(request),
-      );
+      const { revision, catalogueImport, ...input } = revisionedMonster
+        .extend({ catalogueImport: z.boolean().default(false) })
+        .parse(await jsonBody(request));
       return apiJson({
         monster: bestiary.update(
           campaignId,
@@ -37,6 +47,7 @@ export async function handleBestiaryRoutes(
           resourceId,
           revision,
           input,
+          catalogueImport,
         ),
       });
     }

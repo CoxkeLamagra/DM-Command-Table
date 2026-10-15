@@ -1,6 +1,6 @@
 # Upgrading to v12
 
-v12 preserves supported v11 accounts, campaigns, settings, local images and schema version 2. Back up and verify local data before any deployment. No re-registration or data conversion is required. Keep the previous runtime/image and its matching backup for recovery.
+v12.1 preserves supported v11/v12 accounts, campaigns, settings and local images, and automatically upgrades schema 1/2 to schema 3. Back up and verify local data before any deployment. No re-registration or manual conversion is required. Migration 3 separates shared monster definitions from campaign entries while preserving their IDs and revisions; uncertain edit history remains private. Keep the previous runtime/image and its matching pre-update backup for recovery. Older runtimes cannot use the migrated schema-3 database.
 
 ## Existing Debian 13 LXC
 
@@ -12,7 +12,7 @@ Run as root in the existing LXC after any current update finishes:
 set -euo pipefail
 umask 077
 DMCT_V12_SOURCE=$(mktemp -d /root/dmct-v12-upgrade.XXXXXXXX)
-git clone --depth 1 --branch v12.0.2 \
+git clone --depth 1 --branch v12.1.0 \
   https://github.com/CoxkeLamagra/DM-Command-Table.git "$DMCT_V12_SOURCE/source"
 git -C "$DMCT_V12_SOURCE/source" rev-parse HEAD
 bash "$DMCT_V12_SOURCE/source/deploy/debian-13/install-gui-updater"
@@ -23,13 +23,13 @@ This installs the trusted v12 root broker/build/verifier helpers and restarts th
 
 Open Administration → Update Application and confirm Update application. The old v11 UI may still label `latest` as a v11 source until it has upgraded; the updated root helper resolves it to a stable v12 tag and logs the exact source commit. Preparation runs frozen dependency/audit/format/lint/type/unit/build/browser checks before stopping the application. Root verifies the package, backs up stopped storage, switches releases and checks the expected health version. Preparation failures leave the old application running; deployment failures restore the prior runtime and matching backup.
 
-After completion verify `/api/health` reports `12.0.2`, sign in, and check campaigns, images, Combat and prepared encounter ordering. Later v12 GUI updates require no manual build. The new selector accepts stable v12 tags and excludes prereleases and v13 by default. Explicit host-approved tags/SHAs and staged offline updates remain supported.
+After completion verify `/api/health` reports `12.1.0`, sign in, and check campaigns, images, Combat and prepared encounter ordering. Later v12 GUI updates require no manual build. The new selector accepts stable v12 tags and excludes prereleases and v13 by default. Explicit host-approved tags/SHAs and staged offline updates remain supported.
 
 The one-time helper installation needs access to the fixed GitHub repository and signed prerequisite/package sources. For a strictly offline host, use the existing root-configured staged-runtime procedure in the [LXC guide](debian-13-lxc.md) with a complete approved v12 package. The supported runtime manifest/database baseline is unchanged, so this path does not need Git tag discovery. Installing automatic source-update helpers runs prerequisite package checks and needs reachable package sources (or a prepared local package mirror); postpone that transition until those sources are available. Runtime operation itself remains offline.
 
 ## Fresh Debian installation
 
-Use the v12 [bare Debian 13 LXC instructions](debian-13-lxc.md). The installer pins v12.0.2, includes all prerequisites/helpers and prints the first-admin token only after successful verification. It rejects existing/partial populated storage except the documented safe empty-install resume path.
+Use the v12 [bare Debian 13 LXC instructions](debian-13-lxc.md). The installer pins v12.1.0, includes all prerequisites/helpers and prints the first-admin token only after successful verification. It rejects existing/partial populated storage except the documented safe empty-install resume path.
 
 ## Docker
 

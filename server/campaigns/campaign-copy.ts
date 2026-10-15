@@ -42,10 +42,15 @@ export function copyCampaign(
       );
     const monsterIds = new Map<string, string>();
     for (const monster of bestiary.list(sourceId, actorId)) {
-      const created = bestiary.create(target.id, actorId, {
-        ...monster,
-        tagIds: monster.tags.flatMap(({ id }) => tagIds.get(id) ?? []),
-      });
+      const created = bestiary.create(
+        target.id,
+        actorId,
+        {
+          ...monster,
+          tagIds: monster.tags.flatMap(({ id }) => tagIds.get(id) ?? []),
+        },
+        bestiary.isShared(sourceId, actorId, monster.id),
+      );
       monsterIds.set(monster.id, created.id);
     }
     const playerIds = new Map<string, string>();

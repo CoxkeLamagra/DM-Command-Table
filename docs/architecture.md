@@ -1,6 +1,6 @@
 # v12 architecture
 
-The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 2, built on version 1 `offline-runtime-baseline` with the `monster-token-section` migration. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
+The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 3, built on version 1 `offline-runtime-baseline`, migration 2 `monster-token-section` and migration 3 `shared-bestiary-definitions`. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
 
 ## Source ownership
 
@@ -34,7 +34,7 @@ WAL, foreign keys and bounded busy timeouts are enabled. A connection-scoped LRU
 
 Combat snapshots capture source stat blocks; runtime tracks HP, temporary HP, concentration, death saves, resources and condition timing/save prompts separately from reusable definitions. Live spending never changes Bestiary/prepared records. Saves, commands, Undo, scoped draft recovery and portable packages retain runtime state.
 
-Loading replaces every current combatant, resets round/turn and creates fresh copies. Player names are trimmed/case-insensitive; the last prepared entry wins. Monsters/NPCs remain separate. Preview, capacity checks and loading share this rule. Direct saves reject repeated Player names. Empty preparation clears Combat; loading remains revision-checked and undoable. Expansion is limited to 10,000 combatants.
+Loading asks whether to preserve active Players/NPCs. Yes keeps their live state and replaces only monsters; No replaces everyone with all prepared combatants. Both reset round/turn and create fresh incoming copies. Player names are trimmed/case-insensitive; the last prepared entry wins. Monsters/NPCs remain separate. Preview, capacity checks and loading share this rule. Direct saves reject repeated Player names. Empty preparation clears Combat in replacement mode or retains only active Players/NPCs in preservation mode; loading remains revision-checked and undoable. Expansion is limited to 10,000 combatants.
 
 ## Storage and packaging
 
@@ -85,3 +85,15 @@ Combat detail rendering composes `hit-point-controls.tsx`, `conditions-editor.ts
 Transactions read SQLite page usage before/after writes and fetch filesystem capacity only for growing transactions. Administration still obtains complete main/WAL/free-space metrics on request. Quota and reorder SQL use the per-connection statement cache. Prepared writes validate each distinct Bestiary reference once and sanitize notes once at persistence; routes validate shape without repeating sanitization.
 
 The catch-all API checks a shared method/path contract before dispatch; unknown nested paths cannot fall back to a parent create/delete/save operation. Prepared PATCH/DELETE checks the requested session relationship. Origin and secure-cookie selection share web-origin/Host validation; explicit browser cross-site mutations reject even without Origin. None of these checks caches campaign permissions.
+
+## Bestiary reuse and future sharing
+
+`monsters` contains campaign-specific identity, indexed name, definition reference, favorite, revision and timestamps; tags, prepared references and live combat links continue to use this stable campaign entry ID. `monster_definitions` contains the complete canonical rules/token payload once. Shared imported definitions have no campaign scope; manual definitions and edited variants are scoped to one campaign. Definitions are immutable. Exact canonical-content SHA-256 plus full-payload equality selects a shared definition; name/source alone never establishes equivalence. Changed catalogue rules or token bytes get a different definition.
+
+A content save forks a shared definition into a private variant; later saves, reversions and explicit reimports keep that entry private. Favorites/tags are campaign metadata and do not fork definitions. All changes, media references, revisions, audit and search indexing remain transactional. Scope triggers reject private-definition links from other campaigns; unused definitions are collected after the last campaign entry is removed or switched. Deleting a campaign or entry never removes a definition still used elsewhere. API responses expose resolved monster data, never a global-library browsing or definition-ID attachment API.
+
+Campaign copies reuse shared definitions and clone private variants into the target campaign. Portable JSON/package imports remain private because their edit provenance is unknown; exports remain self-contained and retain their existing format. Combat snapshots remain independent. Schema migration 3 retains all campaign entry IDs and revisions. Only source-bearing revision-1 records are eligible for shared migration; older records with uncertain edit history remain private. Existing image handles and file references are preserved.
+
+Imported tokens opt into same-account image reuse. The server validates/encodes the image, hashes the normalized stored WebP bytes and reuses an owned, non-staging image with the same hash. Legacy same-size images are hashed lazily, one file at a time, until an exact match is found or every candidate is checked. A second check inside the write transaction coalesces concurrent uploads. Reuse consumes no additional screenshot storage quota. Different accounts do not acquire access to each other's uploads through matching bytes. Ordinary image uploads and package staging keep their existing behavior. Old duplicate images are not automatically deleted; campaign references and Combat undo still protect assets.
+
+This separation of immutable definitions, campaign bindings and authorized asset references is the foundation for future Bestiary and Player sharing. A future sharing flow can grant explicit access and attach campaign bindings without making mutable global records. Player data remains campaign-private in this release; no cross-campaign browsing or new sharing permissions are enabled.

@@ -1,3 +1,8 @@
+import {
+  findReusableToken,
+  reusableToken,
+  tokenHash,
+} from "./reusable-token.ts";
 import { extractLocalImageIds } from "../../domain/local-media.ts";
 import { storagePaths } from "../config.ts";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
@@ -49,6 +54,7 @@ export async function saveScreenshot(
   database: DatabaseSync,
   file: File,
   userId: string,
+  deduplicate = false,
 ): Promise<Screenshot> {
   const settings = getServerSettings(database);
   const uploadLimit = settings.uploadLimitMb * 1024 * 1024;
@@ -82,6 +88,12 @@ export async function saveScreenshot(
   } finally {
     activeImageDecodes -= 1;
   }
+  const hash = deduplicate ? tokenHash(bytes) : null;
+  if (deduplicate) {
+    const existing = await findReusableToken(database, userId, bytes);
+    if (existing) return existing;
+  }
+  let reused: Screenshot | undefined;
   const quota = settings.screenshotQuotaMb * 1024 * 1024;
   const globalQuota = settings.screenshotGlobalQuotaMb * 1024 * 1024;
   const directory = uploadDirectory();
@@ -93,6 +105,8 @@ export async function saveScreenshot(
       mode: 0o600,
     });
     runTransaction(database, () => {
+      // A concurrent upload may have completed during the file write.
+      if (hash && (reused = reusableToken(database, userId, hash))) return;
       const used = (
         database
           .prepare(
@@ -117,7 +131,7 @@ export async function saveScreenshot(
         );
       database
         .prepare(
-          "INSERT INTO screenshots (id,filename,original_name,mime_type,size,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?)",
+          "INSERT INTO screenshots (id,filename,original_name,mime_type,size,uploaded_by,created_at,content_hash) VALUES (?,?,?,?,?,?,?,?)",
         )
         .run(
           id,
@@ -127,12 +141,17 @@ export async function saveScreenshot(
           bytes.length,
           userId,
           now,
+          hash,
         );
     });
   } catch (error) {
     database.prepare("DELETE FROM screenshots WHERE id = ?").run(id);
     await unlink(path.join(directory, filename)).catch(() => undefined);
     throw error;
+  }
+  if (reused) {
+    await unlink(path.join(directory, filename)).catch(() => undefined);
+    return reused;
   }
   return {
     id,

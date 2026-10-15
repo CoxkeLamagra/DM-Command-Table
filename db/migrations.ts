@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
 export type Migration = {
@@ -318,9 +319,66 @@ export const migrations: readonly Migration[] = [
       WHERE abilities GLOB '<img src="/api/screenshots/*" alt="Monster token"*';
     `,
   },
+  {
+    version: 3,
+    name: "shared-bestiary-definitions",
+    sql: `
+      CREATE TABLE monster_definitions (
+        id TEXT PRIMARY KEY NOT NULL,
+        scope_campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE,
+        payload TEXT NOT NULL CHECK (json_valid(payload)),
+        content_hash TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX idx_shared_monster_payload ON monster_definitions(content_hash) WHERE scope_campaign_id IS NULL;
+      CREATE INDEX idx_private_monster_scope ON monster_definitions(scope_campaign_id);
+      ALTER TABLE monsters ADD COLUMN definition_id TEXT REFERENCES monster_definitions(id);
+      INSERT OR IGNORE INTO monster_definitions(id,scope_campaign_id,payload,content_hash)
+        SELECT id, CASE WHEN revision=1 AND source IS NOT NULL AND trim(source)<>'' THEN NULL ELSE campaign_id END,
+          json_object('name', name, 'type', type, 'challengeRating', challenge_rating, 'armorClass', armor_class, 'hitPoints', hit_points, 'speed', speed, 'stats', stats, 'token', token, 'abilities', abilities, 'spells', spells, 'notes', notes, 'spellSlots', json(spell_slots), 'source', source), dmct_sha256(json_object('name', name, 'type', type, 'challengeRating', challenge_rating, 'armorClass', armor_class, 'hitPoints', hit_points, 'speed', speed, 'stats', stats, 'token', token, 'abilities', abilities, 'spells', spells, 'notes', notes, 'spellSlots', json(spell_slots), 'source', source)) FROM monsters;
+      UPDATE monsters SET definition_id = COALESCE(
+        (SELECT id FROM monster_definitions WHERE id=monsters.id),
+        (SELECT id FROM monster_definitions WHERE scope_campaign_id IS NULL AND content_hash=dmct_sha256(json_object('name', name, 'type', type, 'challengeRating', challenge_rating, 'armorClass', armor_class, 'hitPoints', hit_points, 'speed', speed, 'stats', stats, 'token', token, 'abilities', abilities, 'spells', spells, 'notes', notes, 'spellSlots', json(spell_slots), 'source', source)) AND payload=json_object('name', name, 'type', type, 'challengeRating', challenge_rating, 'armorClass', armor_class, 'hitPoints', hit_points, 'speed', speed, 'stats', stats, 'token', token, 'abilities', abilities, 'spells', spells, 'notes', notes, 'spellSlots', json(spell_slots), 'source', source))
+      );
+      ALTER TABLE monsters DROP COLUMN type;
+      ALTER TABLE monsters DROP COLUMN challenge_rating;
+      ALTER TABLE monsters DROP COLUMN armor_class;
+      ALTER TABLE monsters DROP COLUMN hit_points;
+      ALTER TABLE monsters DROP COLUMN speed;
+      ALTER TABLE monsters DROP COLUMN stats;
+      ALTER TABLE monsters DROP COLUMN token;
+      ALTER TABLE monsters DROP COLUMN abilities;
+      ALTER TABLE monsters DROP COLUMN spells;
+      ALTER TABLE monsters DROP COLUMN notes;
+      ALTER TABLE monsters DROP COLUMN spell_slots;
+      ALTER TABLE monsters DROP COLUMN source;
+
+      CREATE TRIGGER monster_definition_insert_scope BEFORE INSERT ON monsters
+      WHEN NEW.definition_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM monster_definitions WHERE id=NEW.definition_id AND (scope_campaign_id IS NULL OR scope_campaign_id=NEW.campaign_id)
+      ) BEGIN SELECT RAISE(ABORT,'Invalid monster definition scope'); END;
+      CREATE TRIGGER monster_definition_update_scope BEFORE UPDATE OF definition_id,campaign_id ON monsters
+      WHEN NEW.definition_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM monster_definitions WHERE id=NEW.definition_id AND (scope_campaign_id IS NULL OR scope_campaign_id=NEW.campaign_id)
+      ) BEGIN SELECT RAISE(ABORT,'Invalid monster definition scope'); END;
+      UPDATE monsters SET definition_id=definition_id;
+      CREATE TRIGGER monster_definition_immutable BEFORE UPDATE ON monster_definitions
+      BEGIN SELECT RAISE(ABORT,'Monster definitions are immutable'); END;
+      CREATE TRIGGER monster_definition_collect_delete AFTER DELETE ON monsters
+      BEGIN DELETE FROM monster_definitions WHERE id=OLD.definition_id AND NOT EXISTS (SELECT 1 FROM monsters WHERE definition_id=OLD.definition_id); END;
+      CREATE TRIGGER monster_definition_collect_update AFTER UPDATE OF definition_id ON monsters
+      WHEN OLD.definition_id<>NEW.definition_id
+      BEGIN DELETE FROM monster_definitions WHERE id=OLD.definition_id AND NOT EXISTS (SELECT 1 FROM monsters WHERE definition_id=OLD.definition_id); END;
+      CREATE INDEX idx_monsters_definition ON monsters(definition_id);
+      ALTER TABLE screenshots ADD COLUMN content_hash TEXT;
+      CREATE INDEX idx_screenshots_content ON screenshots(uploaded_by,content_hash) WHERE staging=0;
+`,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {
+  database.function("dmct_sha256", { deterministic: true }, (value) =>
+    createHash("sha256").update(String(value)).digest("hex"),
+  );
   database.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY NOT NULL,

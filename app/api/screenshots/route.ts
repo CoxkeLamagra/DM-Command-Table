@@ -65,15 +65,31 @@ export async function POST(request: Request) {
     }).formData();
     if (form.getAll("file").length !== 1)
       throw new PublicApiError("Upload exactly one image at a time.");
-    if ([...form.keys()].some((key) => key !== "file"))
+    if (
+      [...form.keys()].some(
+        (key) => key !== "file" && key !== "deduplicateToken",
+      )
+    )
       throw new PublicApiError(
         "The upload request contains unsupported fields.",
       );
+    if (
+      form.getAll("deduplicateToken").length > 1 ||
+      (form.has("deduplicateToken") && form.get("deduplicateToken") !== "true")
+    )
+      throw new PublicApiError("Invalid token reuse option.");
     const file = form.get("file");
     if (!(file instanceof File))
       throw new PublicApiError("Select an image to upload.");
     return apiJson(
-      { screenshot: await saveScreenshot(database, file, user.userId) },
+      {
+        screenshot: await saveScreenshot(
+          database,
+          file,
+          user.userId,
+          form.get("deduplicateToken") === "true",
+        ),
+      },
       201,
     );
   } catch (error) {

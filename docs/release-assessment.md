@@ -1,3 +1,23 @@
+# v12.1.0 release validation
+
+This release separates campaign monster entries from immutable shared/private definitions. Unchanged catalogue imports reuse full-content SHA-256/equality matches; content edits permanently fork campaign-private definitions. Favorites/tags and stable entry IDs remain campaign-specific. Token imports reuse identical normalized WebP bytes owned by the importing account, including legacy same-size file lookup and concurrent upload coalescing. No new runtime dependencies or external services were added.
+
+Schema migration 3 `shared-bestiary-definitions` preserves IDs, revisions, tags, prepared/Combat links, edited content and image references. Source-bearing revision-1 entries may share; revised or unknown-provenance records remain private. Campaign copies reuse shared definitions and independently clone private variants. Portable campaign imports remain private. Existing duplicate image handles/files are retained, and shared definitions are collected only after the last campaign entry is removed. The definition/binding/asset separation supports future explicit Bestiary/Player sharing; Player sharing is not enabled by this release.
+
+## Executed v12.1 checks
+
+- Dependency audit gate, formatting, ESLint, TypeScript, all **148 unit/integration tests** and production build passed. No dependency/lockfile changes were needed.
+- All **19 browser tests** passed using system Chromium. The extended catalogue flow imports the same monster in two campaigns, checks the shared token URL and unchanged Screenshot Library count, edits one monster and verifies the other remains unchanged, then verifies saved stat blocks/tokens with external requests blocked.
+- Regressions cover full-content reuse, permanent private variants after edits/reversion/reimport, metadata isolation, revised source data, scope/immutability constraints, rollback on invalid metadata, authorization, stale revisions, shared/private campaign copy behavior, self-contained exports/private imports, deletion/foreign keys, legacy token lookup beyond 64 same-size candidates, quota-free reuse, differing-account image isolation and concurrent upload coalescing.
+- The final runtime package passed manifest verification. Mounted read-only in an existing Node 24 container with networking disabled, fresh registration/admin/auth, campaigns/sessions, tokens, prepared loading, Combat save/undo, export/import, screenshot WebP storage/read, storage checks, backup verification, restore and maintenance passed.
+- A separate offline test created accounts, campaigns, token images, edited monsters and prepared links with the packaged **v12.0.0 schema-2 runtime**, stopped it and started v12.1.0 against the same data directory. Login, IDs/revisions, edited variants and prepared links survived migration. A new campaign reused an unchanged definition and the legacy token, leaving one stored screenshot. Editing/deleting the original campaign left the other intact; foreign-key checks passed.
+
+## v12.1 upgrade and limits
+
+Supported v11/v12 storage migrates automatically on startup. Retain the pre-update backup with the previous runtime: schema 3 cannot be opened by older releases. The Debian GUI updater takes its stopped-service backup and retains its existing deployment rollback behavior; Docker/manual deployments must follow the documented backup procedure. The installer/deployment tests simulate OS/package/systemd behavior; no production host was deployed or modified during validation. Same-account token deduplication preserves existing media permissions; no cross-account image grant or global-library browsing endpoint was added. Legacy token matching reads candidates one file at a time; existing duplicate images are not bulk-deleted.
+
+Earlier release assessments below retain their original release scope and schema statements.
+
 # v12.0.2 release validation
 
 Prepared loading now asks whether to preserve active Players/NPCs. Preservation retains their IDs, HP, conditions and resources, removes all active monsters and loads only prepared monsters. Full replacement loads every prepared combatant. Both modes reset round/turn, enforce resulting-roster capacity before expansion and retain revision checks and undo. No schema migration or runtime dependency change is required.

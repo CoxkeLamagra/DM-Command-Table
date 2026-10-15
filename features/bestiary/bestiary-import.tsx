@@ -171,6 +171,7 @@ export function BestiaryImport({
           try {
             const localUrl = await uploadScreenshot(
               new File([token], `${remote.name}.webp`, { type: token.type }),
+              true,
             );
             input.token = attachMonsterToken("", localUrl);
           } catch {
@@ -188,11 +189,15 @@ export function BestiaryImport({
           added++;
         } else {
           const existing = next[index];
-          next[index] = await updateMonster(campaignId, {
-            ...existing,
-            ...input,
-            notes: existing.notes,
-          });
+          next[index] = await updateMonster(
+            campaignId,
+            {
+              ...existing,
+              ...input,
+              notes: existing.notes,
+            },
+            true,
+          );
           replaced++;
         }
       } catch (error) {

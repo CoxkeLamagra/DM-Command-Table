@@ -2,6 +2,14 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.1.0 — 2026-10-15
+
+- Reuse exact unchanged catalogue monster definitions across campaign-specific entries; keep tags, favorites, revisions and encounter links local to each campaign.
+- Fork edited monster content into a permanently campaign-private immutable definition. Shared campaign copies reuse their definitions; private copies and portable imports remain independent.
+- Reuse identical imported token WebP bytes already owned by the importing account, including lazy hashing of existing images and concurrent-upload coalescing, without increasing storage quota.
+- Apply schema migration 3 while preserving campaign monster IDs, revisions, references and edited data. Retain existing duplicate images and protect assets still referenced by another campaign or Combat undo.
+- Document the sharing foundation, account-scoped media permissions and backup requirements for downgrading after migration. No new dependencies or external runtime services are required.
+
 ## 12.0.2 — 2026-10-15
 
 - Ask whether to preserve active Players and NPCs when loading a prepared encounter. Yes retains their live HP, conditions and resources while replacing all monsters with prepared monsters; No replaces everyone with all prepared combatants.

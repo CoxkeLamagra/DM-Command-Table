@@ -1,3 +1,7 @@
+import {
+  monsterPayload,
+  storeMonsterDefinition,
+} from "./monster-definitions.ts";
 import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
@@ -25,15 +29,18 @@ export type MonsterInput = Omit<
   "id" | "campaignId" | "tags" | "revision" | "createdAt" | "updatedAt"
 > & { tagIds?: string[] };
 
-type MonsterRow = Omit<
-  Monster,
-  "spellSlots" | "favorite" | "tags" | "createdAt" | "updatedAt"
-> & {
-  spellSlots: string;
+type MonsterRow = {
+  id: string;
+  campaignId: string;
+  name: string;
   favorite: number;
+  revision: number;
   createdAt: number;
   updatedAt: number;
+  payload: string;
 };
+const monsterColumns = `m.id, m.campaign_id AS campaignId, m.name, m.favorite, m.revision,
+  m.created_at AS createdAt, m.updated_at AS updatedAt, d.payload`;
 
 type Tag = { id: string; name: string; color: string | null };
 
@@ -56,12 +63,8 @@ export function createBestiaryRepository(database: DatabaseSync) {
       return (
         statement(
           database,
-          `SELECT id, campaign_id AS campaignId, name, type,
-                challenge_rating AS challengeRating, armor_class AS armorClass,
-                hit_points AS hitPoints, speed, stats, token, abilities, spells, notes,
-                spell_slots AS spellSlots, source, favorite, revision,
-                created_at AS createdAt, updated_at AS updatedAt
-           FROM monsters WHERE campaign_id = ? ORDER BY name COLLATE NOCASE, id`,
+          `SELECT ${monsterColumns} FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id
+           WHERE m.campaign_id = ? ORDER BY m.name COLLATE NOCASE, m.id`,
         ).all(campaignId) as MonsterRow[]
       ).map((row) => toMonster(database, row, tagsByMonster.get(row.id) ?? []));
     },
@@ -70,35 +73,28 @@ export function createBestiaryRepository(database: DatabaseSync) {
       campaignId: string,
       actorUserId: string,
       input: MonsterInput,
+      catalogueImport = false,
     ): Monster {
       requireCampaignEdit(database, campaignId, actorUserId);
       input = sanitizeMonster(input);
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
+        const definitionId = storeMonsterDefinition(
+          database,
+          campaignId,
+          monsterPayload(input),
+          catalogueImport,
+        );
         statement(
           database,
-          `INSERT INTO monsters
-            (id, campaign_id, name, type, challenge_rating, armor_class,
-             hit_points, speed, stats, token, abilities, spells, notes, spell_slots,
-             source, favorite, revision, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          `INSERT INTO monsters(id,campaign_id,name,definition_id,favorite,revision,created_at,updated_at)
+          VALUES(?,?,?,?,?,1,?,?)`,
         ).run(
           id,
           campaignId,
           input.name,
-          input.type,
-          input.challengeRating,
-          input.armorClass,
-          input.hitPoints,
-          input.speed,
-          input.stats,
-          input.token ?? "",
-          input.abilities ?? "",
-          input.spells ?? "",
-          input.notes ?? "",
-          JSON.stringify(input.spellSlots),
-          input.source,
+          definitionId,
           input.favorite ? 1 : 0,
           now,
           now,
@@ -128,50 +124,55 @@ export function createBestiaryRepository(database: DatabaseSync) {
       id: string,
       expectedRevision: number,
       input: MonsterInput,
+      catalogueImport = false,
     ): Monster {
       requireCampaignEdit(database, campaignId, actorUserId);
       input = sanitizeMonster(input);
       runTransaction(database, () => {
-        const result = statement(
+        const actual = statement(
           database,
-          `UPDATE monsters SET name = ?, type = ?, challenge_rating = ?,
-             armor_class = ?, hit_points = ?, speed = ?, stats = ?, token = ?, abilities = ?,
-             spells = ?, notes = ?, spell_slots = ?, source = ?, favorite = ?,
-             revision = revision + 1, updated_at = ?
-           WHERE id = ? AND campaign_id = ? AND revision = ?`,
-        ).run(
-          input.name,
-          input.type,
-          input.challengeRating,
-          input.armorClass,
-          input.hitPoints,
-          input.speed,
-          input.stats,
-          input.token ?? "",
-          input.abilities ?? "",
-          input.spells ?? "",
-          input.notes ?? "",
-          JSON.stringify(input.spellSlots),
-          input.source,
-          input.favorite ? 1 : 0,
-          Date.now(),
-          id,
-          campaignId,
-          expectedRevision,
-        );
-        if (!result.changes) {
-          const actual = statement(
-            database,
-            "SELECT revision FROM monsters WHERE id = ? AND campaign_id = ?",
-          ).get(id, campaignId) as { revision: number } | undefined;
-          if (!actual) throw new ResourceNotFoundError("monster", id);
+          `SELECT m.revision,m.definition_id AS definitionId,d.scope_campaign_id AS scope,d.payload
+          FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id WHERE m.id=? AND m.campaign_id=?`,
+        ).get(id, campaignId) as
+          | {
+              revision: number;
+              definitionId: string;
+              scope: string | null;
+              payload: string;
+            }
+          | undefined;
+        if (!actual) throw new ResourceNotFoundError("monster", id);
+        if (actual.revision !== expectedRevision)
           throw new RevisionConflictError(
             "monster",
             id,
             expectedRevision,
             actual.revision,
           );
-        }
+        const payload = monsterPayload(input);
+        // Metadata-only saves retain sharing. A content edit forks permanently;
+        // explicit catalogue replacement can reuse shared content only before a fork.
+        const definitionId =
+          payload === actual.payload
+            ? actual.definitionId
+            : storeMonsterDefinition(
+                database,
+                campaignId,
+                payload,
+                catalogueImport && actual.scope === null,
+              );
+        statement(
+          database,
+          `UPDATE monsters SET name=?,definition_id=?,favorite=?,revision=revision+1,updated_at=? WHERE id=? AND campaign_id=? AND revision=?`,
+        ).run(
+          input.name,
+          definitionId,
+          input.favorite ? 1 : 0,
+          Date.now(),
+          id,
+          campaignId,
+          expectedRevision,
+        );
         replaceTags(database, campaignId, id, input.tagIds ?? []);
         touch(database, campaignId, actorUserId, id, "updated");
         indexMonster(database, campaignId, id, input);
@@ -219,6 +220,16 @@ export function createBestiaryRepository(database: DatabaseSync) {
           );
         throw error;
       }
+    },
+
+    isShared(campaignId: string, actorUserId: string, id: string): boolean {
+      requireCampaignRead(database, campaignId, actorUserId);
+      const row = statement(
+        database,
+        `SELECT d.scope_campaign_id AS scope FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id WHERE m.id=? AND m.campaign_id=?`,
+      ).get(id, campaignId) as { scope: string | null } | undefined;
+      if (!row) throw new ResourceNotFoundError("monster", id);
+      return row.scope === null;
     },
 
     createTag(
@@ -296,12 +307,7 @@ function replaceTags(
 function getMonster(database: DatabaseSync, id: string): Monster {
   const row = statement(
     database,
-    `SELECT id, campaign_id AS campaignId, name, type,
-            challenge_rating AS challengeRating, armor_class AS armorClass,
-            hit_points AS hitPoints, speed, stats, token, abilities, spells, notes,
-            spell_slots AS spellSlots, source, favorite, revision,
-            created_at AS createdAt, updated_at AS updatedAt
-       FROM monsters WHERE id = ?`,
+    `SELECT ${monsterColumns} FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id WHERE m.id = ?`,
   ).get(id) as MonsterRow | undefined;
   if (!row) throw new ResourceNotFoundError("monster", id);
   return toMonster(database, row);
@@ -320,9 +326,10 @@ function toMonster(
        JOIN monster_tags mt ON mt.tag_id = t.id
       WHERE mt.monster_id = ? ORDER BY t.name COLLATE NOCASE`,
     ).all(row.id) as Tag[]);
+  const { payload, ...metadata } = row;
   return {
-    ...row,
-    spellSlots: JSON.parse(row.spellSlots) as number[],
+    ...JSON.parse(payload),
+    ...metadata,
     favorite: Boolean(row.favorite),
     tags,
     createdAt: new Date(row.createdAt).toISOString(),

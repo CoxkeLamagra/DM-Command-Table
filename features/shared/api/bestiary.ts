@@ -18,7 +18,7 @@ export async function importMonster(
   return (
     await requestJson<{ monster: Monster }>(
       `/api/campaigns/${campaignId}/monsters`,
-      json("POST", { ...monster, tagIds: [] }),
+      json("POST", { ...monster, tagIds: [], catalogueImport: true }),
     )
   ).monster;
 }
@@ -26,6 +26,7 @@ export async function importMonster(
 export async function updateMonster(
   campaignId: string,
   monster: Monster,
+  catalogueImport = false,
 ): Promise<Monster> {
   return (
     await requestJson<{ monster: Monster }>(
@@ -47,6 +48,7 @@ export async function updateMonster(
         favorite: monster.favorite,
         tagIds: monster.tags.map(({ id }) => id),
         revision: monster.revision,
+        catalogueImport,
       }),
     )
   ).monster;

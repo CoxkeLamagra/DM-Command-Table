@@ -218,3 +218,9 @@ Administration displays database/WAL usage, free disk space and the host-configu
 ## v12 release and upgrades
 
 v12 retains the current sidebar, compact layout, four Administration tabs, local catalogue imports and optional remote catalogue, token images, Combat HP/conditions/stat blocks, and numbered prepared encounters. No new account registration or campaign conversion is needed for supported v11 data. Existing LXC hosts follow the one-time [v12 updater helper installation](upgrading-to-v12.md); subsequent v12 updates use Administration → Update Application. Existing host-pinned targets remain host configuration.
+
+### Reusing imported monsters
+
+Importing identical catalogue content into another campaign reuses its stored definition rather than duplicating the complete stat block. Identical tokens already uploaded by your account are reused too. Comparison includes all rules, notes, stats and token content; matching names alone are insufficient. Missing tokens remain optional, and changed source content gets a separate definition.
+
+Editing monster content (including notes or Token) makes that campaign's entry permanently private, without changing other campaigns or its prepared encounter links. Reverting the edit or replacing it from the catalogue keeps it private. Favorites and tags remain local to each campaign and do not create a content variant. Campaign copies retain shared definitions and independently copy private entries. Portable campaign imports are private; existing duplicate screenshots are retained to protect saved content and undo history. This adds storage reuse, not a cross-campaign Bestiary or Player sharing screen.

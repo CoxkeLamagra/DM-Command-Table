@@ -251,9 +251,13 @@ test("saved snapshots outlive Bestiary edits/deletion; runtime, conditions, undo
     ],
   });
   assert.equal(saved.combatants[0].runtime!.resources[0].remaining, 2);
-  database
-    .prepare("UPDATE monsters SET abilities='<p>Changed</p>' WHERE id=?")
-    .run(monster.id);
+  createBestiaryRepository(database).update(
+    campaign.id,
+    "owner",
+    monster.id,
+    monster.revision,
+    { ...monster, abilities: "<p>Changed</p>" },
+  );
   assert.equal(
     encounters.getCombat(campaign.id, "owner").combatants[0].snapshot
       ?.abilities,
