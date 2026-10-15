@@ -2,6 +2,10 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 11.8.5 — 2026-10-15
+
+- Move Combat status conditions above the visual stat block while preserving the compact HP controls and all other layout behavior.
+
 ## 11.8.4 — 2026-10-15
 
 - Condense right-pane Combat numeric fields and place the expanded visual stat block directly below HP controls, leaving initiative order and overview unchanged.

@@ -259,14 +259,6 @@ export function CombatantEditor({
           </div>
         )}
       </section>
-      {combatant.kind === "monster" && (
-        <details open className="my-3">
-          <summary className="cursor-pointer text-sm text-amber-200">
-            Visual stat block
-          </summary>
-          <MonsterStatBlock monster={combatant.snapshot ?? undefined} />
-        </details>
-      )}
       <section className="mt-4 border-t border-white/10 pt-3">
         <h3 className="font-serif text-lg text-amber-200">Status conditions</h3>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -558,6 +550,14 @@ export function CombatantEditor({
         flagged, never rolled automatically. Blank duration persists until
         cleared.
       </p>
+      {combatant.kind === "monster" && (
+        <details open className="my-3">
+          <summary className="cursor-pointer text-sm text-amber-200">
+            Visual stat block
+          </summary>
+          <MonsterStatBlock monster={combatant.snapshot ?? undefined} />
+        </details>
+      )}
       <RuntimeControls
         combatant={combatant}
         editable={editable}
