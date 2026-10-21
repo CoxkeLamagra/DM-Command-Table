@@ -21,3 +21,17 @@ test("sanitizer rejects SVG animation, meta refresh and noscript parser differen
     '<p><strong>Attack</strong> <span style="color:#ffcc00">text</span></p>',
   );
 });
+
+test("discarded nested iframe fallback cannot exhaust the sanitizer stack", () => {
+  for (const count of [2000, 20000]) {
+    let output = "";
+    assert.doesNotThrow(() => {
+      output = sanitizeRichText("<iframe>".repeat(count));
+    });
+    assert.doesNotMatch(output, /<iframe|<script|javascript:/i);
+  }
+  assert.equal(
+    sanitizeRichText("<p><strong>Normal rules</strong></p>"),
+    "<p><strong>Normal rules</strong></p>",
+  );
+});

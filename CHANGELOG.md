@@ -2,6 +2,12 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.1.2 — 2026-10-21
+
+- Upgrade sanitize-html from 2.18.0 to 2.18.1 to resolve newly published GHSA-c9rx-x947-fp3h (discarded-iframe fallback recursion/stack exhaustion).
+- Add regressions for 2,000 and 20,000 nested iframe tags while retaining normal rich-text rendering, the restrictive sanitizer policy and all earlier security fixes.
+- Keep the dependency audit enabled so GUI update preparation can pass with the patched lockfile. No schema migration or updater-helper changes are required.
+
 ## 12.1.1 — 2026-10-21
 
 - Upgrade sanitize-html to 2.18.0 to resolve GHSA-x3q4-9hxx-gx8m, GHSA-374f-7chj-9948 and GHSA-cv27-6wvh-8x7j while retaining the restrictive rich-text policy.

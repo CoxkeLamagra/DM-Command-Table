@@ -1,3 +1,11 @@
+# v12.1.2 dependency-fix validation — 2026-10-21
+
+The newly published GHSA-c9rx-x947-fp3h affects sanitize-html 2.18.0. This release locks 2.18.1, which fixes discarded-iframe fallback recursion without changing the application's restrictive rich-text policy. The dependency audit remains enabled and passes; the existing development-only braces mitigation remains behavior-verified.
+
+Frozen-lockfile installation, formatting, ESLint, TypeScript, all **155 unit/integration tests**, the production build and all **19 browser tests** passed. New regressions exercise 2,000 and 20,000 nested iframe tags without stack exhaustion while preserving ordinary rich text. Discarded fallback markup is safely escaped. The runtime package passed manifest verification and a constrained-heap production smoke test covering registration, nested-iframe sanitization, ordinary export/import and oversized export rejection with continued server health.
+
+No schema migration or updater-helper change is required. The live deployment was not changed during validation. Retry Administration → Update Application after this release is published. Earlier assessments below retain their original scope and dependency versions.
+
 # v12.1.1 security-fix validation — 2026-10-21
 
 This patch addresses the manual assessment's export memory-exhaustion issue and the three current sanitize-html dependency advisories. The sanitizer is locked to 2.18.0; the restrictive rich-text policy is unchanged. Schema remains version 3 and the portable export/import formats remain supported.
