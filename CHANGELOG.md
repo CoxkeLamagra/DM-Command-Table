@@ -2,6 +2,13 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.1.1 — 2026-10-21
+
+- Upgrade sanitize-html to 2.18.0 to resolve GHSA-x3q4-9hxx-gx8m, GHSA-374f-7chj-9948 and GHSA-cv27-6wvh-8x7j while retaining the restrictive rich-text policy.
+- Reject oversized plain JSON and package exports before loading campaign content, using SQLite accounting for UTF-8, JSON escaping, shared definitions, nested preparation/combat data and structural overhead.
+- Adapt export budgets to available V8 heap headroom on memory-constrained hosts, and bound image reads/base64 conversion by the remaining package budget. Oversized exports return 413; full server backups remain available.
+- Add constrained-heap, encoding, snapshot/runtime, asset-size and sanitizer advisory regressions. Retain supported export/import formats, authorization, local storage and schema version 3.
+
 ## 12.1.0 — 2026-10-15
 
 - Reuse exact unchanged catalogue monster definitions across campaign-specific entries; keep tags, favorites, revisions and encounter links local to each campaign.

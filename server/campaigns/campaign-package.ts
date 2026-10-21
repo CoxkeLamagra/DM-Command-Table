@@ -1,3 +1,4 @@
+import { exportTooLarge, exportByteLimit } from "./export-budget.ts";
 import { statement } from "../../db/statements.ts";
 import { z } from "zod";
 import type { DatabaseSync } from "node:sqlite";
@@ -54,6 +55,7 @@ export async function exportCampaignPackage(
   actorId: string,
 ) {
   const campaign = exportCampaign(database, campaignId, actorId);
+  const packageLimit = exportByteLimit();
   const assets = [];
   let encodedSize = Buffer.byteLength(
     JSON.stringify({
@@ -63,14 +65,22 @@ export async function exportCampaignPackage(
       assets: [],
     }),
   );
-  const tooLarge = () =>
-    new PublicApiError(
-      "Campaign packages must be no larger than 50 MB. Use a full server backup for larger campaigns.",
-      413,
-    );
-  if (encodedSize > CAMPAIGN_PACKAGE_LIMIT) throw tooLarge();
+  const tooLarge = exportTooLarge;
+  if (encodedSize > packageLimit) throw tooLarge();
   for (const id of new Set(imageIds(campaign))) {
-    const image = await readScreenshot(database, id, actorId, false);
+    const overhead =
+      Buffer.byteLength(JSON.stringify({ id, name: `${id}.webp`, bytes: "" })) +
+      (assets.length ? 1 : 0);
+    const maximumImageBytes =
+      Math.floor((packageLimit - encodedSize - overhead) / 4) * 3;
+    if (maximumImageBytes < 0) throw tooLarge();
+    const image = await readScreenshot(
+      database,
+      id,
+      actorId,
+      false,
+      maximumImageBytes,
+    );
     if (!image)
       throw new PublicApiError(
         "A referenced image is missing or inaccessible. Repair it before exporting.",
@@ -83,7 +93,7 @@ export async function exportCampaignPackage(
     };
     encodedSize +=
       Buffer.byteLength(JSON.stringify(asset)) + (assets.length ? 1 : 0);
-    if (encodedSize > CAMPAIGN_PACKAGE_LIMIT) throw tooLarge();
+    if (encodedSize > packageLimit) throw tooLarge();
     assets.push(asset);
   }
   const result = {

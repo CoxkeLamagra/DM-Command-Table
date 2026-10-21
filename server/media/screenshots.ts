@@ -5,7 +5,7 @@ import {
 } from "./reusable-token.ts";
 import { extractLocalImageIds } from "../../domain/local-media.ts";
 import { storagePaths } from "../config.ts";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, open, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import type { DatabaseSync } from "node:sqlite";
@@ -183,16 +183,39 @@ export async function readScreenshot(
   id: string,
   userId: string,
   admin: boolean,
+  maximumBytes = Infinity,
 ) {
   const file = screenshotFile(database, id, userId, admin);
   if (!file) return null;
+  let handle;
   try {
-    return {
-      bytes: await readFile(file.path),
-      mimeType: file.mimeType,
-    };
+    handle = await open(file.path, "r");
   } catch {
     return null;
+  }
+  try {
+    if ((await handle.stat()).size > maximumBytes)
+      throw new PublicApiError(
+        "Campaign image exceeds the remaining export budget.",
+        413,
+      );
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of handle.createReadStream({ autoClose: false })) {
+      size += chunk.length;
+      if (size > maximumBytes)
+        throw new PublicApiError(
+          "Campaign image exceeds the remaining export budget.",
+          413,
+        );
+      chunks.push(chunk as Buffer);
+    }
+    return { bytes: Buffer.concat(chunks, size), mimeType: file.mimeType };
+  } catch (error) {
+    if (error instanceof PublicApiError) throw error;
+    return null;
+  } finally {
+    await handle.close();
   }
 }
 export async function deleteScreenshot(

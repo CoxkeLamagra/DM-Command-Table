@@ -1,3 +1,4 @@
+import { assertCampaignExportBudget } from "./export-budget.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { runTransaction } from "../../db/transaction.ts";
@@ -161,6 +162,7 @@ export function exportCampaign(
   campaignId: string,
   actorId: string,
 ) {
+  assertCampaignExportBudget(database, campaignId, actorId);
   const campaign = createCampaignRepository(database).get(campaignId, actorId);
   if (!campaign) throw new PublicApiError("Campaign not found.", 404);
   const content = createContentRepository(database);

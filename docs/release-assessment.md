@@ -1,3 +1,20 @@
+# v12.1.1 security-fix validation — 2026-10-21
+
+This patch addresses the manual assessment's export memory-exhaustion issue and the three current sanitize-html dependency advisories. The sanitizer is locked to 2.18.0; the restrictive rich-text policy is unchanged. Schema remains version 3 and the portable export/import formats remain supported.
+
+The shared raw-JSON/package export loader now authorizes first and computes SQLite row byte budgets before loading content into JavaScript. Counting includes UTF-8, JSON escaping, repeated shared definitions, relationship/tag expansion, preparation, combat snapshots and resources. A structural reserve and available V8 heap headroom supplement the maximum 50 MiB budget. Package image reads are size-checked and capped incrementally before base64 allocation. Large exports receive 413; full-server backups remain the path for larger data. Conservative budgets can reject some exports below the format maximum on memory-constrained hosts.
+
+## Executed v12.1.1 checks
+
+- Frozen-lockfile installation, dependency audit gate, formatting, ESLint, TypeScript, all **154 unit/integration tests** and the production build passed. The three sanitize-html advisories no longer fail the gate; the existing development-only braces mitigation remains behavior-verified.
+- All **19 browser tests** passed with system Chromium, including authentication/cookies/CSP, import throttling, local and remote catalogue imports, rich text/stat blocks, preparation, Combat and Administration.
+- The original 85-monster / 76.5 MB reproducer was rerun unchanged: both **128 MiB and 384 MiB old-space heap** subprocesses now exit normally with a handled size-budget rejection. The earlier abort at 128 MiB no longer reproduces.
+- New regressions cover both raw/package paths, below-format-limit rejection on constrained heaps, legitimate small exports, repeated shared payloads, escaped controls, UTF-8 prepared notes, combat snapshot/runtime data, access-before-content checks, actual image size versus metadata, capped reads and advisory payloads. Existing full round-trip, image remapping and Combat export tests passed.
+- Independent read-only investigation and candidate review found no confirmed surviving bypass/regression. The review's concurrency question was checked separately: two simultaneous image package exports, each containing a 10 MiB asset, completed through final JSON response serialization under a constrained heap.
+- The v12.1.1 runtime package passed manifest verification. Running the packaged production server with a constrained heap, registration/sanitization and ordinary raw/package export/import worked; both oversized HTTP export routes returned **413** and subsequent health remained ready. This was a local loopback smoke test, not a network-isolated container test.
+
+The live site was not updated or stress-tested during remediation. Deploy the published release through Administration → Update Application or the documented host-managed procedure. No new schema migration is required from v12.1.0. Earlier release assessments below retain their original scope and dates.
+
 # v12.1.0 release validation
 
 This release separates campaign monster entries from immutable shared/private definitions. Unchanged catalogue imports reuse full-content SHA-256/equality matches; content edits permanently fork campaign-private definitions. Favorites/tags and stable entry IDs remain campaign-specific. Token imports reuse identical normalized WebP bytes owned by the importing account, including legacy same-size file lookup and concurrent upload coalescing. No new runtime dependencies or external services were added.
