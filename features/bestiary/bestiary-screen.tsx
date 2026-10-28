@@ -23,16 +23,16 @@ import { Input } from "@/components/ui/input";
 import {
   RichTextContent,
   RichTextEditor,
-  richTextToPlainText,
 } from "@/features/rich-text/rich-text";
 import {
   createMonster,
   listMonsters,
+  getMonster,
   updateMonster,
   uploadScreenshot,
 } from "../shared/api";
 import { Empty, Section } from "@/features/shared/record-section";
-import type { Monster } from "@/domain/types";
+import type { Monster, MonsterSummary } from "@/domain/types";
 import { BestiaryImport } from "./bestiary-import";
 
 export function BestiaryScreen({
@@ -44,19 +44,18 @@ export function BestiaryScreen({
   editable: boolean;
   initialOpenId?: string;
 }) {
-  const [monsters, setMonsters] = useState<Monster[]>([]);
+  const [monsters, setMonsters] = useState<MonsterSummary[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Monster | null>(null);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [baseline, setBaseline] = useState<Monster | null>(null);
   const dirty =
     !!editing &&
-    isDraftDirty(
-      editing,
-      monsters.find(({ id }) => id === editing.id),
-    );
+    isDraftDirty(editing, baseline?.id === editing.id ? baseline : undefined);
   useUnsavedChanges(dirty);
+  const [matches, setMatches] = useState<Set<string> | null>(null);
   const [loaded, setLoaded] = useState(false);
   const recovery = useDraftRecovery({
     campaignId,
@@ -79,18 +78,28 @@ export function BestiaryScreen({
         throw new Error(
           "The record was removed. Download this draft to recover its text.",
         );
-      setEditing(value);
+      void getMonster(campaignId, value.id)
+        .then((saved) => {
+          setBaseline(saved);
+          setEditing(value);
+        })
+        .catch(report);
     },
   });
   useEffect(() => {
     let live = true;
     void listMonsters(campaignId)
-      .then((items) => {
+      .then(async (items) => {
         if (live) {
           setMonsters(items);
           setLoaded(true);
-          if (initialOpenId)
-            setEditing(items.find(({ id }) => id === initialOpenId) ?? null);
+          if (initialOpenId) {
+            const item = await getMonster(campaignId, initialOpenId);
+            if (live) {
+              setBaseline(item);
+              setEditing(item);
+            }
+          }
         }
       })
       .catch(report);
@@ -103,16 +112,37 @@ export function BestiaryScreen({
       error instanceof Error ? error.message : "Bestiary update failed.",
     );
   }
-  const visible = useMemo(() => {
-    const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return monsters.filter((item) =>
-      terms.every((term) =>
-        `${item.name} ${item.type} ${item.challengeRating} ${item.source ?? ""} ${richTextToPlainText(item.notes)}`
-          .toLowerCase()
-          .includes(term),
+  useEffect(() => {
+    let live = true;
+    if (!query.trim()) return;
+    const timer = setTimeout(() => {
+      void listMonsters(campaignId, query)
+        .then((items) => {
+          if (live) setMatches(new Set(items.map(({ id }) => id)));
+        })
+        .catch(report);
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [campaignId, query, monsters]);
+  const visible = useMemo(
+    () =>
+      monsters.filter(
+        (item) => !query.trim() || !matches || matches.has(item.id),
       ),
-    );
-  }, [monsters, query]);
+    [monsters, matches, query],
+  );
+  async function openMonster(id: string) {
+    try {
+      const item = await getMonster(campaignId, id);
+      setBaseline(item);
+      setEditing(item);
+    } catch (error) {
+      report(error);
+    }
+  }
   const allVisibleSelected =
     visible.length > 0 && visible.every(({ id }) => selected.has(id));
   const someVisibleSelected = visible.some(({ id }) => selected.has(id));
@@ -121,6 +151,7 @@ export function BestiaryScreen({
     try {
       const item = await createMonster(campaignId);
       setMonsters((all) => [...all, item]);
+      setBaseline(item);
       setEditing(item);
     } catch (error) {
       report(error);
@@ -142,6 +173,7 @@ export function BestiaryScreen({
           ? reconcileSaved(current, editing, saved)
           : current,
       );
+      setBaseline(saved);
       toast.success("Monster saved");
     } catch (error) {
       report(error);
@@ -170,10 +202,11 @@ export function BestiaryScreen({
       setBusy(false);
     }
   }
-  async function favorite(monster: Monster) {
+  async function favorite(monster: MonsterSummary) {
     try {
+      const full = await getMonster(campaignId, monster.id);
       const saved = await updateMonster(campaignId, {
-        ...monster,
+        ...full,
         favorite: !monster.favorite,
       });
       setMonsters((all) =>
@@ -283,7 +316,7 @@ export function BestiaryScreen({
               </button>
               <button
                 className="truncate text-left font-medium text-amber-200 hover:underline"
-                onClick={() => setEditing(monster)}
+                onClick={() => void openMonster(monster.id)}
               >
                 <span className="block truncate">{monster.name}</span>
                 <span className="mt-1 block truncate text-xs font-normal text-stone-400 md:hidden">

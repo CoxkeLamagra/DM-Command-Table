@@ -1,13 +1,13 @@
 import { memo } from "react";
 import { richTextToPlainText } from "@/features/rich-text/rich-text";
-import type { Monster, PreparedEncounter } from "@/domain/types";
+import type { MonsterSummary, PreparedEncounter } from "@/domain/types";
 
 export const EncounterSummary = memo(function EncounterSummary({
   encounter,
   monstersById,
 }: {
   encounter: PreparedEncounter;
-  monstersById: ReadonlyMap<string, Monster>;
+  monstersById: ReadonlyMap<string, MonsterSummary>;
 }) {
   const custom = encounter.combatants ?? [];
   const counts = {

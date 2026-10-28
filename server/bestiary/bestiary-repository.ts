@@ -1,3 +1,6 @@
+import { richTextToPlainText } from "../../domain/rich-text-plain.ts";
+import { assertMonsterReadBudget, monsterSelection } from "./read-budget.ts";
+import type { MonsterSummary } from "../../domain/types.ts";
 import {
   monsterPayload,
   storeMonsterDefinition,
@@ -42,19 +45,25 @@ type MonsterRow = {
 const monsterColumns = `m.id, m.campaign_id AS campaignId, m.name, m.favorite, m.revision,
   m.created_at AS createdAt, m.updated_at AS updatedAt, d.payload`;
 
+const searchFunctions = new WeakSet<DatabaseSync>();
+
 type Tag = { id: string; name: string; color: string | null };
 
 export function createBestiaryRepository(database: DatabaseSync) {
   return {
-    list(campaignId: string, actorUserId: string): Monster[] {
+    list(campaignId: string, actorUserId: string, ids?: string[]): Monster[] {
       requireCampaignRead(database, campaignId, actorUserId);
+      assertMonsterReadBudget(database, campaignId, ids);
+      const selection = monsterSelection(ids);
       const tagsByMonster = new Map<string, Tag[]>();
       const tagged = statement(
         database,
         `SELECT mt.monster_id AS monsterId, t.id, t.name, t.color
         FROM monster_tags mt JOIN tags t ON t.id=mt.tag_id JOIN monsters m ON m.id=mt.monster_id
-        WHERE m.campaign_id=? ORDER BY t.name COLLATE NOCASE`,
-      ).all(campaignId) as Array<Tag & { monsterId: string }>;
+        WHERE m.campaign_id=?${selection.sql} ORDER BY t.name COLLATE NOCASE`,
+      ).all(campaignId, ...selection.args) as Array<
+        Tag & { monsterId: string }
+      >;
       for (const { monsterId, ...tag } of tagged) {
         const tags = tagsByMonster.get(monsterId) ?? [];
         tags.push(tag);
@@ -64,9 +73,76 @@ export function createBestiaryRepository(database: DatabaseSync) {
         statement(
           database,
           `SELECT ${monsterColumns} FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id
-           WHERE m.campaign_id = ? ORDER BY m.name COLLATE NOCASE, m.id`,
-        ).all(campaignId) as MonsterRow[]
+           WHERE m.campaign_id = ?${selection.sql} ORDER BY m.name COLLATE NOCASE, m.id`,
+        ).all(campaignId, ...selection.args) as MonsterRow[]
       ).map((row) => toMonster(database, row, tagsByMonster.get(row.id) ?? []));
+    },
+
+    get(campaignId: string, actorUserId: string, id: string): Monster {
+      const monster = this.list(campaignId, actorUserId, [id])[0];
+      if (!monster) throw new ResourceNotFoundError("monster", id);
+      return monster;
+    },
+
+    summaries(campaignId: string, actorUserId: string, after = "", query = "") {
+      requireCampaignRead(database, campaignId, actorUserId);
+      if (query.length > 200) throw new PublicApiError("Search is too long.");
+      if (!searchFunctions.has(database)) {
+        database.function(
+          "dmct_plain_text",
+          { deterministic: true },
+          (value) =>
+            typeof value === "string" ? richTextToPlainText(value) : "",
+        );
+        searchFunctions.add(database);
+      }
+      const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      const search = terms
+        .map(
+          () => ` AND instr(lower(m.name || ' ' ||
+        json_extract(d.payload,'$.type') || ' ' || json_extract(d.payload,'$.challengeRating') || ' ' ||
+        COALESCE(json_extract(d.payload,'$.source'),'') || ' ' || dmct_plain_text(json_extract(d.payload,'$.notes'))), ?) > 0`,
+        )
+        .join("");
+      const rows = database
+        .prepare(
+          `SELECT m.id, m.campaign_id AS campaignId, m.name,
+        json_extract(d.payload,'$.type') AS type, json_extract(d.payload,'$.challengeRating') AS challengeRating,
+        json_extract(d.payload,'$.armorClass') AS armorClass, json_extract(d.payload,'$.hitPoints') AS hitPoints,
+        json_extract(d.payload,'$.speed') AS speed, json_extract(d.payload,'$.spellSlots') AS spellSlots,
+        json_extract(d.payload,'$.source') AS source, m.favorite, m.revision,
+        m.created_at AS createdAt, m.updated_at AS updatedAt
+        FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id
+        WHERE m.campaign_id=? AND m.id>?${search} ORDER BY m.id LIMIT 101`,
+        )
+        .all(campaignId, after, ...terms) as Array<
+        Omit<
+          MonsterSummary,
+          "favorite" | "spellSlots" | "createdAt" | "updatedAt" | "tags"
+        > & {
+          favorite: number;
+          spellSlots: string;
+          createdAt: number;
+          updatedAt: number;
+        }
+      >;
+      const page = rows.slice(0, 100);
+      const items: MonsterSummary[] = page.map((row) => ({
+        ...row,
+        favorite: Boolean(row.favorite),
+        spellSlots: JSON.parse(row.spellSlots),
+        createdAt: new Date(row.createdAt).toISOString(),
+        updatedAt: new Date(row.updatedAt).toISOString(),
+        tags: database
+          .prepare(
+            `SELECT t.id,t.name,t.color FROM tags t JOIN monster_tags mt ON mt.tag_id=t.id WHERE mt.monster_id=? ORDER BY t.name COLLATE NOCASE`,
+          )
+          .all(row.id) as Tag[],
+      }));
+      return {
+        monsters: items,
+        next: rows.length > 100 ? page[page.length - 1].id : null,
+      };
     },
 
     create(

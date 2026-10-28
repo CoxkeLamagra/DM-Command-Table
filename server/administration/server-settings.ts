@@ -1,3 +1,4 @@
+import { parseInput } from "../http/validation.ts";
 import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
@@ -33,7 +34,7 @@ export function getServerSettings(database: DatabaseSync): ServerSettings {
       ).all() as Array<{ key: string; value: string }>
     ).map(({ key, value }) => [key, value]),
   );
-  return serverSettingsSchema.parse({
+  return parseInput(serverSettingsSchema, {
     secureCookieMode:
       stored.get(keys.secureCookieMode) ?? cookieModeFromEnvironment(),
     sessionLifetimeDays: integer(
@@ -79,7 +80,7 @@ export function saveServerSettings(
   database: DatabaseSync,
   input: unknown,
 ): ServerSettings {
-  const settings = serverSettingsSchema.parse(input);
+  const settings = parseInput(serverSettingsSchema, input);
   const updateStatement = statement(
     database,
     `INSERT INTO application_settings (key, value, updated_at) VALUES (?, ?, ?)

@@ -31,16 +31,16 @@ import {
   searchRemoteCatalogue,
   type RemoteMonsterRef,
 } from "./remote-catalogue";
-import { importMonster, updateMonster } from "../shared/api";
-import type { Monster } from "@/domain/types";
+import { importMonster, updateMonster, getMonster } from "../shared/api";
+import type { MonsterSummary } from "@/domain/types";
 export function BestiaryImport({
   campaignId,
   monsters,
   complete,
 }: {
   campaignId: string;
-  monsters: Monster[];
-  complete: (items: Monster[]) => void;
+  monsters: MonsterSummary[];
+  complete: (items: MonsterSummary[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [localCatalogue, setLocalCatalogue] = useState<FiveEToolsMonster[]>([]);
@@ -183,12 +183,14 @@ export function BestiaryImport({
           toast.warning(
             `Token unavailable for ${remote.name}; importing its stat block.`,
           );
-        if (index >= 0 && !input.token) input.token = next[index].token ?? "";
+        const existing =
+          index >= 0 ? await getMonster(campaignId, next[index].id) : null;
+        if (existing && !input.token) input.token = existing.token ?? "";
         if (index < 0) {
           next.push(await importMonster(campaignId, input));
           added++;
         } else {
-          const existing = next[index];
+          if (!existing) throw new Error("Monster not found.");
           next[index] = await updateMonster(
             campaignId,
             {

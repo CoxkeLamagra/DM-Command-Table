@@ -171,3 +171,8 @@ export type Section =
   | "search"
   | "account"
   | "administration";
+
+export type MonsterSummary = Omit<
+  Monster,
+  "stats" | "token" | "abilities" | "spells" | "notes"
+>;

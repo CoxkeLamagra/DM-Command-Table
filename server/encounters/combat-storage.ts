@@ -1,3 +1,5 @@
+import { assertMonsterReadBudget } from "../bestiary/read-budget.ts";
+import { parseInput } from "../http/validation.ts";
 import { statement } from "../../db/statements.ts";
 import {
   emptyRuntime,
@@ -104,10 +106,21 @@ export function replaceCombatants(
     "SELECT id FROM monsters WHERE id = ? AND campaign_id = ? LIMIT 1",
   );
   const now = Date.now();
-  const needsSnapshot = combatants.some(
-    (entry) =>
-      entry.monsterId && !entry.snapshot && !byId.get(entry.id)?.snapshot,
-  );
+  const quantities = new Map<string, number>();
+  for (const entry of combatants)
+    if (entry.monsterId && !entry.snapshot && !byId.get(entry.id)?.snapshot)
+      quantities.set(
+        entry.monsterId,
+        (quantities.get(entry.monsterId) ?? 0) + 1,
+      );
+  const needsSnapshot = quantities.size > 0;
+  if (needsSnapshot)
+    assertMonsterReadBudget(
+      database,
+      campaignId,
+      [...quantities.keys()],
+      quantities,
+    );
   const monsters = new Map(
     needsSnapshot
       ? createBestiaryRepository(database)
@@ -119,6 +132,7 @@ export function replaceCombatants(
                 "SELECT owner_id AS owner FROM campaigns WHERE id=?",
               ).get(campaignId) as { owner: string }
             ).owner,
+            [...quantities.keys()],
           )
           .map((monster) => [monster.id, monster] as const)
       : [],
@@ -156,7 +170,7 @@ export function replaceCombatants(
       priorSnapshot ??
       (source ? snapshotMonster(source) : null);
     const snapshot = submittedSnapshot
-      ? combatSnapshotSchema.parse(submittedSnapshot)
+      ? parseInput(combatSnapshotSchema, submittedSnapshot)
       : null;
     if (snapshot) {
       snapshot.stats = sanitizeRichText(snapshot.stats);
@@ -165,7 +179,8 @@ export function replaceCombatants(
       snapshot.spells = sanitizeRichText(snapshot.spells);
       snapshot.notes = sanitizeRichText(snapshot.notes);
     }
-    const runtime = combatRuntimeSchema.parse(
+    const runtime = parseInput(
+      combatRuntimeSchema,
       combatant.runtime ??
         byId.get(combatant.id)?.runtime ??
         (snapshot ? runtimeForSnapshot(snapshot) : emptyRuntime()),
@@ -299,9 +314,9 @@ function combatFromRow(
     turn: activeIndex >= 0 ? activeIndex : row.turn,
     combatants: combatants.map(({ runtime, snapshot, ...combatant }) => ({
       ...combatant,
-      runtime: combatRuntimeSchema.parse(JSON.parse(runtime)),
+      runtime: parseInput(combatRuntimeSchema, JSON.parse(runtime)),
       snapshot: snapshot
-        ? combatSnapshotSchema.parse(JSON.parse(snapshot))
+        ? parseInput(combatSnapshotSchema, JSON.parse(snapshot))
         : null,
       conditions: conditions.get(combatant.id) ?? [],
     })),

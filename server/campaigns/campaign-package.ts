@@ -1,3 +1,4 @@
+import { parseInput } from "../http/validation.ts";
 import { exportTooLarge, exportByteLimit } from "./export-budget.ts";
 import { statement } from "../../db/statements.ts";
 import { z } from "zod";
@@ -109,7 +110,7 @@ export async function importCampaignPackage(
   actorId: string,
   value: unknown,
 ) {
-  const parsed = packageSchema.parse(value);
+  const parsed = parseInput(packageSchema, value);
   const validatedCampaign = validatePortableCampaign(parsed.campaign);
   const referenced = new Set(imageIds(validatedCampaign));
   const ids = new Set(parsed.assets.map((asset) => asset.id));

@@ -1,9 +1,9 @@
-import type { Combatant, Monster, Player } from "../../domain/types.ts";
+import type { Combatant, MonsterSummary, Player } from "../../domain/types.ts";
 
 export function combatantSummary(
   item: Combatant,
   players: Player[],
-  monsters: Monster[],
+  monsters: MonsterSummary[],
 ) {
   // Prepared combatants are independent copies without roster IDs. Only use
   // an unambiguous same-kind name match for their descriptive roster details.

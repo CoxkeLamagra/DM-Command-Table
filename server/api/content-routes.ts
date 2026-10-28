@@ -1,3 +1,4 @@
+import { parseInput } from "../http/validation.ts";
 import { runTransaction } from "../../db/transaction.ts";
 import { z } from "zod";
 import { createBestiaryRepository } from "../bestiary/bestiary-repository.ts";
@@ -43,9 +44,10 @@ export async function handleContentRoutes(
     resourceId === "bulk-delete" &&
     method === "POST"
   ) {
-    const { ids } = z
-      .object({ ids: z.array(idSchema).min(1).max(1000) })
-      .parse(await jsonBody(request));
+    const { ids } = parseInput(
+      z.object({ ids: z.array(idSchema).min(1).max(1000) }),
+      await jsonBody(request),
+    );
     runTransaction(database, () => {
       for (const id of new Set(ids)) {
         if (resource === "players")
@@ -61,7 +63,7 @@ export async function handleContentRoutes(
         players: content.listPlayers(campaignId, context.userId),
       });
     if (method === "POST") {
-      const input = clean(playerSchema.parse(await jsonBody(request)), [
+      const input = clean(parseInput(playerSchema, await jsonBody(request)), [
         "notes",
       ]);
       return apiJson(
@@ -71,7 +73,7 @@ export async function handleContentRoutes(
     }
     if (resourceId && method === "PATCH") {
       const { revision, ...input } = clean(
-        revisionedPlayer.parse(await jsonBody(request)),
+        parseInput(revisionedPlayer, await jsonBody(request)),
         ["notes"],
       );
       return apiJson({
@@ -92,8 +94,8 @@ export async function handleContentRoutes(
 
   if (resource === "sessions") {
     if (resourceId && segments[4] === "save" && method === "POST") {
-      const input = z
-        .object({
+      const input = parseInput(
+        z.object({
           session: revisionedSession,
           encounters: z
             .array(
@@ -105,8 +107,9 @@ export async function handleContentRoutes(
                 ),
             )
             .max(500),
-        })
-        .parse(await jsonBody(request));
+        }),
+        await jsonBody(request),
+      );
       const result = runTransaction(database, () => {
         const allowed = new Set(
           encounters
@@ -154,13 +157,14 @@ export async function handleContentRoutes(
         method === "POST" &&
         segments.length === 6
       ) {
-        const input = z
-          .object({
+        const input = parseInput(
+          z.object({
             order: z
               .array(z.object({ id: idSchema, revision: revisionSchema }))
               .max(500),
-          })
-          .parse(await jsonBody(request));
+          }),
+          await jsonBody(request),
+        );
         return apiJson({
           encounters: encounters.reorderPrepared(
             campaignId,
@@ -180,7 +184,10 @@ export async function handleContentRoutes(
           ),
         });
       if (method === "POST") {
-        const input = preparedEncounterSchema.parse(await jsonBody(request));
+        const input = parseInput(
+          preparedEncounterSchema,
+          await jsonBody(request),
+        );
         return apiJson(
           {
             encounter: encounters.createPrepared(
@@ -201,7 +208,8 @@ export async function handleContentRoutes(
           encounterId,
         );
       if (encounterId && method === "PATCH") {
-        const { revision, ...input } = revisionedPrepared.parse(
+        const { revision, ...input } = parseInput(
+          revisionedPrepared,
           await jsonBody(request),
         );
         return apiJson({
@@ -224,7 +232,7 @@ export async function handleContentRoutes(
         sessions: content.listSessions(campaignId, context.userId),
       });
     if (method === "POST") {
-      const input = clean(sessionSchema.parse(await jsonBody(request)), [
+      const input = clean(parseInput(sessionSchema, await jsonBody(request)), [
         "notes",
       ]);
       return apiJson(
@@ -234,7 +242,7 @@ export async function handleContentRoutes(
     }
     if (resourceId && method === "PATCH") {
       const { revision, ...input } = clean(
-        revisionedSession.parse(await jsonBody(request)),
+        parseInput(revisionedSession, await jsonBody(request)),
         ["notes"],
       );
       return apiJson({
@@ -259,7 +267,7 @@ export async function handleContentRoutes(
         story: content.listStory(campaignId, context.userId),
       });
     if (method === "POST") {
-      const input = clean(storySchema.parse(await jsonBody(request)), [
+      const input = clean(parseInput(storySchema, await jsonBody(request)), [
         "details",
       ]);
       return apiJson(
@@ -269,7 +277,7 @@ export async function handleContentRoutes(
     }
     if (resourceId && method === "PATCH") {
       const { revision, ...input } = clean(
-        revisionedStory.parse(await jsonBody(request)),
+        parseInput(revisionedStory, await jsonBody(request)),
         ["details"],
       );
       return apiJson({

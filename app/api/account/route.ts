@@ -1,3 +1,4 @@
+import { parseInput } from "../../../server/http/validation.ts";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
@@ -29,7 +30,7 @@ export async function PATCH(request: Request) {
     const database = getDatabase();
     const user = await getUser(database);
     if (!user) return apiJson({ error: "Authentication required." }, 401);
-    const input = schema.parse(await jsonBody(request, 8192));
+    const input = parseInput(schema, await jsonBody(request, 8192));
     const limited = enforceRateLimit(
       database,
       request,

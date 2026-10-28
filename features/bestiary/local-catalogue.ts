@@ -23,11 +23,11 @@ const monster = z.object({
   source: z.string().trim().min(1).max(100),
   alignment: entries,
   save: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .nullish()
     .transform((value) => value ?? undefined),
   skill: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .nullish()
     .transform((value) => value ?? undefined),
   vulnerable: entries,
@@ -72,6 +72,7 @@ const monster = z.object({
     .optional(),
   speed: z
     .record(
+      z.string(),
       z.union([number, z.boolean(), z.object({ number: number.optional() })]),
     )
     .optional(),

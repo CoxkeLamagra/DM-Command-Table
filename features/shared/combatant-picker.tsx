@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RosterFilter, type RosterFilterValue } from "./roster-filter";
-import type { Player, Monster, Combatant } from "@/domain/types";
+import type { Player, MonsterSummary, Combatant } from "@/domain/types";
 
 export type CombatantSelection = {
   singleUse?: SingleUseCombatant;
@@ -40,7 +40,7 @@ export function CombatantPicker({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   players: Player[];
-  monsters: Monster[];
+  monsters: MonsterSummary[];
   existingPlayerIds?: Set<string>;
   onAdd: (selection: CombatantSelection) => void;
 }) {
@@ -69,7 +69,7 @@ function PickerContents({
   onAdd,
 }: {
   players: Player[];
-  monsters: Monster[];
+  monsters: MonsterSummary[];
   existingPlayerIds: Set<string>;
   onAdd: (selection: CombatantSelection) => void;
 }) {

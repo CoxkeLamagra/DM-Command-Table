@@ -1,3 +1,4 @@
+import { parseInput } from "../http/validation.ts";
 import { assertCampaignExportBudget } from "./export-budget.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
@@ -187,12 +188,15 @@ export function exportCampaign(
 }
 
 export function validatePortableCampaign(value: unknown) {
-  const parsed = portableCampaignSchema.safeParse(value);
-  if (!parsed.success)
-    throw new PublicApiError(
-      "This is not a valid supported current campaign export.",
-    );
-  return parsed.data;
+  try {
+    return parseInput(portableCampaignSchema, value);
+  } catch (error) {
+    if (error instanceof PublicApiError && error.status === 400)
+      throw new PublicApiError(
+        "This is not a valid supported current campaign export.",
+      );
+    throw error;
+  }
 }
 
 export function importCampaign(

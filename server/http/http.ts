@@ -1,3 +1,5 @@
+import { getHeapStatistics } from "node:v8";
+import { assertJsonStructure, assertJsonTextStructure } from "./validation.ts";
 import { CombatCapacityError } from "../../domain/combat.ts";
 import { JSON_BODY_LIMIT } from "../../domain/limits.ts";
 import { ZodError } from "zod";
@@ -36,7 +38,18 @@ export function apiError(error: unknown): Response {
     return apiJson({ error: error.message }, 413);
   if (error instanceof ZodError)
     return apiJson(
-      { error: "The request is invalid.", issues: error.issues },
+      {
+        error: "The request is invalid.",
+        issues: error.issues.slice(0, 8).map((issue) => ({
+          code: issue.code,
+          message: issue.message.slice(0, 200),
+          path: issue.path
+            .slice(0, 16)
+            .map((part) =>
+              typeof part === "string" ? part.slice(0, 80) : part,
+            ),
+        })),
+      },
       400,
     );
   if (error instanceof RevisionConflictError)
@@ -73,8 +86,22 @@ export async function jsonBody(
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().startsWith("application/json"))
     throw new PublicApiError("Content-Type must be application/json.", 415);
-  const bytes = await boundedRequestBytes(request, maximumBytes);
-  return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  const heap = getHeapStatistics();
+  const safeBytes = Math.max(
+    0,
+    Math.floor(
+      (heap.heap_size_limit - heap.used_heap_size - 32 * 1024 * 1024) / 8,
+    ),
+  );
+  const bytes = await boundedRequestBytes(
+    request,
+    Math.min(maximumBytes, safeBytes),
+  );
+  const text = new TextDecoder().decode(bytes);
+  assertJsonTextStructure(text);
+  const value: unknown = JSON.parse(text);
+  assertJsonStructure(value);
+  return value;
 }
 
 export async function boundedRequestBytes(

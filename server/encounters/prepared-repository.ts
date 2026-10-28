@@ -1,3 +1,4 @@
+import { parseInput } from "../http/validation.ts";
 import { PublicApiError } from "../http/errors.ts";
 import { statement } from "../../db/statements.ts";
 import { assertPreparedCapacity } from "../../domain/combat.ts";
@@ -167,9 +168,10 @@ export function createPreparedRepository(database: DatabaseSync) {
             (id, session_id, name, notes, sort_order, revision, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
         ).run(id, sessionId, input.name, notes, input.sortOrder, now, now);
-        const combatants = preparedEncounterFields.shape.combatants
-          .parse(input.combatants ?? [])
-          .map((entry) => ({ ...entry, notes: sanitizeRichText(entry.notes) }));
+        const combatants = parseInput(
+          preparedEncounterFields.shape.combatants,
+          input.combatants ?? [],
+        ).map((entry) => ({ ...entry, notes: sanitizeRichText(entry.notes) }));
         replacePreparedCombatants(database, id, combatants);
         replacePreparedMonsters(database, campaignId, id, input.monsters);
         touch(
@@ -230,9 +232,10 @@ export function createPreparedRepository(database: DatabaseSync) {
             expectedRevision,
             campaignId,
           );
-        const combatants = preparedEncounterFields.shape.combatants
-          .parse(input.combatants ?? [])
-          .map((entry) => ({ ...entry, notes: sanitizeRichText(entry.notes) }));
+        const combatants = parseInput(
+          preparedEncounterFields.shape.combatants,
+          input.combatants ?? [],
+        ).map((entry) => ({ ...entry, notes: sanitizeRichText(entry.notes) }));
         replacePreparedCombatants(database, id, combatants);
         replacePreparedMonsters(database, campaignId, id, input.monsters);
         touch(

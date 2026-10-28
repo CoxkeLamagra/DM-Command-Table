@@ -1,3 +1,4 @@
+import { parseInput } from "../../../server/http/validation.ts";
 import { databaseUsage } from "@/server/security/storage-budget";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
@@ -76,13 +77,14 @@ async function mutate(
     );
     if (limited) return limited;
     if (operation === "create") {
-      const input = z
-        .object({
+      const input = parseInput(
+        z.object({
           username: z.string(),
           displayName: z.string(),
           password: z.string(),
-        })
-        .parse(await jsonBody(request));
+        }),
+        await jsonBody(request),
+      );
       await createManagedUser(database, input, user.userId);
       return apiJson(state(database), 201);
     }
@@ -94,8 +96,8 @@ async function mutate(
       );
       return apiJson(state(database));
     }
-    const input = z
-      .object({
+    const input = parseInput(
+      z.object({
         action: z.enum(["update", "set-registration", "set-server-settings"]),
         id: z.string().optional(),
         username: z.string().optional(),
@@ -104,8 +106,9 @@ async function mutate(
         isAdmin: z.boolean().optional(),
         registrationEnabled: z.boolean().optional(),
         serverSettings: serverSettingsSchema.optional(),
-      })
-      .parse(await jsonBody(request));
+      }),
+      await jsonBody(request),
+    );
     requireAdministrator(database, user.userId);
     if (input.action === "set-registration")
       setRegistrationEnabled(database, Boolean(input.registrationEnabled));

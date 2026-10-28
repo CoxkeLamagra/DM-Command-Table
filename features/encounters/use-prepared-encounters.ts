@@ -9,7 +9,7 @@ import type {
   PreparedEncounter,
   PreparedCombatant,
   Combatant,
-  Monster,
+  MonsterSummary,
   Player,
   Combat,
 } from "@/domain/types";
@@ -20,6 +20,7 @@ import {
   getCombat,
   listPreparedEncounters,
   listMonsters,
+  getMonster,
   listPlayers,
   loadPreparedCombat,
   updatePreparedEncounter,
@@ -95,7 +96,7 @@ export function usePreparedEncounters({
       ),
     [items],
   );
-  const [monsters, setMonsters] = useState<Monster[]>([]);
+  const [monsters, setMonsters] = useState<MonsterSummary[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const monstersById = useMemo(
     () => new Map(monsters.map((monster) => [monster.id, monster])),
@@ -270,10 +271,22 @@ export function usePreparedEncounters({
       setBusy(false);
     }
   }
-  function patch(id: string, values: Partial<PreparedEncounter>) {
+  function patch(
+    id: string,
+    values:
+      | Partial<PreparedEncounter>
+      | ((item: PreparedEncounter) => Partial<PreparedEncounter>),
+  ) {
     setDirty((ids) => new Set(ids).add(id));
     setItems((all) =>
-      all.map((item) => (item.id === id ? { ...item, ...values } : item)),
+      all.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...(typeof values === "function" ? values(item) : values),
+            }
+          : item,
+      ),
     );
   }
   function toggleEncounter(id: string) {
@@ -288,10 +301,20 @@ export function usePreparedEncounters({
   const allExpanded =
     items.length > 0 && items.every(({ id }) => expanded.has(id));
 
-  function customizeMonster(item: PreparedEncounter, entryId: string) {
-    const entry = item.monsters.find(({ id }) => id === entryId);
-    const monster = entry ? monstersById.get(entry.monsterId) : undefined;
-    if (!entry || !monster) return;
+  async function customizeMonster(item: PreparedEncounter, entryId: string) {
+    let entry = item.monsters.find(({ id }) => id === entryId);
+    if (!entry) return;
+    let monster;
+    try {
+      monster = await getMonster(campaignId, entry.monsterId);
+    } catch (error) {
+      report(error);
+      return;
+    }
+    const latest = itemsRef.current.find(({ id }) => id === item.id);
+    entry = latest?.monsters.find(({ id }) => id === entryId);
+    if (!entry || entry.monsterId !== monster.id) return;
+    const sourceEntry = entry;
     const stats = `${monster.speed} ${monster.stats}`.replace(
       /[&<>"']/g,
       (char) =>
@@ -325,9 +348,13 @@ export function usePreparedEncounters({
     setEditingCombatants(
       (current) => new Set([...current, ...additions.map(({ id }) => id)]),
     );
-    patch(item.id, {
-      monsters: item.monsters.filter(({ id }) => id !== entryId),
-      combatants: [...(item.combatants ?? []), ...additions],
+    patch(item.id, (current) => {
+      const source = current.monsters.find(({ id }) => id === entryId);
+      if (JSON.stringify(source) !== JSON.stringify(sourceEntry)) return {};
+      return {
+        monsters: current.monsters.filter(({ id }) => id !== entryId),
+        combatants: [...(current.combatants ?? []), ...additions],
+      };
     });
   }
 

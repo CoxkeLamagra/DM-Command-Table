@@ -2,6 +2,13 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.1.3 — 2026-10-28
+
+- Upgrade Next.js and its lint configuration to 16.4.1 and Zod to 4.6.6, resolving the current dependency audit findings without disabling the audit gate.
+- Reject structurally excessive JSON and fail validation without accumulating attacker-controlled error lists. Check campaign authorization before expensive body parsing and cap public validation diagnostics.
+- Load Bestiary summaries in bounded pages and fetch full details for editing, imports and combat snapshots. Guard full repository reads and prepared snapshot expansion before allocation, including repeated shared monster definitions.
+- Preserve stat blocks, tokens, notes, favorites and in-flight edits during detail loading. Existing schema-3 storage requires no migration; local storage and GUI updates remain supported.
+
 ## 12.1.2 — 2026-10-21
 
 - Upgrade sanitize-html from 2.18.0 to 2.18.1 to resolve newly published GHSA-c9rx-x947-fp3h (discarded-iframe fallback recursion/stack exhaustion).

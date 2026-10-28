@@ -39,12 +39,13 @@ import { ConditionIcon } from "@/features/combat/condition-icons";
 import {
   getCombat,
   listMonsters,
+  getMonster,
   listPlayers,
   saveCombat,
   commandCombat,
   undoCombat,
 } from "../shared/api";
-import type { Combat, Combatant, Monster, Player } from "@/domain/types";
+import type { Combat, Combatant, MonsterSummary, Player } from "@/domain/types";
 
 import { combatantSummary } from "./combatant-summary";
 import { CombatantEditor } from "@/features/combat/combatant-editor";
@@ -95,7 +96,7 @@ export function CombatScreen({
     },
   });
   const [players, setPlayers] = useState<Player[]>([]);
-  const [monsters, setMonsters] = useState<Monster[]>([]);
+  const [monsters, setMonsters] = useState<MonsterSummary[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [mobileView, setMobileView] = useState("initiative");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -290,88 +291,104 @@ export function CombatScreen({
     );
     if (saved) setSelectedId(saved.combatants[0]?.id ?? "");
   }
-  function addChosen(selection: CombatantSelection) {
+  async function addChosen(selection: CombatantSelection) {
     if (!combat || pending.current) return;
-    const additions: Combatant[] = [];
-    for (const player of players.filter(
-      ({ id }) =>
-        selection.playerIds.includes(id) &&
-        !combat.combatants.some((item) => item.playerId === id),
-    )) {
-      const hp = player.hitPoints ?? 10;
-      additions.push({
-        ...makeCombatant(
-          player.name,
-          player.kind ?? "player",
-          combat.combatants.length + additions.length,
-          hp,
-          player.armorClass ?? 10,
-          player.id,
-          null,
-          null,
-        ),
-        notes: player.notes,
-      });
-    }
-    for (const selectedMonster of selection.monsters) {
-      const monster = monsters.find(({ id }) => id === selectedMonster.id);
-      if (!monster) continue;
-      const quantity = selectedMonster.quantity;
-      for (let copy = 0; copy < quantity; copy++) {
-        const numbers = [...combat.combatants, ...additions]
-          .filter((item) => item.monsterId === monster.id)
-          .map(({ displayNumber }) => displayNumber ?? 0);
+    pending.current = true;
+    setBusy(true);
+    try {
+      let details: Awaited<ReturnType<typeof getMonster>>[];
+      try {
+        details = await Promise.all(
+          selection.monsters.map(({ id }) => getMonster(campaignId, id)),
+        );
+      } catch (error) {
+        report(error);
+        return;
+      }
+      const additions: Combatant[] = [];
+      for (const player of players.filter(
+        ({ id }) =>
+          selection.playerIds.includes(id) &&
+          !combat.combatants.some((item) => item.playerId === id),
+      )) {
+        const hp = player.hitPoints ?? 10;
+        additions.push({
+          ...makeCombatant(
+            player.name,
+            player.kind ?? "player",
+            combat.combatants.length + additions.length,
+            hp,
+            player.armorClass ?? 10,
+            player.id,
+            null,
+            null,
+          ),
+          notes: player.notes,
+        });
+      }
+      for (const selectedMonster of selection.monsters) {
+        const monster = details.find(({ id }) => id === selectedMonster.id);
+        if (!monster) continue;
+        const quantity = selectedMonster.quantity;
+        for (let copy = 0; copy < quantity; copy++) {
+          const numbers = [...combat.combatants, ...additions]
+            .filter((item) => item.monsterId === monster.id)
+            .map(({ displayNumber }) => displayNumber ?? 0);
+          additions.push(
+            makeCombatant(
+              monster.name,
+              "monster",
+              combat.combatants.length + additions.length,
+              monster.hitPoints,
+              monster.armorClass,
+              null,
+              monster.id,
+              Math.max(0, ...numbers) + 1,
+              snapshotMonster(monster),
+            ),
+          );
+        }
+      }
+      if (selection.singleUse) {
+        const value = selection.singleUse;
+        const number =
+          value.kind === "player"
+            ? null
+            : Math.max(
+                0,
+                ...[...combat.combatants, ...additions]
+                  .filter(
+                    (item) =>
+                      item.kind === value.kind &&
+                      !item.monsterId &&
+                      !item.playerId,
+                  )
+                  .map((item) => item.displayNumber ?? 0),
+              ) + 1;
         additions.push(
           makeCombatant(
-            monster.name,
-            "monster",
+            value.name,
+            value.kind,
             combat.combatants.length + additions.length,
-            monster.hitPoints,
-            monster.armorClass,
+            value.hitPoints,
+            value.armorClass,
             null,
-            monster.id,
-            Math.max(0, ...numbers) + 1,
-            snapshotMonster(monster),
+            null,
+            number,
           ),
         );
       }
-    }
-    if (selection.singleUse) {
-      const value = selection.singleUse;
-      const number =
-        value.kind === "player"
-          ? null
-          : Math.max(
-              0,
-              ...[...combat.combatants, ...additions]
-                .filter(
-                  (item) =>
-                    item.kind === value.kind &&
-                    !item.monsterId &&
-                    !item.playerId,
-                )
-                .map((item) => item.displayNumber ?? 0),
-            ) + 1;
-      additions.push(
-        makeCombatant(
-          value.name,
-          value.kind,
-          combat.combatants.length + additions.length,
-          value.hitPoints,
-          value.armorClass,
-          null,
-          null,
-          number,
-        ),
-      );
-    }
-    if (additions.length) {
-      setCombat({
-        ...combat,
-        combatants: [...combat.combatants, ...additions],
-      });
-      setSelectedId(additions.at(-1)?.id ?? "");
-      setMobileView("details");
+      if (additions.length) {
+        setCombat({
+          ...combat,
+          combatants: [...combat.combatants, ...additions],
+        });
+        setSelectedId(additions.at(-1)?.id ?? "");
+        setMobileView("details");
+      }
+    } finally {
+      pending.current = false;
+      setBusy(false);
     }
   }
 

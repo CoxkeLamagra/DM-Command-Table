@@ -21,7 +21,7 @@ export async function loadRemoteCatalogue(
   ]);
   const search = z
     .object({
-      m: z.object({ s: z.record(z.number().int()) }),
+      m: z.object({ s: z.record(z.string(), z.number().int()) }),
       x: z.array(
         z.object({
           c: z.number(),
@@ -31,7 +31,7 @@ export async function loadRemoteCatalogue(
       ),
     })
     .parse(JSON.parse(searchText));
-  const index = z.record(filename).parse(JSON.parse(indexText));
+  const index = z.record(z.string(), filename).parse(JSON.parse(indexText));
   const sources = new Map(
     Object.entries(search.m.s).map(([source, id]) => [id, source]),
   );

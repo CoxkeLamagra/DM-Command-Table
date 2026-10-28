@@ -1,3 +1,9 @@
+import {
+  requireCampaignRead,
+  requireCampaignEdit,
+  requireCampaignOwner,
+} from "../campaigns/access.ts";
+import { parseInput } from "../http/validation.ts";
 import { acceptsApiRoute } from "../http/api-contract.ts";
 import { parseApiRoute, type ApiRoute } from "../http/api-route.ts";
 import type { DatabaseSync } from "node:sqlite";
@@ -48,14 +54,17 @@ export async function handleApi(
       if (method === "GET")
         return apiJson({ templates: support.listTemplates(context.userId) });
       if (method === "POST") {
-        const input = templateSchema.parse(await jsonBody(request));
+        const input = parseInput(templateSchema, await jsonBody(request));
         return apiJson(
           { template: support.saveTemplate(context.userId, input) },
           201,
         );
       }
       if (method === "DELETE" && segments[1]) {
-        support.deleteTemplate(context.userId, idSchema.parse(segments[1]));
+        support.deleteTemplate(
+          context.userId,
+          parseInput(idSchema, segments[1]),
+        );
         return apiJson({ deleted: true });
       }
     }
@@ -71,7 +80,7 @@ export async function handleApi(
         });
       if (method === "POST") {
         const input = clean(
-          campaignCreateSchema.parse(await jsonBody(request)),
+          parseInput(campaignCreateSchema, await jsonBody(request)),
           ["notes"],
         );
         return apiJson(
@@ -97,13 +106,23 @@ export async function handleApi(
         201,
       );
     }
-    const campaignId = idSchema.parse(segments[1]);
+    const campaignId = parseInput(idSchema, segments[1]);
+    if (method === "GET")
+      requireCampaignRead(database, campaignId, context.userId);
+    else if (
+      segments[2] === "members" ||
+      (segments.length === 2 && method === "DELETE")
+    )
+      requireCampaignOwner(database, campaignId, context.userId);
+    else if (segments[2] === "copy")
+      requireCampaignRead(database, campaignId, context.userId);
+    else requireCampaignEdit(database, campaignId, context.userId);
     if (segments.length === 2) {
       if (method === "GET")
         return apiJson({ campaign: campaigns.get(campaignId, context.userId) });
       if (method === "PATCH") {
         const input = clean(
-          campaignUpdateSchema.parse(await jsonBody(request)),
+          parseInput(campaignUpdateSchema, await jsonBody(request)),
           ["notes"],
         );
         const { revision, ...patch } = input;
@@ -131,9 +150,10 @@ export async function handleApi(
     if (resource === "export" && method === "GET")
       return apiJson(exportCampaign(database, campaignId, context.userId));
     if (resource === "copy" && method === "POST") {
-      const input = z
-        .object({ mode: z.enum(["campaign", "template"]) })
-        .parse(await jsonBody(request));
+      const input = parseInput(
+        z.object({ mode: z.enum(["campaign", "template"]) }),
+        await jsonBody(request),
+      );
       return apiJson(
         {
           campaign: copyCampaign(
@@ -148,9 +168,10 @@ export async function handleApi(
     }
     if (resource === "members") {
       if (method === "POST" && resourceId === "transfer") {
-        const input = z
-          .object({ userId: idSchema })
-          .parse(await jsonBody(request));
+        const input = parseInput(
+          z.object({ userId: idSchema }),
+          await jsonBody(request),
+        );
         return apiJson({
           members: memberships.transferOwnership(
             campaignId,
@@ -164,7 +185,7 @@ export async function handleApi(
           members: memberships.list(campaignId, context.userId),
         });
       if (method === "POST") {
-        const input = membershipSchema.parse(await jsonBody(request));
+        const input = parseInput(membershipSchema, await jsonBody(request));
         return apiJson({
           members: memberships.grant(
             campaignId,

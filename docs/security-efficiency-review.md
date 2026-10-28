@@ -1,3 +1,11 @@
+# v12.1.3 security remediation — 2026-10-28
+
+The follow-up assessment confirmed authenticated memory exhaustion through malformed collection validation and full Bestiary materialization. Server validation now enforces structural budgets before JSON allocation and again before schema validation and uses a compiled fail-fast predicate; successful inputs retain the schema's defaults/transforms. Public error details are bounded, and campaign authorization precedes body parsing. Nested nonfatal constraint failures are covered in addition to oversized primitive arrays.
+
+Bestiary summaries omit rich text and arrive in pages of 100; full details are loaded before edits, favorites, catalogue replacement and combat snapshot creation. A shared SQLite byte budget protects full repository reads before `.all()` and JSON parsing, counting repeated shared definitions and tags. Prepared quantities and implicit snapshot creation are budgeted before expansion. Transactional copy failure rolls back. Local storage, image permissions and campaign isolation remain unchanged.
+
+Next.js/lint configuration 16.4.1 and Zod 4.6.6 resolve the assessment's dependency advisories. The audit remains enabled. See the current [release assessment](release-assessment.md) for validation and remaining deployment limits. Earlier review sections below retain their original scope.
+
 # Security and efficiency review — v12
 
 This is a source-backed engineering review with executed regressions recorded in [release assessment](release-assessment.md). The managed Codex Security scan could not start because its required preflight reference was unavailable; no completed managed scan or exhaustive vulnerability-free claim is made. No production credentials, live mutations or live deployment were used for this refactor.

@@ -34,7 +34,11 @@ export function acceptsApiRoute(segments: string[], method: string): boolean {
     return record === "bulk-delete" &&
       ["players", "monsters"].includes(resource)
       ? method === "POST"
-      : ["PATCH", "DELETE"].includes(method);
+      : [
+          "PATCH",
+          "DELETE",
+          ...(resource === "monsters" ? ["GET"] : []),
+        ].includes(method);
   if (resource !== "sessions") return false;
   if (size === 5 && child === "save") return method === "POST";
   if (child !== "encounters") return false;

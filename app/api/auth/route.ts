@@ -1,3 +1,4 @@
+import { parseInput } from "../../../server/http/validation.ts";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
   if (originError) return originError;
   try {
-    const input = authSchema.parse(await jsonBody(request, 8192));
+    const input = parseInput(authSchema, await jsonBody(request, 8192));
     const database = getDatabase();
     if (input.action === "logout") {
       await destroySession(database);

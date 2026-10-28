@@ -1,3 +1,25 @@
+# v12.1.3 security-fix validation — 2026-10-28
+
+This release remediates the follow-up assessment's authenticated validation and Bestiary read memory-exhaustion findings. Next.js and matching lint configuration are locked to 16.4.1 and Zod to 4.6.6. The dependency audit passes with no unmitigated advisories; no advisory suppression was added. Schema remains version 3, portable formats remain supported, and local storage and all user/admin workflows are retained.
+
+## Enforcement and behavior
+
+The shared JSON boundary checks nesting, container width and total values before JSON allocation and again before validation. Input byte limits reserve V8 heap headroom. Server schemas first run a compiled predicate that stops at the first failing check, including nested nonfatal constraints; only valid input enters the transforming/defaulting parse. Public validation diagnostics are bounded. Campaign authorization precedes expensive body parsing, including every combat mutation. The supported 10,000-combatant and 20,000-record structural capacities remain admitted.
+
+Bestiary summaries arrive in pages of 100 without rich text. Detail requests remain campaign-scoped and precede editing, favoriting, import replacement and snapshot creation. Notes search uses the same plain-text conversion as the browser. Full repository reads have SQLite byte/allocation preflights before `.all()` or JSON parsing; every shared binding and tag is charged. Prepared loading and implicit snapshot creation additionally charge quantities and select only needed definitions. Oversized operations return 413, with transactional copy/save rollback. Conservative heap reserves can reject some legitimate full-detail operations on small hosts; paged summaries, individual details and full-server backups remain the paths for larger data.
+
+An independent boundary investigation identified the shared read and parse callers. A separate candidate review identified two newly introduced asynchronous edit races. Combat now locks mutations while fetching details; prepared customization resolves the latest source entry and updates current arrays. Delayed-request browser regressions exercise both cases.
+
+## Executed checks
+
+- Frozen-lockfile installation, dependency audit gate, formatting, ESLint and TypeScript passed. The production build passed on Next.js 16.4.1.
+- All **163 unit/integration tests** passed. New tests cover encoded pre-parse limits (including duplicate keys and escaped delimiters), wide/deep/oversized JSON, nested invalid constraints, authorization before body consumption, bounded diagnostics, full supported combat capacity, summary pagination, plain-text note search, campaign-scoped details, favorite/content preservation, shared-definition read amplification, copy rollback, weighted snapshot rejection and combat rollback.
+- All **21 browser tests** passed using system Chromium. These include the two delayed-detail regressions, existing campaign and NPC workflows, prepared loading, Combat, local/remote imports, stat blocks/tokens, navigation, cookies/CSP and Administration/update controls.
+- Constrained **128 MiB old-space** subprocesses reject the original large collection input and an alternate 500,000-invalid-string nested collection without aborting. An owned malformed combat request returns 413 or 400 as appropriate with a small response; a valid 10,000-combatant schema still parses. The 85-binding shared-payload list case returns a handled size rejection while summaries and one full detail remain usable.
+- The v12.1.3 runtime package passed manifest verification. A separately started packaged production server with **384 MiB old space**, synthetic standard-user authentication and isolated storage returns **413** for the original 7.5 MB malformed combat request, an encoded 500,000-key campaign-package object and a 300-binding oversized full Bestiary. All 300 summaries page correctly, the selected 900,000-character full detail survives intact, and subsequent health remains ready. This was local loopback validation, not a network-isolated container or live-host stress test.
+
+No live deployment or host configuration was changed during remediation. Existing v12 GUI updaters can install the patch without a new root helper or schema migration. Host memory/CPU limits remain deployment-specific containment and are not a replacement for these controlled application rejections. Earlier assessments below retain their original scope and versions.
+
 # v12.1.2 dependency-fix validation — 2026-10-21
 
 The newly published GHSA-c9rx-x947-fp3h affects sanitize-html 2.18.0. This release locks 2.18.1, which fixes discarded-iframe fallback recursion without changing the application's restrictive rich-text policy. The dependency audit remains enabled and passes; the existing development-only braces mitigation remains behavior-verified.

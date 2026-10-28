@@ -1,11 +1,33 @@
-import type { Monster } from "@/domain/types";
+import type { Monster, MonsterSummary } from "@/domain/types";
 import { requestJson, json } from "./transport";
-export async function listMonsters(campaignId: string): Promise<Monster[]> {
+export async function listMonsters(
+  campaignId: string,
+  query = "",
+): Promise<MonsterSummary[]> {
+  const items: MonsterSummary[] = [];
+  let next: string | null = "";
+  do {
+    const params = new URLSearchParams({ view: "summary", q: query });
+    if (next) params.set("after", next);
+    const page: { monsters: MonsterSummary[]; next: string | null } =
+      await requestJson(`/api/campaigns/${campaignId}/monsters?${params}`);
+    items.push(...page.monsters);
+    next = page.next;
+  } while (next);
+  return items.sort(
+    (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+  );
+}
+
+export async function getMonster(
+  campaignId: string,
+  id: string,
+): Promise<Monster> {
   return (
-    await requestJson<{ monsters: Monster[] }>(
-      `/api/campaigns/${campaignId}/monsters`,
+    await requestJson<{ monster: Monster }>(
+      `/api/campaigns/${campaignId}/monsters/${id}`,
     )
-  ).monsters;
+  ).monster;
 }
 
 export async function importMonster(

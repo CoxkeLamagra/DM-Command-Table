@@ -1,3 +1,4 @@
+import { parseInput } from "../../../../server/http/validation.ts";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
 import { getUser } from "@/server/identity/auth";
@@ -41,9 +42,10 @@ export async function POST(request: Request) {
       60 * 60 * 1000,
     );
     if (limited) return limited;
-    z.object({ action: z.literal("start") })
-      .strict()
-      .parse(await jsonBody(request, 1024));
+    parseInput(
+      z.object({ action: z.literal("start") }).strict(),
+      await jsonBody(request, 1024),
+    );
     requireAdministrator(database, user.userId);
     recordAuditEvent(database, {
       actorUserId: user.userId,

@@ -1,3 +1,4 @@
+import { parseInput } from "../http/validation.ts";
 import { z } from "zod";
 import { apiJson } from "../http/http.ts";
 import { createSupportRepository } from "../support/support-repository.ts";
@@ -14,9 +15,10 @@ export async function handleSearchRoutes(
         context.userId,
         url.searchParams.get("q") ?? "",
         100,
-        z
-          .enum(["all", "session", "story", "player", "npc", "monster"])
-          .parse(url.searchParams.get("type") ?? "all"),
+        parseInput(
+          z.enum(["all", "session", "story", "player", "npc", "monster"]),
+          url.searchParams.get("type") ?? "all",
+        ),
       ),
     });
   }
