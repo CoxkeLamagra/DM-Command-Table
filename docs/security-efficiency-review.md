@@ -1,3 +1,13 @@
+# v12.2.0 public-hosting hardening — 2026-11-04
+
+The implementation adds an opt-in pinned public HTTPS origin, Secure-cookie enforcement, API streaming admission/deadlines, multipart envelope checks, account-scoped read rates, a 20-session cap and shared SQL allocation preflights. Bestiary searches scan bounded batches, avoid repeated text conversion and cancel superseded browser requests. Local storage and existing campaign/admin workflows remain supported.
+
+The Debian deployment boundary now promotes builder output through checked Linux descriptors into private root-owned files and verifies inventory before publication. Fresh installs take privileged helpers from a separate root-private approved revision. Existing installations require a one-time helper refresh; the GUI blocks updates through an older helper. Modern minimatch is patched, with a source/behavior-verified legacy development-only advisory exception described in operations.
+
+See [release validation](release-assessment.md) for executed evidence and remaining limits, and [public hosting](public-hosting.md) for the required host profile. The following sections retain historical assessments; their earlier defaults and helper requirements are superseded by v12.2 guidance.
+
+---
+
 # v12.1.3 security remediation — 2026-10-28
 
 The follow-up assessment confirmed authenticated memory exhaustion through malformed collection validation and full Bestiary materialization. Server validation now enforces structural budgets before JSON allocation and again before schema validation and uses a compiled fail-fast predicate; successful inputs retain the schema's defaults/transforms. Public error details are bounded, and campaign authorization precedes body parsing. Nested nonfatal constraint failures are covered in addition to oversized primitive arrays.

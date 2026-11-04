@@ -129,7 +129,12 @@ export function createUpdateBroker({
       start(request.actor);
     else if (!(request.action === "status" && keys === "action"))
       throw new Error("Invalid request");
-    return structuredClone({ available: true, target, job });
+    return structuredClone({
+      available: true,
+      securityVersion: 2,
+      target,
+      job,
+    });
   }
   let connections = 0;
   const server = net.createServer((socket) => {

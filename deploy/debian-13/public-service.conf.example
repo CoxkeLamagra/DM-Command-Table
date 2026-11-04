@@ -1,0 +1,7 @@
+# Optional /etc/systemd/system/dm-command-table.service.d/public.conf
+# Size these limits for the host. Leave resources for Nginx, image conversion,
+# SQLite and the separate build/updater service. These are containment limits.
+[Service]
+MemoryMax=1G
+CPUQuota=200%
+TasksMax=256

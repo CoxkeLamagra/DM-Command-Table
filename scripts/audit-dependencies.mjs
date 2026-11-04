@@ -21,7 +21,8 @@ if (!audit.metadata || audit.error || !audit.advisories)
     "The dependency audit failed; registry errors are not ignored.",
   );
 const unmitigated = [];
-let patched = false;
+let patched = false,
+  legacyMinimatch = false;
 for (const advisory of Object.values(audit.advisories)) {
   if (
     advisory.github_advisory_id === "GHSA-vfj7-8cjw-p6xm" &&
@@ -32,6 +33,15 @@ for (const advisory of Object.values(audit.advisories)) {
     )
   )
     patched = true;
+  else if (
+    advisory.github_advisory_id === "GHSA-g3hv-75wg-m249" &&
+    advisory.module_name === "minimatch" &&
+    advisory.findings.length > 0 &&
+    advisory.findings.every(
+      (finding) => finding.dev && finding.version === "3.1.5",
+    )
+  )
+    legacyMinimatch = true;
   else
     unmitigated.push(
       `${advisory.severity}: ${advisory.module_name} ${advisory.github_advisory_id}`,
@@ -65,10 +75,33 @@ if (patched) {
     "Verified local braces@3.0.3 depth patch for development-only GHSA-vfj7-8cjw-p6xm; upstream advisory remains open.",
   );
 }
+if (legacyMinimatch) {
+  const require = createRequire(
+    createRequire(import.meta.url).resolve("eslint"),
+  );
+  const minimatch = require("minimatch");
+  assert.equal(require("minimatch/package.json").version, "3.1.5");
+  assert.equal(minimatch.Minimatch.prototype.firstPhasePreProcess, undefined);
+  assert.equal(minimatch.Minimatch.prototype.secondPhasePreProcess, undefined);
+  for (const count of [8, 16, 32]) {
+    const pattern = "**/../".repeat(count) + "file.ts";
+    const ordinary = new minimatch.Minimatch(pattern, { nobrace: true });
+    const optimized = new minimatch.Minimatch(pattern, {
+      optimizationLevel: 2,
+      nobrace: true,
+    });
+    assert.equal(optimized.set.length, 1);
+    assert.deepEqual(optimized.set, ordinary.set);
+  }
+  assert.equal(minimatch("src/example.ts", "src/**/*.ts"), true);
+  console.log(
+    "Verified development-only minimatch@3.1.5 does not contain the optimization preprocessing path in GHSA-g3hv-75wg-m249. The registry version-range advisory remains open.",
+  );
+}
 if (unmitigated.length) {
   console.error(unmitigated.join("\n"));
   process.exit(1);
 }
-if (result.status !== 0 && !patched)
+if (result.status !== 0 && !patched && !legacyMinimatch)
   throw new Error("Dependency audit failed.");
 console.log("Dependency audit passed: no unmitigated advisories.");

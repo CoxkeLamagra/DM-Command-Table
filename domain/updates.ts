@@ -11,6 +11,7 @@ export type UpdateJob = {
 };
 export type UpdateState = {
   available: boolean;
+  securityVersion?: number;
   target?: string;
   job: UpdateJob | null;
 };

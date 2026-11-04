@@ -11,6 +11,8 @@ export async function requestJson<T>(
       signal: init.signal ?? AbortSignal.timeout(30_000),
     });
   } catch {
+    if (init.signal?.aborted)
+      throw new DOMException("Request was cancelled.", "AbortError");
     emitConnectivity(false);
     throw new ApiError("The local server could not be reached.", 0);
   }

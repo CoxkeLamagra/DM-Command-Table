@@ -85,3 +85,62 @@ test("encoded and canonical imports consume the same strict rate bucket before b
     await api.dispose();
   }
 });
+
+test("real incomplete HTTP bodies have bounded admission, release on disconnect and expire", async ({
+  request,
+}) => {
+  const { request: nodeRequest } = await import("node:http");
+  const held: ReturnType<typeof nodeRequest>[] = [];
+  const begin = () => {
+    let response!: Promise<number>;
+    const connected = new Promise<void>((resolve, reject) => {
+      response = new Promise<number>((done, fail) => {
+        const incoming = nodeRequest(
+          "http://127.0.0.1:3100/api/auth",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": "1024",
+            },
+          },
+          (result) => {
+            result.resume();
+            done(result.statusCode ?? 0);
+          },
+        );
+        held.push(incoming);
+        incoming.on("error", (error) => {
+          reject(error);
+          fail(error);
+        });
+        incoming.on("socket", (socket) => socket.once("connect", resolve));
+        incoming.flushHeaders();
+      });
+      // Disconnects below intentionally reject this response promise.
+      void response.catch(() => undefined);
+    });
+    return { connected, response: () => response };
+  };
+  const logout = () =>
+    request.post("/api/auth", { data: { action: "logout" } });
+  try {
+    const first = begin(),
+      second = begin();
+    await Promise.all([first.connected, second.connected]);
+    await expect.poll(async () => (await logout()).status()).toBe(503);
+    expect((await request.get("/api/health")).status()).toBe(200);
+    for (const connection of held) connection.destroy();
+    await expect.poll(async () => (await logout()).status()).toBe(200);
+    const started = Date.now(),
+      stalled = begin();
+    await stalled.connected;
+    expect(await stalled.response()).toBe(408);
+    expect(Date.now() - started).toBeGreaterThan(25_000);
+    expect(Date.now() - started).toBeLessThan(38_000);
+    expect((await logout()).status()).toBe(200);
+    expect((await request.get("/api/health")).status()).toBe(200);
+  } finally {
+    for (const connection of held) connection.destroy();
+  }
+});

@@ -1,5 +1,13 @@
 # v12 architecture
 
+## Public-hosting boundaries (v12.2)
+
+The optional public-origin profile pins HTTPS Host/Origin and forces Secure session cookies. A trusted TLS edge overwrites forwarding headers and keeps the Node listener private. HTML uses the nonce proxy; API routes share a separate guard to preserve streaming request admission. The shared body reader owns deadlines, cancellation, aggregate reservations and account fairness. SQL byte preflights protect full collection allocations; Bestiary summaries scan bounded definition batches and allow cancellation of obsolete browser searches.
+
+Root deployment authority remains outside the application. The builder owns source/build output, while root privately pins an approved source revision for deployment helpers/templates. Descriptor-anchored runtime promotion checks ownership and inode type without following source links, creates fresh private destination files, then verifies the complete manifest before making the release readable. GUI updates require helper security version 2. A runtime checksum verifies integrity, not publisher provenance; approved source and dependency acquisition remain trusted inputs.
+
+See [public hosting](public-hosting.md) for the operational trust model and [release validation](release-assessment.md) for evidence and limits. Local SQLite, media, accounts and offline runtime behavior remain unchanged.
+
 The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 3, built on version 1 `offline-runtime-baseline`, migration 2 `monster-token-section` and migration 3 `shared-bestiary-definitions`. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
 
 ## Source ownership

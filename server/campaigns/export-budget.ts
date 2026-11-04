@@ -1,4 +1,4 @@
-import { getHeapStatistics } from "node:v8";
+import { allocationByteLimit } from "../security/allocation-budget.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { CAMPAIGN_PACKAGE_LIMIT } from "../../domain/limits.ts";
 import { campaignRole } from "./access.ts";
@@ -14,16 +14,7 @@ export function exportTooLarge(): PublicApiError {
 // Keep room for parsed records, validation copies and final JSON/base64 output.
 // Small-memory hosts must reject safely even below the format's absolute cap.
 export function exportByteLimit(): number {
-  const heap = getHeapStatistics();
-  return Math.min(
-    CAMPAIGN_PACKAGE_LIMIT,
-    Math.max(
-      0,
-      Math.floor(
-        (heap.heap_size_limit - heap.used_heap_size - 32 * 1024 * 1024) / 8,
-      ),
-    ),
-  );
+  return allocationByteLimit(CAMPAIGN_PACKAGE_LIMIT);
 }
 
 // Calculate in SQLite before repositories materialize rich text, nested JSON,

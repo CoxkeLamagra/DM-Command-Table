@@ -190,6 +190,15 @@ export function createSessionRecord(
       database,
       "INSERT INTO local_sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)",
     ).run(hashToken(token), user.userId, now + sessionSeconds * 1000, now);
+    statement(
+      database,
+      "DELETE FROM local_sessions WHERE user_id=? AND expires_at<=?",
+    ).run(user.userId, now);
+    statement(
+      database,
+      `DELETE FROM local_sessions WHERE user_id=? AND token_hash<>? AND token_hash NOT IN
+      (SELECT token_hash FROM local_sessions WHERE user_id=? AND token_hash<>? ORDER BY created_at DESC, token_hash DESC LIMIT 19)`,
+    ).run(user.userId, hashToken(token), user.userId, hashToken(token));
     return { token, sessionSeconds };
   });
 }

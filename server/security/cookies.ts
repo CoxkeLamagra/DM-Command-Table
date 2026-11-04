@@ -1,9 +1,11 @@
+import { publicOrigin } from "./public-origin.ts";
 import { requestHost, sameHostWebOrigin } from "./request-origin.ts";
 export function shouldUseSecureCookie(
   mode: "auto" | "always" | "never",
   headers: Pick<Headers, "get">,
   trustProxy: boolean,
 ): boolean {
+  if (publicOrigin()) return true;
   if (mode !== "auto") return mode === "always";
   if (
     trustProxy &&

@@ -4,6 +4,7 @@ import type { UpdateState } from "../../domain/updates.ts";
 export function updateRequest(
   action: "status" | "start",
   actor?: string,
+  authorize: () => void = () => undefined,
 ): Promise<UpdateState> {
   return new Promise((resolve, reject) => {
     const socket = createConnection(
@@ -21,12 +22,22 @@ export function updateRequest(
     socket.setTimeout(5000, () =>
       finish(undefined, new Error("The update service did not respond.")),
     );
-    socket.on("connect", () =>
-      socket.write(
-        JSON.stringify(action === "start" ? { action, actor } : { action }) +
-          "\n",
-      ),
-    );
+    socket.on("connect", () => {
+      try {
+        if (action === "start") authorize();
+        socket.write(
+          JSON.stringify(action === "start" ? { action, actor } : { action }) +
+            "\n",
+        );
+      } catch (error) {
+        finish(
+          undefined,
+          error instanceof Error
+            ? error
+            : new Error("Update authorization failed."),
+        );
+      }
+    });
     socket.on("error", (error: NodeJS.ErrnoException) => {
       if (
         action === "status" &&

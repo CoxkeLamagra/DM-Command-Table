@@ -1,8 +1,10 @@
+import { publicOrigin } from "./security/public-origin.ts";
 import path from "node:path";
 import { accessSync, constants, mkdirSync, statfsSync } from "node:fs";
 import { storagePaths } from "../scripts/storage-config.mjs";
 export { storagePaths };
 export function assertStorageReady(): void {
+  publicOrigin();
   const paths = storagePaths();
   for (const directory of [path.dirname(paths.database), paths.uploads]) {
     mkdirSync(directory, { recursive: true, mode: 0o700 });

@@ -1,3 +1,4 @@
+import { createReadBudget } from "../security/read-budget.ts";
 import { assertMonsterReadBudget } from "../bestiary/read-budget.ts";
 import { parseInput } from "../http/validation.ts";
 import { statement } from "../../db/statements.ts";
@@ -266,6 +267,13 @@ function combatFromRow(
   database: DatabaseSync,
   row: CombatRow,
 ): CombatEncounter {
+  const budget = createReadBudget(database);
+  budget.table("combatants", "r.encounter_id=?", [row.id]);
+  budget.table(
+    "combat_conditions",
+    "r.combatant_id IN (SELECT id FROM combatants WHERE encounter_id=?)",
+    [row.id],
+  );
   const combatants = statement(
     database,
     `SELECT id, player_id AS playerId, monster_id AS monsterId, name,

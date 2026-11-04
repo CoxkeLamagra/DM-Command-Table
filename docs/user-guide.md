@@ -232,3 +232,9 @@ Campaign JSON and image-package exports use a safe export budget of up to 50 MiB
 Bestiary lists and combatant pickers load lightweight catalogue summaries; opening a monster fetches its complete stat block and token. Search still includes monster notes. Favoriting and catalogue replacement preserve existing notes and full details. While Combat retrieves the selected monster details, its controls pause briefly to protect in-progress changes.
 
 Oversized full-detail operations return a clear size-budget error. Select fewer monsters or lower prepared quantities and retry. Large exports still use the full-server backup procedure described in operations. No campaign data is truncated automatically.
+
+### Public-hosting and update notices
+
+The application keeps at most 20 active sign-ins per account; an older browser may need to sign in again. If a transfer reports that the server is busy, wait for pending transfers to finish and retry. Oversized collection operations may require smaller selections.
+
+Existing Debian installations may show **Updater maintenance required** in Administration after upgrading to v12.2. A host administrator must refresh the root-owned updater helpers once using the [public-hosting guide](public-hosting.md). Routine application updates then continue from the GUI. Public HTTPS configuration is a separate host-administration step.

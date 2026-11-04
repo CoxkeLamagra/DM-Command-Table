@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   /* Standard Node.js server deployment with persistent local storage. */
   output: "standalone",
   poweredByHeader: false,
+  // Only HTML requests traverse the nonce proxy; HTML writes are unsupported.
+  experimental: { proxyClientMaxBodySize: 8 * 1024 },
   async headers() {
     return [
       {

@@ -1,3 +1,4 @@
+import { apiHandler } from "../../../../server/http/api-handler.ts";
 import { screenshotResponse } from "@/server/media/screenshot-response";
 import { getDatabase } from "@/db/sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
@@ -11,10 +12,19 @@ export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ id: string }> };
 
-export async function GET(request: Request, { params }: Context) {
+async function handleGET(request: Request, { params }: Context) {
   const database = getDatabase();
   const user = await getUser(database);
   if (!user) return apiJson({ error: "Authentication required." }, 401);
+  const limited = enforceRateLimit(
+    database,
+    request,
+    "media-read",
+    user.userId,
+    1200,
+    5 * 60 * 1000,
+  );
+  if (limited) return limited;
   const response = await screenshotResponse(
     database,
     (await params).id,
@@ -25,7 +35,7 @@ export async function GET(request: Request, { params }: Context) {
   return response ?? apiJson({ error: "Screenshot not found." }, 404);
 }
 
-export async function DELETE(request: Request, { params }: Context) {
+async function handleDELETE(request: Request, { params }: Context) {
   const origin = rejectCrossOrigin(request);
   if (origin) return origin;
   const database = getDatabase();
@@ -58,3 +68,14 @@ export async function DELETE(request: Request, { params }: Context) {
     ? apiJson({ deleted: true })
     : apiJson({ error: "Screenshot not found." }, 404);
 }
+
+export const GET = apiHandler(handleGET);
+export const DELETE = apiHandler(handleDELETE);
+
+export const OPTIONS = apiHandler(
+  () =>
+    new Response(null, {
+      status: 204,
+      headers: { Allow: "GET, DELETE, HEAD, OPTIONS" },
+    }),
+);

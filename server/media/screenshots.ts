@@ -1,3 +1,4 @@
+import { createReadBudget } from "../security/read-budget.ts";
 import {
   findReusableToken,
   reusableToken,
@@ -37,6 +38,14 @@ export function listScreenshots(
   userId: string,
   admin: boolean,
 ): Screenshot[] {
+  createReadBudget(database).table(
+    "screenshots",
+    `(?=1 OR r.uploaded_by=? OR EXISTS (
+    SELECT 1 FROM screenshot_references ref JOIN campaigns c ON c.id=ref.campaign_id
+    LEFT JOIN campaign_members m ON m.campaign_id=c.id AND m.user_id=?
+    WHERE ref.screenshot_id=r.id AND (c.owner_id=? OR m.user_id=?)))`,
+    [admin ? 1 : 0, userId, userId, userId, userId],
+  );
   const rows = database
     .prepare(
       `SELECT DISTINCT s.id, s.original_name AS name, s.size, COALESCE(u.username, 'Deleted account') AS uploadedBy, s.created_at AS createdAt FROM screenshots s LEFT JOIN users u ON u.id=s.uploaded_by LEFT JOIN screenshot_references r ON r.screenshot_id=s.id LEFT JOIN campaigns c ON c.id=r.campaign_id LEFT JOIN campaign_members m ON m.campaign_id=c.id AND m.user_id=? WHERE ?=1 OR s.uploaded_by=? OR c.owner_id=? OR m.user_id=? ORDER BY s.created_at DESC`,

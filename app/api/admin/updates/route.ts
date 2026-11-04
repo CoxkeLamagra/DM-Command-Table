@@ -1,3 +1,6 @@
+import { apiHandler } from "../../../../server/http/api-handler.ts";
+import { PublicApiError } from "@/server/http/errors";
+import { withBodyActor } from "@/server/http/body-reader";
 import { parseInput } from "../../../../server/http/validation.ts";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
@@ -12,7 +15,7 @@ import { recordAuditEvent } from "@/server/support/audit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+async function handleGET() {
   try {
     const database = getDatabase();
     const user = await getUser(database);
@@ -25,7 +28,7 @@ export async function GET() {
     return apiError(error);
   }
 }
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const origin = rejectCrossOrigin(request);
   if (origin) return origin;
   try {
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
     if (limited) return limited;
     parseInput(
       z.object({ action: z.literal("start") }).strict(),
-      await jsonBody(request, 1024),
+      await withBodyActor(user.userId, () => jsonBody(request, 1024)),
     );
     requireAdministrator(database, user.userId);
     recordAuditEvent(database, {
@@ -53,8 +56,25 @@ export async function POST(request: Request) {
       action: "update-requested",
     });
     try {
-      return apiJson(await updateRequest("start", user.userId), 202);
-    } catch {
+      const service = await updateRequest("status");
+      if (!service.available)
+        throw new PublicApiError(
+          "The local update service is unavailable. Check its systemd status before retrying.",
+          503,
+        );
+      if (service.securityVersion !== 2)
+        throw new PublicApiError(
+          "Refresh the v12.2 root-owned updater helpers using the public-hosting guide before starting another update.",
+          503,
+        );
+      return apiJson(
+        await updateRequest("start", user.userId, () =>
+          requireAdministrator(database, user.userId),
+        ),
+        202,
+      );
+    } catch (error) {
+      if (error instanceof PublicApiError) return apiError(error);
       return apiJson(
         {
           error:
@@ -67,3 +87,14 @@ export async function POST(request: Request) {
     return apiError(error);
   }
 }
+
+export const GET = apiHandler(handleGET);
+export const POST = apiHandler(handlePOST);
+
+export const OPTIONS = apiHandler(
+  () =>
+    new Response(null, {
+      status: 204,
+      headers: { Allow: "GET, POST, HEAD, OPTIONS" },
+    }),
+);

@@ -48,7 +48,10 @@ function installFixture(mode: string) {
     });
   }
   const preamble = `const fs=require('node:fs'),cp=require('node:child_process'),root=${JSON.stringify(root)},args=process.argv.slice(2);`;
-  stub("id", "console.log('0');");
+  stub(
+    "id",
+    "console.log(process.argv[2]==='-u' && process.argv[3]==='dmct-build'?process.getuid():'0');",
+  );
   stub(
     "getent",
     preamble +
@@ -69,7 +72,7 @@ function installFixture(mode: string) {
   stub(
     "pnpm",
     preamble +
-      `fs.appendFileSync(root+'/commands','pnpm '+args.join(' ')+'\\n');if(args[0]==='--version')console.log('11.25.0');if(args[0]==='verify' && ${JSON.stringify(mode)}==='build-failure'&&!fs.existsSync(root+'/retry-build'))process.exit(1);if(args[0]==='install'){if(Object.keys(process.env).some(k=>k.startsWith('DM_COMMAND_TABLE_')&&k!=='DM_COMMAND_TABLE_TEST_CHROMIUM_PATH'))process.exit(9);if(process.env.NODE_ENV)process.exit(10);}`,
+      `fs.appendFileSync(root+'/commands','pnpm '+args.join(' ')+'\\n');if(args[0]==='--version')console.log('11.25.0');if(args[0]==='verify' && ${JSON.stringify(mode)}==='tamper-assets'){fs.writeFileSync('deploy/debian-13/dm-command-table.env.example','COMPROMISED=1');fs.writeFileSync('scripts/runtime-integrity.mjs','// untrusted verifier replacement');fs.writeFileSync('deploy/debian-13/install-gui-updater','#!/bin/bash\\necho compromised-root-hook >> '+root+'/commands\\n');}if(args[0]==='verify' && ${JSON.stringify(mode)}==='build-failure'&&!fs.existsSync(root+'/retry-build'))process.exit(1);if(args[0]==='install'){if(Object.keys(process.env).some(k=>k.startsWith('DM_COMMAND_TABLE_')&&k!=='DM_COMMAND_TABLE_TEST_CHROMIUM_PATH'))process.exit(9);if(process.env.NODE_ENV)process.exit(10);}`,
   );
   stub(
     "curl",
@@ -111,7 +114,7 @@ function installFixture(mode: string) {
   stub(
     "node",
     preamble +
-      `if(args[0]==='-p'){console.log('24');process.exit(0);}if(args[0]==='scripts/package-runtime.mjs'){fs.mkdirSync(args[1]+'/scripts',{recursive:true});fs.writeFileSync(args[1]+'/server.js','// fixture');fs.writeFileSync(args[1]+'/runtime-manifest.json',JSON.stringify({applicationVersion:${JSON.stringify(installVersion)}}));fs.writeFileSync(args[1]+'/scripts/check-local-storage.mjs','');process.exit(0);}if(args[0]?.endsWith('/runtime-integrity.mjs'))process.exit(0);if(args[0]?.endsWith('/check-installation.mjs')){fs.appendFileSync(root+'/commands','readiness-check\\n');process.exit(${mode === "health-failure" ? 1 : 0});}const r=cp.spawnSync(${JSON.stringify(process.execPath)},args,{stdio:'inherit'});process.exit(r.status??1);`,
+      `if(args[0]==='-p'){console.log('24');process.exit(0);}if(args[0]==='scripts/package-runtime.mjs'){fs.mkdirSync(args[1]+'/scripts',{recursive:true});fs.writeFileSync(args[1]+'/server.js','// fixture');fs.writeFileSync(args[1]+'/runtime-manifest.json',JSON.stringify({applicationVersion:${JSON.stringify(installVersion)}}));fs.writeFileSync(args[1]+'/scripts/check-local-storage.mjs','');process.exit(0);}if(args[0]?.endsWith('/promote-runtime.mjs')){const uri=require('node:url').pathToFileURL(args[0]).href;const code='import {promoteRuntime} from '+JSON.stringify(uri)+';promoteRuntime('+JSON.stringify(args[1])+','+JSON.stringify(args[2])+','+process.getuid()+');';const r=cp.spawnSync(${JSON.stringify(process.execPath)},['--input-type=module','-e',code],{stdio:'inherit'});process.exit(r.status??1);}if(args[0]?.endsWith('/runtime-integrity.mjs'))process.exit(0);if(args[0]?.endsWith('/check-installation.mjs')){fs.appendFileSync(root+'/commands','readiness-check\\n');process.exit(${mode === "health-failure" ? 1 : 0});}const r=cp.spawnSync(${JSON.stringify(process.execPath)},args,{stdio:'inherit'});process.exit(r.status??1);`,
   );
   let script = readFileSync("deploy/debian-13/install-dm-command-table", "utf8")
     .replace(
@@ -333,5 +336,29 @@ test("installation probe exercises real HTTP and updater sockets and rejects unh
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await new Promise<void>((resolve) => broker.close(() => resolve()));
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fresh installation uses root-approved helpers and configuration after build checkout tampering", () => {
+  const f = installFixture("tamper-assets");
+  try {
+    assert.equal(f.result.status, 0, f.result.stderr);
+    assert.doesNotMatch(
+      readFileSync(f.root + "/etc/dm-command-table.env", "utf8"),
+      /COMPROMISED/,
+    );
+    assert.doesNotMatch(
+      readFileSync(
+        f.root + "/usr/local/lib/dm-command-table/runtime-integrity.mjs",
+        "utf8",
+      ),
+      /untrusted verifier replacement/,
+    );
+    assert.doesNotMatch(
+      readFileSync(f.root + "/commands", "utf8"),
+      /compromised-root-hook/,
+    );
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
   }
 });

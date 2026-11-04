@@ -4,7 +4,7 @@ set -euo pipefail
 TEMPLATES=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 VERIFIER_SOURCE=$TEMPLATES/../../scripts/runtime-integrity.mjs
 if [[ ! -f $VERIFIER_SOURCE ]]; then VERIFIER_SOURCE=$TEMPLATES/../runtime-integrity.mjs; fi
-[[ -f $VERIFIER_SOURCE ]] || { echo 'Use an approved source checkout or complete transferred LXC bundle.' >&2; exit 1; }
+[[ -f $VERIFIER_SOURCE && -f $TEMPLATES/promote-runtime.mjs ]] || { echo 'Use an approved source checkout or complete transferred LXC bundle.' >&2; exit 1; }
 [[ -x /usr/bin/node && $(/usr/bin/node -p 'process.versions.node.split(".")[0]') == 24 ]] || { echo 'Install system-wide Node 24 using the Debian guide first.' >&2; exit 1; }
 # Never replace a broker while it is running an update.
 if [[ -f /var/lib/dm-command-table-updater/latest.json ]]; then
@@ -30,6 +30,7 @@ install -d -o root -g root -m 0755 /usr/local/lib/dm-command-table
 if systemctl cat dm-command-table-updater.service >/dev/null 2>&1; then
   systemctl stop dm-command-table-updater.service
 fi
+install -o root -g root -m 0644 "$TEMPLATES/promote-runtime.mjs" /usr/local/lib/dm-command-table/promote-runtime.mjs
 install -o root -g root -m 0644 "$TEMPLATES/build-update.mjs" /usr/local/lib/dm-command-table/build-update.mjs
 install -o root -g root -m 0644 "$TEMPLATES/update-broker.mjs" /usr/local/lib/dm-command-table/update-broker.mjs
 install -o root -g root -m 0644 "$VERIFIER_SOURCE" /usr/local/lib/dm-command-table/runtime-integrity.mjs

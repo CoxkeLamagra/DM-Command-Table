@@ -1,4 +1,5 @@
-import { getHeapStatistics } from "node:v8";
+import { readRequestBody as boundedRequestBytes } from "./body-reader.ts";
+import { allocationByteLimit } from "../security/allocation-budget.ts";
 import { assertJsonStructure, assertJsonTextStructure } from "./validation.ts";
 import { CombatCapacityError } from "../../domain/combat.ts";
 import { JSON_BODY_LIMIT } from "../../domain/limits.ts";
@@ -86,16 +87,9 @@ export async function jsonBody(
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().startsWith("application/json"))
     throw new PublicApiError("Content-Type must be application/json.", 415);
-  const heap = getHeapStatistics();
-  const safeBytes = Math.max(
-    0,
-    Math.floor(
-      (heap.heap_size_limit - heap.used_heap_size - 32 * 1024 * 1024) / 8,
-    ),
-  );
   const bytes = await boundedRequestBytes(
     request,
-    Math.min(maximumBytes, safeBytes),
+    allocationByteLimit(maximumBytes),
   );
   const text = new TextDecoder().decode(bytes);
   assertJsonTextStructure(text);
@@ -104,33 +98,4 @@ export async function jsonBody(
   return value;
 }
 
-export async function boundedRequestBytes(
-  request: Request,
-  maximumBytes: number,
-): Promise<Uint8Array> {
-  const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > maximumBytes)
-    throw new RequestTooLargeError();
-  if (!request.body) throw new SyntaxError("The request body is empty.");
-
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > maximumBytes) {
-      await reader.cancel();
-      throw new RequestTooLargeError();
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
+export { readRequestBody as boundedRequestBytes } from "./body-reader.ts";

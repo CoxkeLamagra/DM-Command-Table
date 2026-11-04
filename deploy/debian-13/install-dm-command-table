@@ -4,7 +4,7 @@ set +x
 set -euo pipefail
 umask 077
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-RELEASE=v12.1.3
+RELEASE=v12.2.0
 REPOSITORY=https://github.com/CoxkeLamagra/DM-Command-Table.git
 RESUME=false
 if [[ ${1:-} == --resume ]]; then RESUME=true; shift; fi
@@ -99,11 +99,18 @@ build_run() {
 cd "$BUILD"
 [[ $(build_run /usr/bin/pnpm --version) == 11.25.0 ]]
 step "Fetch $RELEASE"
+# Root-owned approved deployment assets are kept separate from code that will
+# execute dependency/build scripts as dmct-build, including resumed installs.
+TRUSTED=$TEMPORARY/trusted-source
+cd "$TEMPORARY"
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null /usr/bin/git clone --no-checkout "$REPOSITORY" "$TRUSTED"
+cd "$TRUSTED"
+REVISION=$(/usr/bin/git rev-parse --verify "$RELEASE^{commit}")
+[[ $REVISION =~ ^[a-f0-9]{40}$ ]]
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null /usr/bin/git checkout --detach "$REVISION"
 cd "$BUILD"
 build_run /usr/bin/git clone --no-checkout "$REPOSITORY" "$SOURCE"
 cd "$SOURCE"
-REVISION=$(build_run /usr/bin/git rev-parse --verify "$RELEASE^{commit}")
-[[ $REVISION =~ ^[a-f0-9]{40}$ ]]
 build_run /usr/bin/git checkout --detach "$REVISION"
 # Only prepare code from the selected project release, as the build account.
 step 'Install locked application dependencies'
@@ -114,12 +121,17 @@ step 'Browser regressions and runtime packaging'
 build_run /usr/bin/pnpm test:browser
 build_run /usr/bin/node scripts/package-runtime.mjs "$BUILD/runtime"
 step 'Install verified runtime'
-install -o root -g root -m 0644 scripts/runtime-integrity.mjs /usr/local/lib/dm-command-table/runtime-integrity.mjs
+install -o root -g root -m 0644 "$TRUSTED/scripts/runtime-integrity.mjs" /usr/local/lib/dm-command-table/runtime-integrity.mjs
+install -o root -g root -m 0644 "$TRUSTED/deploy/debian-13/promote-runtime.mjs" /usr/local/lib/dm-command-table/promote-runtime.mjs
 RUNTIME=/opt/dm-command-table/releases/initial
-cp -a "$BUILD/runtime" "$RUNTIME"
-chown -hR root:root "$RUNTIME"
-chmod -R a+rX,go-w "$RUNTIME"
+install -d -o root -g root -m 0700 "$RUNTIME"
+BUILD_OWNER=$(id -u dmct-build)
+(( BUILD_OWNER > 0 )) || { echo 'The build account must be unprivileged.' >&2; exit 1; }
+/usr/bin/node /usr/local/lib/dm-command-table/promote-runtime.mjs "$BUILD/runtime" "$RUNTIME" "$BUILD_OWNER"
 /usr/bin/node /usr/local/lib/dm-command-table/runtime-integrity.mjs "$RUNTIME" --trusted-staging
+chmod -R a+rX,go-w "$RUNTIME"
+chmod 0755 "$RUNTIME"
+cd "$TRUSTED"
 VERSION=$(/usr/bin/node -e 'console.log(JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")).applicationVersion)' "$RUNTIME/runtime-manifest.json")
 [[ v$VERSION == "$RELEASE" ]] || { echo 'Runtime version does not match the selected release.' >&2; exit 1; }
 ln -s "$RUNTIME" /opt/dm-command-table/current
@@ -145,7 +157,7 @@ systemctl is-active nginx.service dm-command-table.service dm-command-table-upda
 # Test the proxy, expected application version and updater socket as the runtime
 # user, then check real storage and create the first verified backup.
 step 'Verify installation'
-install -o root -g root -m 0644 "$SOURCE/deploy/debian-13/check-installation.mjs" /usr/local/lib/dm-command-table/check-installation.mjs
+install -o root -g root -m 0644 "$TRUSTED/deploy/debian-13/check-installation.mjs" /usr/local/lib/dm-command-table/check-installation.mjs
 cd /
 runuser -u dmct -- /usr/bin/node /usr/local/lib/dm-command-table/check-installation.mjs "$VERSION"
 cd /opt/dm-command-table/current

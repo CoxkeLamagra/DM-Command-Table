@@ -131,6 +131,7 @@ test("broker socket serves bounded local requests", async (context) => {
     });
     assert.deepEqual(JSON.parse(response), {
       available: true,
+      securityVersion: 2,
       target: "latest",
       job: null,
     });

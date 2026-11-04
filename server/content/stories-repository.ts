@@ -1,3 +1,4 @@
+import { createReadBudget } from "../security/read-budget.ts";
 import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
@@ -24,6 +25,13 @@ export function createStoryRepository(database: DatabaseSync) {
   return {
     listStory(campaignId: string, actorUserId: string): StoryBeat[] {
       requireCampaignRead(database, campaignId, actorUserId);
+      const budget = createReadBudget(database);
+      budget.table("story_beats", "r.campaign_id=?", [campaignId]);
+      budget.table(
+        "story_session_links",
+        "r.story_beat_id IN (SELECT id FROM story_beats WHERE campaign_id=?)",
+        [campaignId],
+      );
       const rows = statement(
         database,
         `SELECT id, campaign_id AS campaignId, title, chapter, details, status,

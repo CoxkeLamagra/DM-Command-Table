@@ -4,6 +4,14 @@ This is the current route surface, derived from the route adapters and focused h
 
 Records use UUID IDs. Revisioned updates submit the last received `revision`; a stale revision returns a conflict. Read the current state and reconcile the draft before resubmitting. Input shapes and limits are defined in `server/http/schemas.ts` and `domain/`; the browser client is in `features/shared/api/`.
 
+## Public-hosting request boundary (v12.2)
+
+Every API route, including OPTIONS, uses the shared API guard. With `DM_COMMAND_TABLE_PUBLIC_ORIGIN` configured, the actual Host must match that HTTPS origin and any supplied Origin must match exactly. Forwarded Host cannot override this check. Only `/api/health` permits loopback Host for service readiness; no account or campaign route inherits that exception. HTML requests retain their nonce CSP; APIs bypass the HTML proxy so their bodies are read incrementally rather than buffered by middleware.
+
+Body reading has a 30-second total deadline, eight simultaneous readers, a 64 MiB combined reservation and two readers per account (authentication uses the validated client-address bucket). Admission exhaustion returns 503; oversized or structurally excessive inputs return 413; a body deadline returns 408. Existing per-operation limits still apply. Multipart screenshots permit one image and an optional deduplication flag; field/header envelopes are checked before the platform parser.
+
+Authenticated campaign reads allow 1,200 requests per five minutes per account; campaign exports allow ten per minute. Screenshot metadata allows 120 per minute and protected images 1,200 per five minutes. These authenticated budgets do not reset when the source address changes. Persisted collection reads can return 413 before allocating oversized results. Bestiary summary clients must follow the returned cursor even when a filtered page is empty. Signing in retains at most 20 active sessions per account, including the new session.
+
 ## Campaigns and content
 
 `C` below means `/api/campaigns/:campaignId`.

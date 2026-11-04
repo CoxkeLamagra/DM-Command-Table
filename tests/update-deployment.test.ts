@@ -59,7 +59,10 @@ function fixture(mode: string) {
       { mode: 0o755 },
     );
   }
-  stub("id", "if(process.argv[2]==='-u') console.log('0');");
+  stub(
+    "id",
+    "if(process.argv[2]==='-u') console.log(process.argv[3]==='dmct-build'?process.getuid():'0');",
+  );
   stub("chown", "");
   stub("sleep", "");
   stub("pnpm", "");
@@ -81,12 +84,19 @@ function fixture(mode: string) {
     `const fs=require('node:fs');const root=process.env.DMCT_FIXTURE_ROOT,current=fs.realpathSync(root+'/base/current');const v=JSON.parse(fs.readFileSync(current+'/runtime-manifest.json','utf8')).applicationVersion;console.log(JSON.stringify({status:'ready',version:process.env.DMCT_FIXTURE_MODE==='rollback'&&current!==root+'/base/releases/old'?'wrong-version':v}));`,
   );
   writeFileSync(
+    path.join(root, "lib/promote-runtime.mjs"),
+    readFileSync("deploy/debian-13/promote-runtime.mjs", "utf8").replace(
+      "process.getuid?.() !== 0",
+      "false",
+    ),
+  );
+  writeFileSync(
     path.join(root, "lib/runtime-integrity.mjs"),
     `import {readFileSync} from 'node:fs';console.log(readFileSync(process.argv[2]+'/runtime-manifest.json','utf8'));`,
   );
   writeFileSync(
     path.join(root, "lib/build-update.mjs"),
-    `import {mkdirSync,writeFileSync} from 'node:fs';console.log('@@STEP fetch');console.log('@@STEP build');if(process.env.DMCT_FIXTURE_MODE==='build-failure')process.exit(1);const runtime=process.argv[2]+'/runtime';mkdirSync(runtime);writeFileSync(runtime+'/runtime-manifest.json',JSON.stringify({applicationVersion:'11.2.0'}));writeFileSync(runtime+'/server.js','// fixture candidate');`,
+    `import {mkdirSync,writeFileSync,symlinkSync} from 'node:fs';console.log('@@STEP fetch');console.log('@@STEP build');if(process.env.DMCT_FIXTURE_MODE==='build-failure')process.exit(1);const runtime=process.argv[2]+'/runtime';if(process.env.DMCT_FIXTURE_MODE==='symlink-candidate'){const secret=process.argv[2]+'/private';mkdirSync(secret);writeFileSync(secret+'/secret','private fixture');symlinkSync(secret,runtime);process.exit(0);}mkdirSync(runtime);writeFileSync(runtime+'/runtime-manifest.json',JSON.stringify({applicationVersion:'11.2.0'}));writeFileSync(runtime+'/server.js','// fixture candidate');`,
   );
   let script = readFileSync("deploy/debian-13/update-dm-command-table", "utf8");
   script = script
@@ -158,6 +168,17 @@ test("wrong-version health restores the prior code and its stopped-service SQLit
       "Before update",
     );
     db.close();
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a builder symlink cannot promote private files or stop the active service", () => {
+  const f = fixture("symlink-candidate");
+  try {
+    assert.notEqual(f.result.status, 0);
+    assert.equal(realpathSync(path.join(f.root, "base/current")), f.old);
+    assert.throws(() => readFileSync(path.join(f.root, "service.log")));
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }

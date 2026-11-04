@@ -34,6 +34,7 @@ try {
   for (const filename of [
     "install-gui-updater",
     "build-update.mjs",
+    "promote-runtime.mjs",
     "update-broker.mjs",
     "update-dm-command-table",
     "dm-command-table-updater.service",

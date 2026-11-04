@@ -1,3 +1,4 @@
+import { createReadBudget } from "../security/read-budget.ts";
 import { assertAccountBudget } from "../security/storage-budget.ts";
 import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
@@ -65,6 +66,11 @@ export function createCampaignRepository(database: DatabaseSync) {
     },
 
     list(userId: string, options: { archived?: boolean } = {}): Campaign[] {
+      createReadBudget(database).table(
+        "campaigns",
+        "r.archived=? AND (r.owner_id=? OR EXISTS(SELECT 1 FROM campaign_members m WHERE m.campaign_id=r.id AND m.user_id=?))",
+        [options.archived ? 1 : 0, userId, userId],
+      );
       const rows = statement(
         database,
         `SELECT c.id, c.owner_id AS ownerId, c.name, c.notes, c.archived,
