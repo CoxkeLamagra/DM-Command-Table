@@ -2,16 +2,6 @@
 
 The supported DM Command Table release history starts at v11.
 
-## 12.2.0 — 2026-11-04
-
-- Consolidate JSON/multipart admission behind bounded readers with total deadlines, aggregate reservations, per-account concurrency and deterministic cleanup; reject multipart field/header floods before generic parsing.
-- Add an optional public HTTPS origin profile with Host/Origin pinning, forced Secure cookies, HSTS and a narrow loopback health exception. Supply a public edge configuration and resource-limit examples without changing existing LAN deployment settings.
-- Make authenticated rate limits independent of client IP, bound expensive reads/exports, cap active sessions at 20 per account and normalize untrusted forwarding identities.
-- Extend SQL allocation preflights to content, prepared/combat collections, templates, campaign and media metadata. Bound each Bestiary search scan and cancel obsolete browser searches.
-- Upgrade modern development minimatch to 11.0.1; verify exact legacy 3.1.5 non-applicability to the newly reported optimization-path advisory. Keep other audit findings and registry errors blocking.
-- Protect privileged artifact promotion with pinned descriptors and ownership checks; isolate fresh-install root templates from build scripts. Existing LXC hosts need one trusted helper refresh; outdated helper starts are blocked with actionable guidance.
-- Update security/deployment documentation and regressions. Schema remains version 3; existing accounts, campaign data, user/admin workflows and GUI updates remain supported.
-
 ## 12.1.3 — 2026-10-28
 
 - Upgrade Next.js and its lint configuration to 16.4.1 and Zod to 4.6.6, resolving the current dependency audit findings without disabling the audit gate.

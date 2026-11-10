@@ -1,5 +1,3 @@
-import { apiHandler } from "../../../server/http/api-handler.ts";
-import { withBodyActor } from "@/server/http/body-reader";
 import { parseInput } from "../../../server/http/validation.ts";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
@@ -44,22 +42,17 @@ const authSchema = z
     }
   });
 
-async function handleGET() {
+export async function GET() {
   const database = getDatabase();
   const user = await getUser(database);
   return apiJson({ user, ...registrationStatus(database) });
 }
 
-async function handlePOST(request: Request) {
+export async function POST(request: Request) {
   const originError = rejectCrossOrigin(request);
   if (originError) return originError;
   try {
-    const input = parseInput(
-      authSchema,
-      await withBodyActor(`auth:${clientAddress(request)}`, () =>
-        jsonBody(request, 8192),
-      ),
-    );
+    const input = parseInput(authSchema, await jsonBody(request, 8192));
     const database = getDatabase();
     if (input.action === "logout") {
       await destroySession(database);
@@ -98,14 +91,3 @@ async function handlePOST(request: Request) {
     return apiError(error);
   }
 }
-
-export const GET = apiHandler(handleGET);
-export const POST = apiHandler(handlePOST);
-
-export const OPTIONS = apiHandler(
-  () =>
-    new Response(null, {
-      status: 204,
-      headers: { Allow: "GET, POST, HEAD, OPTIONS" },
-    }),
-);

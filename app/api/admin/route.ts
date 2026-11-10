@@ -1,5 +1,3 @@
-import { apiHandler } from "../../../server/http/api-handler.ts";
-import { withBodyActor } from "@/server/http/body-reader";
 import { parseInput } from "../../../server/http/validation.ts";
 import { databaseUsage } from "@/server/security/storage-budget";
 import { z } from "zod";
@@ -43,19 +41,19 @@ function state(database: ReturnType<typeof getDatabase>) {
   };
 }
 
-async function handleGET() {
+export async function GET() {
   const { database, user } = await admin();
   return !user?.isAdmin
     ? apiJson({ error: "Administrator access required." }, 403)
     : apiJson(state(database));
 }
-async function handlePOST(request: Request) {
+export async function POST(request: Request) {
   return mutate(request, "create");
 }
-async function handlePATCH(request: Request) {
+export async function PATCH(request: Request) {
   return mutate(request, "update");
 }
-async function handleDELETE(request: Request) {
+export async function DELETE(request: Request) {
   return mutate(request, "delete");
 }
 
@@ -85,7 +83,7 @@ async function mutate(
           displayName: z.string(),
           password: z.string(),
         }),
-        await withBodyActor(user.userId, () => jsonBody(request)),
+        await jsonBody(request),
       );
       await createManagedUser(database, input, user.userId);
       return apiJson(state(database), 201);
@@ -109,7 +107,7 @@ async function mutate(
         registrationEnabled: z.boolean().optional(),
         serverSettings: serverSettingsSchema.optional(),
       }),
-      await withBodyActor(user.userId, () => jsonBody(request)),
+      await jsonBody(request),
     );
     requireAdministrator(database, user.userId);
     if (input.action === "set-registration")
@@ -125,16 +123,3 @@ async function mutate(
     return apiError(error);
   }
 }
-
-export const GET = apiHandler(handleGET);
-export const POST = apiHandler(handlePOST);
-export const PATCH = apiHandler(handlePATCH);
-export const DELETE = apiHandler(handleDELETE);
-
-export const OPTIONS = apiHandler(
-  () =>
-    new Response(null, {
-      status: 204,
-      headers: { Allow: "GET, POST, PATCH, DELETE, HEAD, OPTIONS" },
-    }),
-);

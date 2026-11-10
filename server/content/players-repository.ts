@@ -1,4 +1,3 @@
-import { createReadBudget } from "../security/read-budget.ts";
 import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
@@ -25,8 +24,6 @@ export function createPlayerRepository(database: DatabaseSync) {
   return {
     listPlayers(campaignId: string, actorUserId: string): Player[] {
       requireCampaignRead(database, campaignId, actorUserId);
-      const budget = createReadBudget(database);
-      budget.table("players", "r.campaign_id=?", [campaignId]);
       return (
         statement(
           database,

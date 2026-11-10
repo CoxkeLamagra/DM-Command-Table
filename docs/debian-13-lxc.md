@@ -15,12 +15,12 @@ set -euo pipefail
 apt-get update
 apt-get install -y ca-certificates curl
 curl --fail --show-error --silent --location \
-  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.2.0/deploy/debian-13/install-dm-command-table \
+  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.1.3/deploy/debian-13/install-dm-command-table \
   --output /root/install-dm-command-table
 bash /root/install-dm-command-table
 ```
 
-The [standalone installer](../deploy/debian-13/install-dm-command-table) defaults to the pinned v12.2.0 release. It installs signed Debian prerequisites and Chromium, signed NodeSource Node 24, pnpm 11.25.0, separate `dmct`/`dmct-build` accounts, fresh local storage, frozen application dependencies, the verified standalone runtime, Nginx, the daily backup timer and the automatic GUI updater. It runs audit/format/lint/type/unit/build/browser checks before deployment, then checks direct/proxy health, protected endpoint behavior and the updater socket **as the runtime account**, validates storage and takes an initial backup. No separate updater installation or manual build is needed. Keep the console open while these checks run; installation time depends on network/CPU resources.
+The [standalone installer](../deploy/debian-13/install-dm-command-table) defaults to the pinned v12.1.3 release. It installs signed Debian prerequisites and Chromium, signed NodeSource Node 24, pnpm 11.25.0, separate `dmct`/`dmct-build` accounts, fresh local storage, frozen application dependencies, the verified standalone runtime, Nginx, the daily backup timer and the automatic GUI updater. It runs audit/format/lint/type/unit/build/browser checks before deployment, then checks direct/proxy health, protected endpoint behavior and the updater socket **as the runtime account**, validates storage and takes an initial backup. No separate updater installation or manual build is needed. Keep the console open while these checks run; installation time depends on network/CPU resources.
 
 On success the console displays the installed version, LXC addresses and **Initial install token**. Open `http://<LXC-IP>/` in a LAN browser, choose **Register**, and enter that token in **Initial setup token** along with your username, display name and password. The first account becomes administrator and public registration closes automatically. The token is printed deliberately for the person installing the application; keep the console output private. It is also retained in root-only mode `0600` in `/etc/dm-command-table.env`. After registration the token cannot create another account. You can optionally clear it and restart:
 
@@ -40,7 +40,7 @@ For the reported failure at **Install locked application dependencies**, run as 
 ```bash
 set -euo pipefail
 curl --fail --show-error --silent --location \
-  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.2.0/deploy/debian-13/install-dm-command-table \
+  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.1.3/deploy/debian-13/install-dm-command-table \
   --output /root/install-dm-command-table
 bash /root/install-dm-command-table --resume
 ```
@@ -142,14 +142,10 @@ Initialize the supported v11 baseline in fresh storage. Existing v11 deployments
 From the build directory, clone the source and select the release explicitly. A clone alone selects the moving default branch:
 
 ```bash
-umask 077
-DMCT_APPROVED_SOURCE=$(mktemp -d /root/dmct-approved.XXXXXXXX)/source
-git clone --depth 1 --branch v12.2.0 https://github.com/CoxkeLamagra/DM-Command-Table.git "$DMCT_APPROVED_SOURCE"
-DMCT_APPROVED_REVISION=$(git -C "$DMCT_APPROVED_SOURCE" rev-parse HEAD)
 cd /var/cache/dm-command-table-build
 runuser -u dmct-build -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git source
 cd /var/cache/dm-command-table-build/source
-runuser -u dmct-build -- git checkout --detach "$DMCT_APPROVED_REVISION"
+runuser -u dmct-build -- git checkout --detach v12.1.3
 runuser -u dmct-build -- git rev-parse HEAD
 runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
 runuser -u dmct-build -- /usr/bin/pnpm verify
@@ -174,12 +170,12 @@ If you specifically need the Playwright-pinned browser and its download endpoint
 
 ```bash
 cd /var/cache/dm-command-table-build/source
-apt-get install -y chromium
+/usr/bin/pnpm exec playwright install-deps chromium
 runuser -u dmct-build -- /usr/bin/pnpm exec playwright install chromium
 runuser -u dmct-build -- /usr/bin/pnpm test:browser
 ```
 
-Signed APT packages provide the OS libraries; the browser download and tests run as `dmct-build`. Never execute project/node_modules dependency scripts as root from a build-writable checkout. A failed download must be resolved or replaced with the signed Debian Chromium option before running tests. Do not continue after `Failed to install browsers` or disable verification. If the download fails, preserve the preceding URL/HTTP/network error to diagnose the blocked destination.
+The OS-library step runs as root; the browser download and tests run as `dmct-build`. A failed download must be resolved or replaced with the signed Debian Chromium option before running tests. Do not continue after `Failed to install browsers` or disable verification. If the download fails, preserve the preceding URL/HTTP/network error to diagnose the blocked destination.
 
 The browser suite uses disposable data and port 3100; do not have another service using that port. `package:runtime` refuses an existing destination, so preserve an earlier package or choose a new absolute destination when rebuilding. Keep using the same build account so browser caches and permissions remain consistent.
 
@@ -192,14 +188,11 @@ cd /var/cache/dm-command-table-build/source
 test ! -e /opt/dm-command-table/releases/initial
 test ! -e /opt/dm-command-table/current
 test ! -L /opt/dm-command-table/current
-install -o root -g root -m 0644 "$DMCT_APPROVED_SOURCE/scripts/runtime-integrity.mjs" /usr/local/lib/dm-command-table/runtime-integrity.mjs
-install -o root -g root -m 0644 "$DMCT_APPROVED_SOURCE/deploy/debian-13/promote-runtime.mjs" /usr/local/lib/dm-command-table/promote-runtime.mjs
-install -d -o root -g root -m 0700 /opt/dm-command-table/releases/initial
-/usr/bin/node /usr/local/lib/dm-command-table/promote-runtime.mjs "$PWD/dist/runtime" /opt/dm-command-table/releases/initial "$(id -u dmct-build)"
-/usr/bin/node /usr/local/lib/dm-command-table/runtime-integrity.mjs /opt/dm-command-table/releases/initial --trusted-staging
+install -o root -g root -m 0644 scripts/runtime-integrity.mjs /usr/local/lib/dm-command-table/runtime-integrity.mjs
+cp -a dist/runtime /opt/dm-command-table/releases/initial
+chown -R root:root /opt/dm-command-table/releases/initial
 chmod -R a+rX,go-w /opt/dm-command-table/releases/initial
-chmod 0755 /opt/dm-command-table/releases/initial
-cd "$DMCT_APPROVED_SOURCE"
+/usr/bin/node /usr/local/lib/dm-command-table/runtime-integrity.mjs /opt/dm-command-table/releases/initial --trusted-staging
 ln -s /opt/dm-command-table/releases/initial /opt/dm-command-table/current
 install -o root -g root -m 0600 deploy/debian-13/dm-command-table.env.example /etc/dm-command-table.env
 install -o root -g root -m 0644 deploy/debian-13/dm-command-table.service /etc/systemd/system/
@@ -255,7 +248,7 @@ systemctl is-active nginx.service dm-command-table.service
 systemctl list-timers dm-command-table-backup.timer --no-pager
 ```
 
-Both health requests must return `status: ready` and version `12.2.0`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
+Both health requests must return `status: ready` and version `12.1.3`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
 
 Use `ip -brief address` to find the LAN address, then open `http://<container-LAN-IP>/` from your computer. Register the first administrator with the private bootstrap token. Keep self-registration disabled unless you intentionally enable it through Administration. Create a campaign/session, upload a screenshot, save and reload to verify the browser-facing installation.
 
@@ -334,52 +327,28 @@ Configure LAN DNS (or each client's hosts file) for this hostname, trust the cer
 
 To avoid retaining build tools/checkouts on the runtime LXC, provision Debian prerequisites and system-wide Node as above, then build on a trusted compatible Linux machine of the same architecture. That machine needs the same Node/pnpm/native build tools and browser prerequisites from sections 2–5. Do not use a Windows/macOS package or native dependencies from an incompatible Linux platform.
 
-On the build machine, use the section 5 commands to check out `v12.2.0`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
+On the build machine, use the section 5 commands to check out `v12.1.3`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
 
 ```bash
-DMCT_BUNDLE=$(mktemp -d /root/dmct-bundle.XXXXXXXX)
-mkdir -m 0700 "$DMCT_BUNDLE/runtime"
-node "$DMCT_APPROVED_SOURCE/deploy/debian-13/promote-runtime.mjs" \
-  "$PWD/dist/runtime" "$DMCT_BUNDLE/runtime" "$(id -u dmct-build)"
-node "$DMCT_APPROVED_SOURCE/scripts/runtime-integrity.mjs" \
-  "$DMCT_BUNDLE/runtime" --trusted-staging
-cp -a "$DMCT_APPROVED_SOURCE/deploy/debian-13" "$DMCT_BUNDLE/deploy"
-cp "$DMCT_APPROVED_SOURCE/scripts/runtime-integrity.mjs" "$DMCT_BUNDLE/runtime-integrity.mjs"
-tar -C "$DMCT_BUNDLE" -czf /root/dm-command-table-v12.2.0-lxc.tar.gz .
-(cd /root; sha256sum dm-command-table-v12.2.0-lxc.tar.gz > dm-command-table-v12.2.0-lxc.tar.gz.sha256)
+mkdir -p dist/lxc-bundle
+cp -a dist/runtime dist/lxc-bundle/runtime
+cp -a deploy/debian-13 dist/lxc-bundle/deploy
+cp scripts/runtime-integrity.mjs dist/lxc-bundle/runtime-integrity.mjs
+tar -C dist/lxc-bundle -czf dist/dm-command-table-v12.1.3-lxc.tar.gz .
+(cd dist; sha256sum dm-command-table-v12.1.3-lxc.tar.gz > dm-command-table-v12.1.3-lxc.tar.gz.sha256)
 ```
 
 Transfer both files from the approved build. Verify the checksum from that trusted transfer before extracting into a new staging directory. Checksums alone do not establish who produced the bundle. On the runtime host:
 
 ```bash
 cd /path/to/transferred-files
-sha256sum --check dm-command-table-v12.2.0-lxc.tar.gz.sha256
+sha256sum --check dm-command-table-v12.1.3-lxc.tar.gz.sha256
 install -d -o root -g root -m 0700 /root/dmct-install
-tar -xzf dm-command-table-v12.2.0-lxc.tar.gz -C /root/dmct-install
+tar -xzf dm-command-table-v12.1.3-lxc.tar.gz -C /root/dmct-install
 cd /root/dmct-install
 ```
 
-For this path, create only the `dmct` account and runtime directories from section 4; skip the build account, source clone and pnpm/browser installation on the runtime host. Replace section 6 with these commands from the root-only extracted bundle:
-
-```bash
-cd /root/dmct-install
-test ! -e /opt/dm-command-table/releases/initial
-test ! -e /opt/dm-command-table/current
-test ! -L /opt/dm-command-table/current
-install -o root -g root -m 0644 runtime-integrity.mjs /usr/local/lib/dm-command-table/runtime-integrity.mjs
-install -o root -g root -m 0644 deploy/promote-runtime.mjs /usr/local/lib/dm-command-table/promote-runtime.mjs
-install -d -o root -g root -m 0700 /opt/dm-command-table/releases/initial
-node /usr/local/lib/dm-command-table/promote-runtime.mjs "$PWD/runtime" /opt/dm-command-table/releases/initial 0
-node /usr/local/lib/dm-command-table/runtime-integrity.mjs /opt/dm-command-table/releases/initial --trusted-staging
-chmod -R a+rX,go-w /opt/dm-command-table/releases/initial
-chmod 0755 /opt/dm-command-table/releases/initial
-ln -s /opt/dm-command-table/releases/initial /opt/dm-command-table/current
-install -o root -g root -m 0600 deploy/dm-command-table.env.example /etc/dm-command-table.env
-install -o root -g root -m 0644 deploy/dm-command-table.service deploy/dm-command-table-backup.service deploy/dm-command-table-backup.timer /etc/systemd/system/
-install -o root -g root -m 0644 deploy/nginx-dm-command-table.conf /etc/nginx/sites-available/dm-command-table
-```
-
-Continue sections 7–9 normally. GUI-update helper installation uses `/root/dmct-install/deploy/install-gui-updater`; it provisions the separate build account/tools for future source updates if online updates are wanted. An offline host can instead retain host-managed runtime transfers. Keep the root-only bundle staging directory separate from the root-owned `/opt` release path.
+For this path, create only the `dmct` account and runtime directories from section 4; skip the build account, source clone and pnpm/browser installation on the runtime host. Follow section 6 from `/root/dmct-install` (skip its source-checkout `cd`), using `runtime` instead of `dist/runtime`, `runtime-integrity.mjs` instead of `scripts/runtime-integrity.mjs`, and `deploy/` instead of `deploy/debian-13/`. Continue sections 7–9 normally. GUI-update installation below uses `deploy/` from this bundle too. Keep the root-only bundle staging directory separate from the root-owned `/opt` release path.
 
 A host with no Internet access at all must receive Debian/Node packages and their dependency closure from a trusted local APT mirror or installation media before these steps. No npm registry, Git checkout, pnpm or browser installation is needed on that runtime-only host. OS and Node provisioning is still required; a runtime bundle does not contain the operating system or Node executable.
 
@@ -392,15 +361,13 @@ After one-time installation of the automatic updater, **Update application** han
 The complete installer already activates GUI updates. For manual setup or root-owned helper maintenance, run these commands as root from an approved checkout. Helper installation does not require an application build; routine application updates then use the Admin button. The web application cannot replace root-owned helper code.
 
 ```bash
-set -euo pipefail
-umask 077
-DMCT_UPDATER_SOURCE=$(mktemp -d /root/dmct-updater.XXXXXXXX)/source
-git clone --depth 1 --branch v12.2.0 https://github.com/CoxkeLamagra/DM-Command-Table.git "$DMCT_UPDATER_SOURCE"
-git -C "$DMCT_UPDATER_SOURCE" rev-parse HEAD
-bash "$DMCT_UPDATER_SOURCE/deploy/debian-13/install-gui-updater"
+cd /var/cache/dm-command-table-build/source
+runuser -u dmct-build -- git fetch --tags origin
+runuser -u dmct-build -- git checkout --detach v12.1.3
+bash deploy/debian-13/install-gui-updater
 ```
 
-For a fresh installation where section 5 already selected this release, run `bash "$DMCT_APPROVED_SOURCE/deploy/debian-13/install-gui-updater"`. With a complete transferred LXC bundle, run `bash /root/dmct-install/deploy/install-gui-updater` instead. The installer checks system-wide Node 24, installs Git/curl/Chromium/native build tools and pnpm 11.25.0, creates the separate build account when missing, installs the root-owned broker/build helper/updater/verifier and enables the service. It refuses to replace a running update. The application itself remains running during installation. Do not modify source checkout files before running the installer.
+For a fresh installation where section 5 already selected this release, only the installer command is needed. With a complete transferred LXC bundle, run `bash /root/dmct-install/deploy/install-gui-updater` instead. The installer checks system-wide Node 24, installs Git/curl/Chromium/native build tools and pnpm 11.25.0, creates the separate build account when missing, installs the root-owned broker/build helper/updater/verifier and enables the service. It refuses to replace a running update. The application itself remains running during installation. Do not modify source checkout files before running the installer.
 
 The updater service needs outbound HTTPS access to GitHub and the npm registry (and GitHub release/CDN hosts required by dependencies), plus working DNS. Its service permits the network access required for automatic downloads. Custom systemd/network restrictions may still need host-specific adjustment. No GitHub token is required for this public repository, and no application credentials are passed to builds. Ordinary application operation remains local; remote Bestiary access is separately optional.
 
@@ -496,5 +463,3 @@ Local JSON imports and normal application use remain offline. To search the onli
 ## Existing installations upgrading to v12
 
 v11 root helpers select only v11 tags. Follow [Upgrading to v12](upgrading-to-v12.md) to install the v12 helpers once, then use Administration → Update Application. The v12 installer is for fresh containers and must not overwrite existing application storage. v12.1 preserves supported v11/v12 data and current workflows while automatically applying schema migration 3. Retain the pre-update database backup with the old runtime for rollback; older runtimes cannot use the migrated database. The new helper selects stable v12 tags and excludes v13/prereleases by default.
-
-For Internet-facing deployment, complete the [public HTTPS hosting guide](public-hosting.md). Existing helpers predating v12.2 require the one-time trusted helper refresh above; the new application identifies and blocks outdated updater starts.

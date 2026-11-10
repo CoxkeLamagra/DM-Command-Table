@@ -115,20 +115,16 @@ export function BestiaryScreen({
   useEffect(() => {
     let live = true;
     if (!query.trim()) return;
-    const controller = new AbortController();
     const timer = setTimeout(() => {
-      void listMonsters(campaignId, query, controller.signal)
+      void listMonsters(campaignId, query)
         .then((items) => {
           if (live) setMatches(new Set(items.map(({ id }) => id)));
         })
-        .catch((error) => {
-          if (!controller.signal.aborted) report(error);
-        });
+        .catch(report);
     }, 200);
     return () => {
       live = false;
       clearTimeout(timer);
-      controller.abort();
     };
   }, [campaignId, query, monsters]);
   const visible = useMemo(

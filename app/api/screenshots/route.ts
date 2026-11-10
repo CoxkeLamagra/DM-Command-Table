@@ -1,6 +1,3 @@
-import { apiHandler } from "../../../server/http/api-handler.ts";
-import { withBodyActor } from "@/server/http/body-reader";
-import { checkMultipartEnvelope } from "@/server/http/multipart";
 import { getDatabase } from "@/db/sqlite";
 import { rejectCrossOrigin } from "@/server/http/origin";
 import { getUser } from "@/server/identity/auth";
@@ -13,29 +10,16 @@ import { getServerSettings } from "@/server/administration/server-settings";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function handleGET(request: Request) {
-  try {
-    const database = getDatabase();
-    const user = await getUser(database);
-    if (!user) return apiJson({ error: "Authentication required." }, 401);
-    const limited = enforceRateLimit(
-      database,
-      request,
-      "media-list",
-      user.userId,
-      120,
-      60_000,
-    );
-    if (limited) return limited;
-    return apiJson({
-      screenshots: listScreenshots(database, user.userId, user.isAdmin),
-    });
-  } catch (error) {
-    return apiError(error);
-  }
+export async function GET() {
+  const database = getDatabase();
+  const user = await getUser(database);
+  if (!user) return apiJson({ error: "Authentication required." }, 401);
+  return apiJson({
+    screenshots: listScreenshots(database, user.userId, user.isAdmin),
+  });
 }
 
-async function handlePOST(request: Request) {
+export async function POST(request: Request) {
   const origin = rejectCrossOrigin(request);
   if (origin) return origin;
   try {
@@ -72,18 +56,13 @@ async function handlePOST(request: Request) {
       declared > maximumBytes + 1024 * 1024
     )
       return apiJson({ error: "The upload is too large." }, 413);
-    const bytes = await withBodyActor(user.userId, () =>
-      boundedRequestBytes(request, maximumBytes + 1024 * 1024),
+    const bytes = await boundedRequestBytes(
+      request,
+      maximumBytes + 1024 * 1024,
     );
-    checkMultipartEnvelope(bytes, contentType);
-    let form: FormData;
-    try {
-      form = await new Response(bytes as BodyInit, {
-        headers: { "content-type": contentType },
-      }).formData();
-    } catch {
-      throw new PublicApiError("Invalid multipart body.");
-    }
+    const form = await new Response(bytes as BodyInit, {
+      headers: { "content-type": contentType },
+    }).formData();
     if (form.getAll("file").length !== 1)
       throw new PublicApiError("Upload exactly one image at a time.");
     if (
@@ -117,14 +96,3 @@ async function handlePOST(request: Request) {
     return apiError(error);
   }
 }
-
-export const GET = apiHandler(handleGET);
-export const POST = apiHandler(handlePOST);
-
-export const OPTIONS = apiHandler(
-  () =>
-    new Response(null, {
-      status: 204,
-      headers: { Allow: "GET, POST, HEAD, OPTIONS" },
-    }),
-);

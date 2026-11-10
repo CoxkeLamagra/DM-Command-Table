@@ -173,7 +173,6 @@ test("update panel shows progress, reconnects and retains completion logs", asyn
     await route.fulfill({
       json: {
         available: true,
-        securityVersion: 2,
         target: "latest",
         job: started
           ? completed
@@ -224,24 +223,4 @@ test("update panel shows progress, reconnects and retains completion logs", asyn
   await expect(
     panel.getByRole("button", { name: "Reload application" }),
   ).toBeVisible();
-});
-
-test("legacy updater helpers require explicit host maintenance before GUI update starts", async ({
-  page,
-}) => {
-  await page.route("**/api/admin/updates", (route) =>
-    route.fulfill({ json: { available: true, target: "latest", job: null } }),
-  );
-  await page.goto("/");
-  await page.getByLabel("Username", { exact: true }).fill("browser-updates");
-  await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
-  await page.locator('form button[type="submit"]').click();
-  await page
-    .getByRole("button", { name: "Administration", exact: true })
-    .click();
-  const panel = page.getByRole("region", { name: "Application updates" });
-  await expect(
-    panel.getByRole("button", { name: "Update application", exact: true }),
-  ).toBeDisabled();
-  await expect(panel).toContainText("One-time host maintenance is required");
 });

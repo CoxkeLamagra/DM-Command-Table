@@ -1,4 +1,3 @@
-import { apiHandler } from "../../../server/http/api-handler.ts";
 import { assertStorageReady } from "@/server/config";
 import { APPLICATION_VERSION } from "@/lib/version";
 import {
@@ -10,7 +9,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function handleGET() {
+export function GET() {
   try {
     assertStorageReady();
     const database = getDatabase();
@@ -35,13 +34,3 @@ function handleGET() {
     );
   }
 }
-
-export const GET = apiHandler(handleGET);
-
-export const OPTIONS = apiHandler(
-  () =>
-    new Response(null, {
-      status: 204,
-      headers: { Allow: "GET, HEAD, OPTIONS" },
-    }),
-);

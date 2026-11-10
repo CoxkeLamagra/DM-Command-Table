@@ -1,4 +1,3 @@
-import { isIP } from "node:net";
 type Bucket = { count: number; resetsAt: number };
 
 const buckets = new Map<string, Bucket>();
@@ -45,11 +44,11 @@ export function rateLimitResponse(retryAfterSeconds: number): Response {
 export function clientAddress(request: Request): string {
   if (process.env.DM_COMMAND_TABLE_TRUST_PROXY !== "true")
     return "direct-client";
-  const candidate =
+  return (
     request.headers.get("x-real-ip")?.trim() ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    "";
-  return isIP(candidate) ? candidate.toLowerCase() : "unknown";
+    "unknown"
+  );
 }
 
 function cleanup(now: number): void {

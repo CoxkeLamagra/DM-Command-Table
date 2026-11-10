@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { allocationByteLimit } from "../security/allocation-budget.ts";
+import { exportByteLimit } from "../campaigns/export-budget.ts";
 import { PublicApiError } from "../http/errors.ts";
 
 export function monsterSelection(ids?: string[]) {
@@ -18,7 +18,7 @@ export function assertMonsterReadBudget(
   quantities?: Map<string, number>,
 ) {
   const selection = monsterSelection(ids);
-  const limit = allocationByteLimit();
+  const limit = exportByteLimit();
   let bytes = 0;
   // Charge each binding, not each shared definition, before .all()/JSON.parse.
   for (const row of database

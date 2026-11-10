@@ -1,10 +1,10 @@
 import type { DatabaseSync } from "node:sqlite";
-import { rateLimitResponse } from "../security/rate-limit.ts";
+import { clientAddress, rateLimitResponse } from "../security/rate-limit.ts";
 import { consumePersistentRateLimit } from "../security/sqlite-rate-limit.ts";
 
 export function enforceRateLimit(
   database: DatabaseSync,
-  _request: Request,
+  request: Request,
   scope: string,
   subject: string,
   limit: number,
@@ -12,7 +12,7 @@ export function enforceRateLimit(
 ): Response | null {
   const result = consumePersistentRateLimit(
     database,
-    `${scope}:${subject}`,
+    `${scope}:${subject}:${clientAddress(request)}`,
     limit,
     windowMs,
   );

@@ -40,14 +40,11 @@ fi
 install -d -o root -g root -m 0755 "$BASE/releases"
 RELEASE=$(mktemp -d "$BASE/releases/release-XXXXXXXX")
 step stage
-PROMOTER=/usr/local/lib/dm-command-table/promote-runtime.mjs
-[[ -f $PROMOTER ]] || { echo 'Install the v12.2 GUI updater helpers once before retrying.' >&2; exit 1; }
-SOURCE_OWNER=0
-if [[ $TARGET != staged ]]; then SOURCE_OWNER=$(id -u dmct-build); (( SOURCE_OWNER > 0 )) || { echo 'The build account must be unprivileged.' >&2; exit 1; }; fi
-/usr/bin/node "$PROMOTER" "$CANDIDATE" "$RELEASE" "$SOURCE_OWNER"
-NEW_METADATA=$(/usr/bin/node "$VERIFIER" "$RELEASE" --trusted-staging)
+cp -a "$CANDIDATE/." "$RELEASE/"
+chown -hR root:root "$RELEASE"
 chmod -R a+rX,go-w "$RELEASE"
 chmod 0755 "$RELEASE"
+NEW_METADATA=$(/usr/bin/node "$VERIFIER" "$RELEASE" --trusted-staging)
 NEW_VERSION=$(printf '%s' "$NEW_METADATA" | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>console.log(JSON.parse(s).applicationVersion))')
 set -a
 source /etc/dm-command-table.env

@@ -1,4 +1,3 @@
-import { createReadBudget } from "../security/read-budget.ts";
 import { statement } from "../../db/statements.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
@@ -25,8 +24,6 @@ export function createSessionRepository(database: DatabaseSync) {
   return {
     listSessions(campaignId: string, actorUserId: string): Session[] {
       requireCampaignRead(database, campaignId, actorUserId);
-      const budget = createReadBudget(database);
-      budget.table("sessions", "r.campaign_id=?", [campaignId]);
       return (
         statement(
           database,

@@ -1,4 +1,3 @@
-import { createReadBudget } from "../security/read-budget.ts";
 import { parseInput } from "../http/validation.ts";
 import { PublicApiError } from "../http/errors.ts";
 import { statement } from "../../db/statements.ts";
@@ -36,17 +35,6 @@ export function createPreparedRepository(database: DatabaseSync) {
     ): PreparedEncounter[] {
       requireCampaignRead(database, campaignId, actorUserId);
       ensureSession(database, campaignId, sessionId);
-      const budget = createReadBudget(database);
-      budget.table("prepared_encounters", "r.session_id=?", [sessionId]);
-      for (const table of [
-        "prepared_encounter_monsters",
-        "prepared_combatants",
-      ] as const)
-        budget.table(
-          table,
-          "r.encounter_id IN (SELECT id FROM prepared_encounters WHERE session_id=?)",
-          [sessionId],
-        );
       const rows = statement(
         database,
         `SELECT id, session_id AS sessionId, name, notes, sort_order AS sortOrder,

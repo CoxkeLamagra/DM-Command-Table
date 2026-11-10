@@ -121,7 +121,6 @@ export function UpdatePanel() {
         <Button
           disabled={
             !state?.available ||
-            state.securityVersion !== 2 ||
             Boolean(message) ||
             starting ||
             job?.status === "running"
@@ -145,19 +144,6 @@ export function UpdatePanel() {
           GUI updates require the Debian LXC update service. Ask the server
           administrator to enable it using the deployment guide. For Docker,
           update the container on its host.
-        </p>
-      )}
-      {state?.available && state.securityVersion !== 2 && (
-        <p className="mt-3 text-sm text-amber-200" role="status">
-          One-time host maintenance is required before updates can start.
-          Refresh the v12.2 updater helpers using the{" "}
-          <a
-            className="underline"
-            href="https://github.com/CoxkeLamagra/DM-Command-Table/blob/main/docs/public-hosting.md"
-          >
-            public-hosting guide
-          </a>
-          .
         </p>
       )}
       {message && (

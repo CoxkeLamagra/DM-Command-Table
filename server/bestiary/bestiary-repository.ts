@@ -89,50 +89,21 @@ export function createBestiaryRepository(database: DatabaseSync) {
       if (query.length > 200) throw new PublicApiError("Search is too long.");
       if (!searchFunctions.has(database)) {
         database.function(
-          "dmct_monster_matches",
+          "dmct_plain_text",
           { deterministic: true },
-          (name, type, cr, source, notes, query) => {
-            const terms = [
-              ...new Set(
-                String(query).toLowerCase().trim().split(/\s+/).filter(Boolean),
-              ),
-            ];
-            const metadata =
-              `${name ?? ""} ${type ?? ""} ${cr ?? ""} ${source ?? ""}`.toLowerCase();
-            const missing = terms.filter((term) => !metadata.includes(term));
-            if (!missing.length) return 1;
-            const text = richTextToPlainText(
-              typeof notes === "string" ? notes : "",
-            ).toLowerCase();
-            return missing.every((term) => text.includes(term)) ? 1 : 0;
-          },
+          (value) =>
+            typeof value === "string" ? richTextToPlainText(value) : "",
         );
         searchFunctions.add(database);
       }
-      const search = query.trim()
-        ? ` AND dmct_monster_matches(m.name,
-        json_extract(d.payload,'$.type'),json_extract(d.payload,'$.challengeRating'),
-        json_extract(d.payload,'$.source'),json_extract(d.payload,'$.notes'),?)=1`
-        : "";
-      const cursors = database
-        .prepare(
-          `SELECT m.id,length(CAST(d.payload AS BLOB)) AS bytes
-        FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id
-        WHERE m.campaign_id=? AND m.id>? ORDER BY m.id LIMIT 101`,
+      const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      const search = terms
+        .map(
+          () => ` AND instr(lower(m.name || ' ' ||
+        json_extract(d.payload,'$.type') || ' ' || json_extract(d.payload,'$.challengeRating') || ' ' ||
+        COALESCE(json_extract(d.payload,'$.source'),'') || ' ' || dmct_plain_text(json_extract(d.payload,'$.notes'))), ?) > 0`,
         )
-        .all(campaignId, after) as { id: string; bytes: number }[];
-      const scanned: string[] = [];
-      let scannedBytes = 0;
-      for (const row of cursors) {
-        if (
-          scanned.length === 100 ||
-          (scanned.length && scannedBytes + row.bytes > 4 * 1024 * 1024)
-        )
-          break;
-        scanned.push(row.id);
-        scannedBytes += row.bytes;
-      }
-      const selection = monsterSelection(scanned);
+        .join("");
       const rows = database
         .prepare(
           `SELECT m.id, m.campaign_id AS campaignId, m.name,
@@ -142,13 +113,9 @@ export function createBestiaryRepository(database: DatabaseSync) {
         json_extract(d.payload,'$.source') AS source, m.favorite, m.revision,
         m.created_at AS createdAt, m.updated_at AS updatedAt
         FROM monsters m JOIN monster_definitions d ON d.id=m.definition_id
-        WHERE m.campaign_id=?${selection.sql}${search} ORDER BY m.id`,
+        WHERE m.campaign_id=? AND m.id>?${search} ORDER BY m.id LIMIT 101`,
         )
-        .all(
-          campaignId,
-          ...selection.args,
-          ...(search ? [query] : []),
-        ) as Array<
+        .all(campaignId, after, ...terms) as Array<
         Omit<
           MonsterSummary,
           "favorite" | "spellSlots" | "createdAt" | "updatedAt" | "tags"
@@ -174,8 +141,7 @@ export function createBestiaryRepository(database: DatabaseSync) {
       }));
       return {
         monsters: items,
-        next:
-          cursors.length > scanned.length ? scanned[scanned.length - 1] : null,
+        next: rows.length > 100 ? page[page.length - 1].id : null,
       };
     },
 

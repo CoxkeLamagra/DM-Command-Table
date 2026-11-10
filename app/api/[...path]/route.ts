@@ -1,5 +1,3 @@
-import { apiHandler } from "../../../server/http/api-handler.ts";
-import { withBodyActor } from "@/server/http/body-reader";
 import { parseApiRoute } from "@/server/http/api-route";
 import { withPackageWork } from "@/server/http/package-work";
 import { getDatabase } from "@/db/sqlite";
@@ -38,40 +36,15 @@ async function handle(request: Request): Promise<Response> {
     );
     if (rateLimit) return rateLimit;
   }
-  if (request.method === "GET") {
-    const limited = enforceRateLimit(
-      database,
-      request,
-      "read",
-      user.userId,
-      1200,
-      5 * 60 * 1000,
-    );
-    if (limited) return limited;
-    const expensive = route.isPackageWork || route.segments[2] === "export";
-    if (expensive) {
-      const limited = enforceRateLimit(
-        database,
-        request,
-        "export",
-        user.userId,
-        10,
-        60_000,
-      );
-      if (limited) return limited;
-    }
-  }
   const operation = () =>
-    withBodyActor(user.userId, () =>
-      handleApi(
-        request,
-        database,
-        {
-          userId: user.userId,
-          isAdmin: user.isAdmin,
-        },
-        route,
-      ),
+    handleApi(
+      request,
+      database,
+      {
+        userId: user.userId,
+        isAdmin: user.isAdmin,
+      },
+      route,
     );
   try {
     return route.isPackageWork
@@ -82,16 +55,8 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
-export const GET = apiHandler(handle);
-export const POST = apiHandler(handle);
-export const PUT = apiHandler(handle);
-export const PATCH = apiHandler(handle);
-export const DELETE = apiHandler(handle);
-
-export const OPTIONS = apiHandler(
-  () =>
-    new Response(null, {
-      status: 204,
-      headers: { Allow: "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS" },
-    }),
-);
+export const GET = handle;
+export const POST = handle;
+export const PUT = handle;
+export const PATCH = handle;
+export const DELETE = handle;

@@ -1,5 +1,3 @@
-import { apiHandler } from "../../../server/http/api-handler.ts";
-import { withBodyActor } from "@/server/http/body-reader";
 import { parseInput } from "../../../server/http/validation.ts";
 import { z } from "zod";
 import { getDatabase } from "@/db/sqlite";
@@ -25,17 +23,14 @@ const schema = z.discriminatedUnion("action", [
   }),
 ]);
 
-async function handlePATCH(request: Request) {
+export async function PATCH(request: Request) {
   const origin = rejectCrossOrigin(request);
   if (origin) return origin;
   try {
     const database = getDatabase();
     const user = await getUser(database);
     if (!user) return apiJson({ error: "Authentication required." }, 401);
-    const input = parseInput(
-      schema,
-      await withBodyActor(user.userId, () => jsonBody(request, 8192)),
-    );
+    const input = parseInput(schema, await jsonBody(request, 8192));
     const limited = enforceRateLimit(
       database,
       request,
@@ -61,10 +56,3 @@ async function handlePATCH(request: Request) {
     return apiError(error);
   }
 }
-
-export const PATCH = apiHandler(handlePATCH);
-
-export const OPTIONS = apiHandler(
-  () =>
-    new Response(null, { status: 204, headers: { Allow: "PATCH, OPTIONS" } }),
-);

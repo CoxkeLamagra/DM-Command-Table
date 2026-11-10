@@ -3,7 +3,6 @@ import { requestJson, json } from "./transport";
 export async function listMonsters(
   campaignId: string,
   query = "",
-  signal?: AbortSignal,
 ): Promise<MonsterSummary[]> {
   const items: MonsterSummary[] = [];
   let next: string | null = "";
@@ -11,9 +10,7 @@ export async function listMonsters(
     const params = new URLSearchParams({ view: "summary", q: query });
     if (next) params.set("after", next);
     const page: { monsters: MonsterSummary[]; next: string | null } =
-      await requestJson(`/api/campaigns/${campaignId}/monsters?${params}`, {
-        signal,
-      });
+      await requestJson(`/api/campaigns/${campaignId}/monsters?${params}`);
     items.push(...page.monsters);
     next = page.next;
   } while (next);

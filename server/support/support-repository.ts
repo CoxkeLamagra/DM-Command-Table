@@ -1,4 +1,3 @@
-import { createReadBudget } from "../security/read-budget.ts";
 import { assertAccountBudget } from "../security/storage-budget.ts";
 import { runTransaction } from "../../db/transaction.ts";
 import { statement } from "../../db/statements.ts";
@@ -36,9 +35,6 @@ type TemplateRow = Omit<SessionTemplate, "createdAt" | "updatedAt"> & {
 export function createSupportRepository(database: DatabaseSync) {
   return {
     listTemplates(ownerId: string): SessionTemplate[] {
-      createReadBudget(database).table("session_templates", "r.owner_id=?", [
-        ownerId,
-      ]);
       return (
         statement(
           database,
