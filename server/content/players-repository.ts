@@ -43,6 +43,7 @@ export function createPlayerRepository(database: DatabaseSync) {
       > & { kind?: Player["kind"] },
     ): Player {
       requireCampaignEdit(database, campaignId, actorUserId);
+      const safeText = sanitizeRichText(input.notes ?? "");
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
@@ -62,7 +63,7 @@ export function createPlayerRepository(database: DatabaseSync) {
           input.level,
           input.hitPoints,
           input.armorClass,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
           now,
           now,
         );
@@ -81,7 +82,7 @@ export function createPlayerRepository(database: DatabaseSync) {
           actorUserId,
           "player",
           id,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
         );
       });
       return getPlayer(database, id);
@@ -97,6 +98,7 @@ export function createPlayerRepository(database: DatabaseSync) {
       > & { kind?: Player["kind"] },
     ): Player {
       requireCampaignEdit(database, campaignId, actorUserId);
+      const safeText = sanitizeRichText(input.notes ?? "");
       runTransaction(database, () => {
         const result = statement(
           database,
@@ -112,7 +114,7 @@ export function createPlayerRepository(database: DatabaseSync) {
           input.level,
           input.hitPoints,
           input.armorClass,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
           Date.now(),
           id,
           campaignId,
@@ -142,7 +144,7 @@ export function createPlayerRepository(database: DatabaseSync) {
           actorUserId,
           "player",
           id,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
         );
       });
       return getPlayer(database, id);

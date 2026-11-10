@@ -24,23 +24,22 @@ export function createStoryRepository(database: DatabaseSync) {
   return {
     listStory(campaignId: string, actorUserId: string): StoryBeat[] {
       requireCampaignRead(database, campaignId, actorUserId);
+      // Aggregate ordered links in SQLite to avoid per-record driver calls and
+      // materializing a separate JavaScript object for every relationship.
       const rows = statement(
         database,
-        `SELECT id, campaign_id AS campaignId, title, chapter, details, status,
-                sort_order AS sortOrder, revision,
-                created_at AS createdAt, updated_at AS updatedAt
-           FROM story_beats WHERE campaign_id = ?
-          ORDER BY sort_order, id`,
-      ).all(campaignId) as StoryRow[];
-      const sessions = statement(
-        database,
-        "SELECT session_id AS sessionId FROM story_session_links WHERE story_beat_id = ? ORDER BY session_id",
-      );
-      return rows.map((row) => ({
+        `SELECT b.id, b.campaign_id AS campaignId, b.title, b.chapter, b.details, b.status,
+                b.sort_order AS sortOrder, b.revision,
+                b.created_at AS createdAt, b.updated_at AS updatedAt,
+                (SELECT json_group_array(session_id) FROM
+                  (SELECT session_id FROM story_session_links
+                   WHERE story_beat_id = b.id ORDER BY session_id)) AS sessionIds
+           FROM story_beats b WHERE b.campaign_id = ?
+          ORDER BY b.sort_order, b.id`,
+      ).all(campaignId) as Array<StoryRow & { sessionIds: string }>;
+      return rows.map(({ sessionIds, ...row }) => ({
         ...toStory(row),
-        sessionIds: (sessions.all(row.id) as Array<{ sessionId: string }>).map(
-          ({ sessionId }) => sessionId,
-        ),
+        sessionIds: JSON.parse(sessionIds) as string[],
       }));
     },
     createStoryBeat(
@@ -52,6 +51,7 @@ export function createStoryRepository(database: DatabaseSync) {
       >,
     ): StoryBeat {
       requireCampaignEdit(database, campaignId, actorUserId);
+      const safeText = sanitizeRichText(input.details ?? "");
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
@@ -66,7 +66,7 @@ export function createStoryRepository(database: DatabaseSync) {
           campaignId,
           input.title,
           input.chapter,
-          sanitizeRichText(input.details ?? ""),
+          safeText,
           input.status,
           input.sortOrder,
           now,
@@ -88,7 +88,7 @@ export function createStoryRepository(database: DatabaseSync) {
           actorUserId,
           "story_beat",
           id,
-          sanitizeRichText(input.details ?? ""),
+          safeText,
         );
       });
       return getStory(database, id);
@@ -104,6 +104,7 @@ export function createStoryRepository(database: DatabaseSync) {
       >,
     ): StoryBeat {
       requireCampaignEdit(database, campaignId, actorUserId);
+      const safeText = sanitizeRichText(input.details ?? "");
       runTransaction(database, () => {
         const result = statement(
           database,
@@ -113,7 +114,7 @@ export function createStoryRepository(database: DatabaseSync) {
         ).run(
           input.title,
           input.chapter,
-          sanitizeRichText(input.details ?? ""),
+          safeText,
           input.status,
           input.sortOrder,
           Date.now(),
@@ -146,7 +147,7 @@ export function createStoryRepository(database: DatabaseSync) {
           actorUserId,
           "story_beat",
           id,
-          sanitizeRichText(input.details ?? ""),
+          safeText,
         );
       });
       return getStory(database, id);

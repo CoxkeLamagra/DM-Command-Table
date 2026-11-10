@@ -2,6 +2,14 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.1.4 — 2026-11-10
+
+- Reuse plain-text search projections for unchanged Player/NPC, Session and Story records, avoiding repeated rich-text conversion while typing or changing filters. Weak-key caching permits unused records to be collected and immutable edits refresh their text.
+- Load Story records and ordered Session links in one SQLite query instead of issuing a link query per record; aggregate links without intermediate JavaScript relationship objects.
+- Sanitize Player, Session and Story text once per save and reuse it for persistence and screenshot references. Memoize read-only rich-text sanitization until its content changes.
+- Preserve existing behavior, storage schema, production dependencies, permissions, resource limits and deployment/update configuration. See the resource-optimization notes for measurements and validation.
+- Upgrade modern development minimatch to 11.0.1, clearing the dependency-audit blocker without adding an advisory exception or changing the audit policy.
+
 ## 12.1.3 — 2026-10-28
 
 - Upgrade Next.js and its lint configuration to 16.4.1 and Zod to 4.6.6, resolving the current dependency audit findings without disabling the audit gate.

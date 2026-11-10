@@ -89,3 +89,85 @@ test("story links are deduplicated and constrained to the campaign", () => {
   ]);
   database.close();
 });
+
+test("story collection reads keep query count constant and links campaign-scoped and ordered", () => {
+  const { database, campaign, content } = fixture();
+  let reads = 0;
+  const prepare = database.prepare.bind(database);
+  database.prepare = (sql: string) => {
+    const prepared = prepare(sql);
+    return new Proxy(prepared, {
+      get(target, property) {
+        const value = Reflect.get(target, property);
+        if (typeof value !== "function") return value;
+        return (...args: unknown[]) => {
+          if (["all", "get", "iterate"].includes(String(property))) reads++;
+          return value.apply(target, args);
+        };
+      },
+    });
+  };
+  try {
+    const session = (title: string) =>
+      content.createSession(campaign.id, "owner", {
+        title,
+        date: "",
+        notes: "",
+        status: "planned",
+        sortOrder: 0,
+      });
+    const first = session("First"),
+      second = session("Second");
+    const story = (title: string, sessionIds: string[]) =>
+      content.createStoryBeat(campaign.id, "owner", {
+        title,
+        chapter: "",
+        details: "<p>Notes</p>",
+        status: "planned",
+        sortOrder: 0,
+        sessionIds,
+      });
+    const initial = story("Linked", [second.id, first.id]);
+    reads = 0;
+    assert.equal(content.listStory(campaign.id, "owner").length, 1);
+    const smallReads = reads;
+    for (let i = 0; i < 30; i++) story(`Beat ${i}`, i % 2 ? [first.id] : []);
+    const other = createCampaignRepository(database).create("owner", {
+      name: "Other",
+    });
+    content.createStoryBeat(other.id, "owner", {
+      title: "Other campaign",
+      chapter: "",
+      details: "",
+      status: "planned",
+      sortOrder: 0,
+      sessionIds: [],
+    });
+    reads = 0;
+    const result = content.listStory(campaign.id, "owner");
+    assert.equal(
+      reads,
+      smallReads,
+      "one link query per collection, regardless of story count",
+    );
+    assert.equal(result.length, 31);
+    assert.deepEqual(
+      result.find(({ id }) => id === initial.id)?.sessionIds,
+      [first.id, second.id].sort(),
+    );
+    assert.equal(
+      result.some(({ title }) => title === "Other campaign"),
+      false,
+    );
+    assert.ok(result.some(({ sessionIds }) => sessionIds.length === 0));
+    content.deleteSession(campaign.id, "owner", second.id);
+    assert.deepEqual(
+      content
+        .listStory(campaign.id, "owner")
+        .find(({ id }) => id === initial.id)?.sessionIds,
+      [first.id],
+    );
+  } finally {
+    database.close();
+  }
+});

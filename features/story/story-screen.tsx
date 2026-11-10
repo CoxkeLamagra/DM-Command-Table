@@ -1,4 +1,5 @@
 "use client";
+import { createRecordSearch } from "../shared/search";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -34,6 +35,11 @@ import {
 import { StatusBadge, StatusSelect } from "../shared/progress-status";
 import { Empty, Section } from "@/features/shared/record-section";
 import type { Session, StoryBeat } from "@/domain/types";
+
+const searchStory = createRecordSearch<StoryBeat>(
+  (item) =>
+    `${item.title} ${item.chapter} ${richTextToPlainText(item.details)}`,
+);
 
 export function StoryScreen({
   campaignId,
@@ -116,16 +122,7 @@ export function StoryScreen({
       error instanceof Error ? error.message : "Story update failed.",
     );
   }
-  const visible = useMemo(() => {
-    const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return story.filter((item) =>
-      terms.every((term) =>
-        `${item.title} ${item.chapter} ${richTextToPlainText(item.details)}`
-          .toLowerCase()
-          .includes(term),
-      ),
-    );
-  }, [query, story]);
+  const visible = useMemo(() => searchStory(story, query), [query, story]);
   function patch(id: string, values: Partial<StoryBeat>) {
     setStory((all) =>
       all.map((item) => (item.id === id ? { ...item, ...values } : item)),

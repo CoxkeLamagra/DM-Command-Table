@@ -41,6 +41,7 @@ export function createSessionRepository(database: DatabaseSync) {
       input: Pick<Session, "title" | "date" | "notes" | "status" | "sortOrder">,
     ): Session {
       requireCampaignEdit(database, campaignId, actorUserId);
+      const safeText = sanitizeRichText(input.notes ?? "");
       const id = crypto.randomUUID();
       const now = Date.now();
       runTransaction(database, () => {
@@ -55,7 +56,7 @@ export function createSessionRepository(database: DatabaseSync) {
           campaignId,
           input.title,
           input.date,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
           input.status,
           input.sortOrder,
           now,
@@ -76,7 +77,7 @@ export function createSessionRepository(database: DatabaseSync) {
           actorUserId,
           "session",
           id,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
         );
       });
       return getSession(database, id);
@@ -89,6 +90,7 @@ export function createSessionRepository(database: DatabaseSync) {
       input: Pick<Session, "title" | "date" | "notes" | "status" | "sortOrder">,
     ): Session {
       requireCampaignEdit(database, campaignId, actorUserId);
+      const safeText = sanitizeRichText(input.notes ?? "");
       runTransaction(database, () => {
         const result = statement(
           database,
@@ -98,7 +100,7 @@ export function createSessionRepository(database: DatabaseSync) {
         ).run(
           input.title,
           input.date,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
           input.status,
           input.sortOrder,
           Date.now(),
@@ -130,7 +132,7 @@ export function createSessionRepository(database: DatabaseSync) {
           actorUserId,
           "session",
           id,
-          sanitizeRichText(input.notes ?? ""),
+          safeText,
         );
       });
       return getSession(database, id);

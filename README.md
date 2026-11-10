@@ -1,6 +1,6 @@
 # DM Command Table
 
-DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **12.1.3**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing supported v11/v12 accounts and campaign data are retained; v12.1 applies schema migration 3 automatically. Back up before updating; downgrading requires the previous runtime and its matching pre-update backup.
+DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **12.1.4**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing supported v11/v12 accounts and campaign data are retained; v12.1 applies schema migration 3 automatically. Back up before updating; downgrading requires the previous runtime and its matching pre-update backup.
 
 Accounts, campaigns, Players/NPCs, Bestiary records, Stories/Sessions, prepared encounters, combat, search, screenshots and backups live on your server. Bundled libraries support offline operation. Opening Import monsters connects automatically to `dnd5e.lamagra.link`; local JSON imports remain available offline. Debian GUI updates contact GitHub and package registries only when you start an update.
 
@@ -12,7 +12,7 @@ Use a dedicated amd64/arm64 container with systemd, networking, at least 2 CPU c
 set -euo pipefail
 apt-get update
 apt-get install -y ca-certificates curl
-curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.1.3/deploy/debian-13/install-dm-command-table \
+curl -fsSL https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.1.4/deploy/debian-13/install-dm-command-table \
   -o /root/install-dm-command-table
 bash /root/install-dm-command-table
 ```
@@ -76,3 +76,5 @@ Full monster token images are stored in a separate **Token** section; Actions & 
 The v12 refactor separates prepared encounter state from rendering and splits Combat HP/condition editors into focused components. Indexed, memoized encounter summaries and cheaper persistence checks reduce repeated work. Exact API path/method validation and parent-session/origin checks strengthen mutation boundaries. See the architecture and security notes for details and limitations.
 
 Unchanged catalogue imports reuse immutable monster definitions across campaigns. Editing rule text, notes, stats or the token forks a permanently campaign-specific definition; favorites and tags stay campaign-specific without forking. Token imports reuse identical normalized image bytes already owned by the importing account, keeping image permissions intact. See [Bestiary reuse and future sharing](docs/architecture.md#bestiary-reuse-and-future-sharing).
+
+The v12.1.4 resource refactor reduces repeated roster-search, rich-text and Story-loading work without changing functionality or deployment settings. See [resource-optimization validation](docs/resource-optimization.md) for measurements and checks. These changes are included in v12.1.4.

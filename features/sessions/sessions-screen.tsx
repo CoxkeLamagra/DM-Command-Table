@@ -1,4 +1,5 @@
 "use client";
+import { createRecordSearch } from "../shared/search";
 import type { EncounterDraftController } from "../encounters/drafts";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -55,6 +56,10 @@ import {
   Empty,
   sessionTabClass,
 } from "@/features/shared/record-section";
+const searchSessions = createRecordSearch<Session>(
+  (item) => `${item.title} ${item.date} ${richTextToPlainText(item.notes)}`,
+);
+
 export function SessionsScreen({
   campaignId,
   editable,
@@ -180,16 +185,10 @@ export function SessionsScreen({
       error instanceof Error ? error.message : "Session update failed.",
     );
   }
-  const visible = useMemo(() => {
-    const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return sessions.filter((item) =>
-      terms.every((term) =>
-        `${item.title} ${item.date} ${richTextToPlainText(item.notes)}`
-          .toLowerCase()
-          .includes(term),
-      ),
-    );
-  }, [query, sessions]);
+  const visible = useMemo(
+    () => searchSessions(sessions, query),
+    [query, sessions],
+  );
   function patch(id: string, values: Partial<Session>) {
     setDirty((current) => new Set(current).add(id));
     setSessions((all) =>

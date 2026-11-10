@@ -176,3 +176,7 @@ Campaign JSON and image-package exports use a safe export budget of up to 50 MiB
 The application rejects excessive JSON structure before schema validation and bounds validation diagnostics. Bestiary screens use summary pages and selected full-detail requests; full-list/copy/snapshot operations can return 413 before allocation when their estimated expanded content exceeds available V8 heap headroom. Shared definitions are charged for every expanded binding and prepared quantity. Reduce the selected batch/quantity or use full-server backups for large exports; data is never silently truncated.
 
 Keep the dependency audit enabled during GUI update preparation. v12.1.3 includes patched Next.js/Zod dependencies and needs no new helper or schema migration. Existing runtime service overrides remain in place. Set host-appropriate service memory/CPU/task limits as additional containment, leaving room for the application, SQLite/native image work and the separate build account. GUI releases do not replace these root-owned host settings.
+
+## v12.1.4 release verification
+
+The resource-optimization release retains existing schema, root helpers and deployment settings. Its modern development minimatch is upgraded to 11.0.1. The release-time raw audit reports zero advisories; no new advisory exception or audit-policy change is required. Future advisories and audit errors remain blocking. Routine GUI updates require no new helper refresh for this release.

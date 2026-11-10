@@ -6,6 +6,7 @@ import { formatSelection, insertEditorNode } from "./editor-commands";
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -191,7 +192,10 @@ export function RichTextContent({
     () => true,
     () => false,
   );
-  const html = hydrated ? sanitizeRichText(editableHtml(value)) : "";
+  const html = useMemo(
+    () => (hydrated ? sanitizeRichText(editableHtml(value)) : ""),
+    [hydrated, value],
+  );
   if (!html) return null;
   return (
     <div

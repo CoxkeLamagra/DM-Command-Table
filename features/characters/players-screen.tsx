@@ -1,4 +1,5 @@
 "use client";
+import { createRecordSearch } from "../shared/search";
 import { isDraftDirty } from "@/features/shared/draft-state";
 
 import { deleteRecords } from "../shared/api";
@@ -36,6 +37,11 @@ import {
 } from "../shared/api";
 import { Empty, Section } from "@/features/shared/record-section";
 import type { Player } from "@/domain/types";
+
+const searchPlayers = createRecordSearch<Player>(
+  (item) =>
+    `${item.name} ${item.kind ?? "player"} ${item.race} ${item.className} ${richTextToPlainText(item.notes)}`,
+);
 
 export function PlayersScreen({
   campaignId,
@@ -118,18 +124,16 @@ export function PlayersScreen({
       error instanceof Error ? error.message : "Player update failed.",
     );
   }
-  const visible = useMemo(() => {
-    const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return players.filter(
-      (item) =>
-        (kindFilter === "all" || (item.kind ?? "player") === kindFilter) &&
-        terms.every((term) =>
-          `${item.name} ${item.kind ?? "player"} ${item.race} ${item.className} ${richTextToPlainText(item.notes)}`
-            .toLowerCase()
-            .includes(term),
-        ),
-    );
-  }, [players, query, kindFilter]);
+  const visible = useMemo(
+    () =>
+      searchPlayers(
+        players,
+        query,
+        (item) =>
+          kindFilter === "all" || (item.kind ?? "player") === kindFilter,
+      ),
+    [players, query, kindFilter],
+  );
   function add(kind: "player" | "npc") {
     setEditing({
       id: `draft:${crypto.randomUUID()}`,

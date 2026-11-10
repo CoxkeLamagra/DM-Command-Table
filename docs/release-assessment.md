@@ -1,3 +1,13 @@
+# v12.1.4 resource-optimization validation — 2026-11-10
+
+This release starts from restored v12.1.3 and preserves existing user/admin functionality, local storage, schema 3, production dependencies, API formats and deployment settings. It reduces repeated roster-search and rich-text work and retrieves Story records with ordered Session links through one SQLite statement. See [resource-optimization evidence](resource-optimization.md) for measurements and tradeoffs.
+
+Frozen installation, the dependency audit gate, formatting, lint, TypeScript, **165 unit/integration tests**, the production build and **21 browser tests** passed. The modern development minimatch update clears the release-time raw audit (zero advisories) without adding an exception or changing the audit policy. No new root helper, schema migration or public-hosting profile is introduced. No live LXC/site deployment was performed.
+
+The following assessment records the earlier v12.1.3 validation.
+
+---
+
 # v12.1.3 security-fix validation — 2026-10-28
 
 This release remediates the follow-up assessment's authenticated validation and Bestiary read memory-exhaustion findings. Next.js and matching lint configuration are locked to 16.4.1 and Zod to 4.6.6. The dependency audit passes with no unmitigated advisories; no advisory suppression was added. Schema remains version 3, portable formats remain supported, and local storage and all user/admin workflows are retained.
