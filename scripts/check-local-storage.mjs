@@ -11,6 +11,11 @@ try {
   if (!result || Object.values(result)[0] !== "ok") {
     throw new Error(`SQLite integrity check failed: ${JSON.stringify(result)}`);
   }
+  const violation = database.prepare("PRAGMA foreign_key_check").get();
+  if (violation)
+    throw new Error(
+      `SQLite foreign-key check failed: ${JSON.stringify(violation)}`,
+    );
   const rows = database.prepare("SELECT filename FROM screenshots").all();
   const expected = new Set(rows.map(({ filename }) => filename));
   const actual = new Set(

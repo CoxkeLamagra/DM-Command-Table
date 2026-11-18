@@ -1,0 +1,37 @@
+diff --git a/lib/parse.js b/lib/parse.js
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -492,6 +492,12 @@
+   };
+ 
+   const extglobOpen = (type, value) => {
++    // Local security policy: development tooling must not compile unbounded
++    // positive extglob repeats (GHSA-fc5q-39xc-vjpf), including literal overlaps.
++    if (type === 'plus' || type === 'star') {
++      throw new SyntaxError('Unbounded pattern repeats are disabled by local security policy');
++    }
++
+     const token = { ...EXTGLOB_CHARS[value], conditions: 1, inner: '' };
+ 
+     token.prev = prev;
+@@ -1055,8 +1061,7 @@
+       }
+ 
+       if ((prev && (prev.type === 'bracket' || prev.type === 'paren' || prev.type === 'brace')) || state.parens > 0) {
+-        push({ type: 'plus', value });
+-        continue;
++        throw new SyntaxError('Unbounded pattern repeats are disabled by local security policy');
+       }
+ 
+       push({ type: 'plus', value: PLUS_LITERAL });
+@@ -1230,9 +1235,7 @@
+     }
+ 
+     if (prev && (prev.type === 'bracket' || prev.type === 'paren') && opts.regex === true) {
+-      token.output = value;
+-      push(token);
+-      continue;
++      throw new SyntaxError('Unbounded pattern repeats are disabled by local security policy');
+     }
+ 
+     if (state.index === state.start || prev.type === 'slash' || prev.type === 'dot') {

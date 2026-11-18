@@ -11,10 +11,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-function checksum(filename) {
+function checksum(filename, buffer) {
   const hash = createHash("sha256"),
-    handle = openSync(filename, "r"),
-    buffer = Buffer.allocUnsafe(64 * 1024);
+    handle = openSync(filename, "r");
   try {
     let bytes;
     while ((bytes = readSync(handle, buffer, 0, buffer.length, null)) > 0)
@@ -32,10 +31,11 @@ export function verifyBackup(directory) {
   const manifest = JSON.parse(
     readFileSync(path.join(directory, "manifest.json"), "utf8"),
   );
+  const buffer = Buffer.allocUnsafe(64 * 1024);
   if (manifest.format !== "dmct-local-backup" || manifest.version !== 1)
     throw new Error("Unsupported backup format");
   if (
-    checksum(path.join(directory, "dm-command-table.sqlite")) !==
+    checksum(path.join(directory, "dm-command-table.sqlite"), buffer) !==
     manifest.databaseSha256
   )
     throw new Error("Backup database checksum mismatch");
@@ -46,7 +46,7 @@ export function verifyBackup(directory) {
   try {
     if (
       Object.values(database.prepare("PRAGMA quick_check").get())[0] !== "ok" ||
-      database.prepare("PRAGMA foreign_key_check").all().length
+      database.prepare("PRAGMA foreign_key_check").get()
     )
       throw new Error("Backup database integrity check failed");
     const files = database
@@ -60,7 +60,7 @@ export function verifyBackup(directory) {
       )
         throw new Error("Backup screenshot is missing or invalid");
       if (
-        checksum(path.join(directory, "uploads", filename)) !==
+        checksum(path.join(directory, "uploads", filename), buffer) !==
         manifest.screenshots?.[filename]
       )
         throw new Error("Backup screenshot checksum mismatch");
@@ -91,10 +91,10 @@ export function createLocalBackup({ databasePath, uploadPath, destination }) {
       "Backup storage must be separate from live uploads and database",
     );
   mkdirSync(target, { recursive: false, mode: 0o700 });
-  const lock = new DatabaseSync(databaseFile);
-  let snapshot;
+  let lock, snapshot;
   let locked = false;
   try {
+    lock = new DatabaseSync(databaseFile);
     lock.exec("PRAGMA busy_timeout=10000; BEGIN IMMEDIATE");
     locked = true;
     // A second connection reads the committed WAL snapshot while writes/deletions are held.
@@ -106,15 +106,28 @@ export function createLocalBackup({ databasePath, uploadPath, destination }) {
     const filenames = snapshot
       .prepare("SELECT filename FROM screenshots")
       .all();
-    const screenshots = {};
     for (const { filename } of filenames) {
       if (!/^[0-9a-f-]+\.webp$/i.test(filename))
         throw new Error("Invalid screenshot filename");
       const dest = path.join(target, "uploads", filename);
       copyFileSync(path.join(uploads, filename), dest);
       chmodSync(dest, 0o600);
-      screenshots[filename] = checksum(dest);
     }
+    // The complete SQLite/media copy is fixed now. Hashing and verification use
+    // only the private backup, so application writes need no longer be blocked.
+    snapshot.close();
+    snapshot = undefined;
+    lock.exec("COMMIT");
+    locked = false;
+    lock.close();
+    lock = undefined;
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    const screenshots = {};
+    for (const { filename } of filenames)
+      screenshots[filename] = checksum(
+        path.join(target, "uploads", filename),
+        buffer,
+      );
     writeFileSync(
       path.join(target, "manifest.json"),
       JSON.stringify({
@@ -123,21 +136,33 @@ export function createLocalBackup({ databasePath, uploadPath, destination }) {
         createdAt: new Date().toISOString(),
         screenshotCount: filenames.length,
         screenshots,
-        databaseSha256: checksum(output),
+        databaseSha256: checksum(output, buffer),
       }) + "\n",
       { flag: "wx", mode: 0o600 },
     );
     verifyBackup(target);
-    lock.exec("COMMIT");
-    locked = false;
     return target;
   } catch (error) {
-    if (locked) lock.exec("ROLLBACK");
-    rmSync(target, { recursive: true, force: true });
+    const errors = [error];
+    try {
+      if (locked) lock.exec("ROLLBACK");
+    } catch (rollbackError) {
+      errors.push(rollbackError);
+    }
+    try {
+      rmSync(target, { recursive: true, force: true });
+    } catch (cleanupError) {
+      errors.push(cleanupError);
+    }
+    if (errors.length > 1)
+      throw new AggregateError(
+        errors,
+        "Backup failed and cleanup was incomplete",
+      );
     throw error;
   } finally {
     snapshot?.close();
-    lock.close();
+    lock?.close();
   }
 }
 

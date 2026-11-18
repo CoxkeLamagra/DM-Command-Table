@@ -2,6 +2,15 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.1.5 — 2026-11-18
+
+- Release the backup database write lock after the complete SQLite/media copy, before hashing and verification; reuse a bounded checksum buffer instead of allocating one per file.
+- Clean up partial backup directories even when opening the source database fails, and preserve original/cleanup errors when rollback is incomplete.
+- Preserve split UTF-8 in updater responses, enforce a total five-second IPC deadline and settle incomplete connections without changing the fixed socket protocol.
+- Reduce maintenance query preparation and reference-set allocations, preserve existing quarantine files on name collisions, and refuse missing database paths without creating empty storage.
+- Detect foreign-key corruption in the storage checker. Retain the existing interface, workflows, data formats and deployment configuration; see the operability refactor notes for validation.
+- Upgrade Next.js and its matching lint configuration to 16.4.6 for the two cache-isolation advisories. Locally disable unbounded pattern repeats in both development-only picomatch copies; the audit gate verifies every reported installed copy and retains blocking for other findings and registry failures.
+
 ## 12.1.4 — 2026-11-10
 
 - Reuse plain-text search projections for unchanged Player/NPC, Session and Story records, avoiding repeated rich-text conversion while typing or changing filters. Weak-key caching permits unused records to be collected and immutable edits refresh their text.

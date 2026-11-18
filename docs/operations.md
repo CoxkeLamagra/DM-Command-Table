@@ -56,7 +56,7 @@ runuser -u dmct --preserve-environment -- /usr/bin/node scripts/backup-local.mjs
 runuser -u dmct -- /usr/bin/node scripts/restore-local.mjs /var/lib/dm-command-table/backups/BACKUP
 ```
 
-The backup script captures a consistent SQLite snapshot and recorded images, then verifies checksums and database constraints. Never copy only the live SQLite main file while WAL is active. Verification without a destination does not restore. Supplying a new empty destination restores without changing the running service's paths. Stop the service before switching paths and start the matching release afterward.
+The backup script captures a consistent SQLite snapshot and recorded images while holding the database write lock. It releases that lock once the complete copy is fixed, then hashes and verifies only the private backup. Application writes can resume during verification. A failed backup removes its partial destination; an incomplete rollback/cleanup reports both the original and cleanup errors. Checksum work uses a reusable 64 KiB buffer per pass. Never copy only the live SQLite main file while WAL is active. Verification without a destination does not restore. Supplying a new empty destination restores without changing the running service's paths. Stop the service before switching paths and start the matching release afterward.
 
 ```sh
 systemctl list-timers dm-command-table-backup.timer
@@ -67,7 +67,7 @@ The timer performs backup followed by maintenance. Monitor failures, disk space 
 
 ## Maintenance and retention
 
-`node scripts/maintenance.mjs` uses the exported database/uploads paths. It deletes expired login sessions and rate-limit rows, and quarantines unreferenced media from removed accounts and abandoned imports older than 24 hours. It also quarantines unmatched WebP files older than 24 hours. Referenced campaign and undo images remain available. Quarantine is `media-quarantine` beside the uploads directory; files are moved, not permanently purged.
+`node scripts/maintenance.mjs` uses the exported database/uploads paths. It deletes expired login sessions and rate-limit rows, and quarantines unreferenced media from removed accounts and abandoned imports older than 24 hours. It also quarantines unmatched WebP files older than 24 hours. Referenced campaign and undo images remain available. Quarantine is `media-quarantine` beside the uploads directory; files are moved, not permanently purged. If a filename already exists there, the new quarantined copy receives a UUID prefix so the earlier file is preserved. The command refuses a missing database instead of creating one. It keeps campaign/undo references protected and attempts to restore moved files after a database failure; incomplete rollback details appear in its error.
 
 Backups, media quarantine, failed releases and restored directories have no automatic retention policy. Inspect them before removing anything. Keep a verified backup and the corresponding release outside the host. Do not delete live data, a current release, or backups needed to recover retained releases.
 
@@ -180,3 +180,9 @@ Keep the dependency audit enabled during GUI update preparation. v12.1.3 include
 ## v12.1.4 release verification
 
 The resource-optimization release retains existing schema, root helpers and deployment settings. Its modern development minimatch is upgraded to 11.0.1. The release-time raw audit reports zero advisories; no new advisory exception or audit-policy change is required. Future advisories and audit errors remain blocking. Routine GUI updates require no new helper refresh for this release.
+
+## v12.1.5 operability changes
+
+The internal updater client preserves Unicode across socket packets and enforces a five-second total connection/response deadline, even if partial bytes continue arriving. Missing-service status and the fixed start/status protocol are unchanged. No broker refresh, environment variable or UI setting is introduced by this refactor. Storage checking additionally reports foreign-key corruption, which SQLite's `quick_check` alone does not detect.
+
+See [operability validation](operability-refactor.md) for source-level changes, tests, resource evidence and the verified dependency remediation included in v12.1.5. Next.js is pinned to 16.4.6. The raw registry audit still reports the picomatch version range; only exact, patched development copies are accepted after behavioral checks. Other findings and registry errors remain blocking.

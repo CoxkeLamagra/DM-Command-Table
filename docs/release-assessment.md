@@ -1,3 +1,15 @@
+# v12.1.5 operability validation — 2026-11-18
+
+This release reduces backup write-lock duration and scratch allocation, repairs updater socket decoding/deadlines, and improves maintenance rollback, quarantine preservation and storage diagnostics. The visual interface, user/admin workflows, API/storage formats and root-helper configuration remain unchanged. See [operability evidence](operability-refactor.md) for measurements and limitations.
+
+Next.js and the matching lint package are pinned to 16.4.6, beyond the seven-day age requirement. Both development-only picomatch copies have local parser guards verified by the dependency audit. Raw registry advisory ranges remain open; unpatched/production copies, unrelated advisories and registry failures remain blocking.
+
+Frozen installation, the full `pnpm verify` gate, **177 unit/integration tests**, **21 browser tests**, runtime packaging/manifest verification and packaged backup/verify/restore/maintenance/storage smoke checks passed. An independent review found regex aliases in the first guard candidate; focused regressions and a separate author review cover the corrected final delta. Follow-up independent review was unavailable. No live host was updated or stress-tested.
+
+The assessments below record earlier releases.
+
+---
+
 # v12.1.4 resource-optimization validation — 2026-11-10
 
 This release starts from restored v12.1.3 and preserves existing user/admin functionality, local storage, schema 3, production dependencies, API formats and deployment settings. It reduces repeated roster-search and rich-text work and retrieves Story records with ordered Session links through one SQLite statement. See [resource-optimization evidence](resource-optimization.md) for measurements and tradeoffs.

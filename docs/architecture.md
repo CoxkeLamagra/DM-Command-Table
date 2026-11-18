@@ -117,3 +117,9 @@ Player/NPC, Session and Story screens share `createRecordSearch` from `features/
 Read-only rich-text views memoize sanitized HTML by value and hydration state. Content changes still pass through the same sanitizer; editor behavior and image expansion remain unchanged. Player, Session and Story persistence also compute sanitized text once per operation and reuse it for the stored content and screenshot-reference synchronization. Search indexing, transactions, conflict detection and authorization retain their previous behavior.
 
 Story collection reads use one prepared SQLite statement with an ordered, indexed link aggregation per Story row. This removes per-record JavaScript/SQLite round trips and intermediate relationship-row objects while preserving Story ordering, sorted Session IDs, empty links and campaign scoping. It introduces no schema migration or new index. See [resource-optimization validation](resource-optimization.md) for evidence and tradeoffs.
+
+## v12.1.5 operational internals
+
+`server/administration/updates.ts` retains the fixed local socket endpoint and delegates framing/deadline ownership to `update-client.ts`. One decoder owns incomplete UTF-8 across packets, one timer covers connect plus receive, and one settlement path clears the timer and destroys the socket. No network input supplies a destination or executable.
+
+Backup consistency still comes from a SQLite write reservation covering the snapshot and every referenced media copy. Once that private copy is fixed, the live lock and connections close before checksum/verification work. Manifest and restore formats remain version 1. Maintenance performs reference exclusion in SQL, prepares history/deletion statements once and protects quarantine collisions. Rollback retains filesystem move records and attempts every restoration before reporting incomplete recovery. The same scripts are packaged for CLI/systemd operation; no interface or schema changes are involved.
