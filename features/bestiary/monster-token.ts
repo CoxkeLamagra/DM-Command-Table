@@ -1,7 +1,7 @@
 import type { FiveEToolsMonster } from "./fiveetools";
 
 import {
-  BESTIARY_BASE as BASE,
+  catalogueBaseOf,
   catalogueUrl,
   fetchCatalogue,
   readCatalogueBody,
@@ -16,6 +16,7 @@ function evict(url: string) {
 export function catalogueTokenUrl(
   monster: FiveEToolsMonster,
 ): string | undefined {
+  const base = catalogueBaseOf(monster);
   if (monster.tokenUrl || monster.tokenHref) {
     const href =
       monster.tokenUrl ??
@@ -23,7 +24,7 @@ export function catalogueTokenUrl(
       (monster.tokenHref?.path ? `/img/${monster.tokenHref.path}` : undefined);
     if (!href) return;
     try {
-      const url = catalogueUrl(href);
+      const url = catalogueUrl(href, base);
       if (new URL(url).pathname.startsWith("/img/")) return url;
     } catch {
       /* Invalid catalogue metadata has no image. */
@@ -36,7 +37,7 @@ export function catalogueTokenUrl(
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/"/g, "");
-  return `${BASE}/img/bestiary/tokens/${encodeURIComponent(source)}/${encodeURIComponent(name)}.webp`;
+  return `${base}/img/bestiary/tokens/${encodeURIComponent(source)}/${encodeURIComponent(name)}.webp`;
 }
 export function downloadMonsterToken(url: string): Promise<Blob | null> {
   const cached = cache.get(url);

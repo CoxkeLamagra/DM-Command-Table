@@ -108,7 +108,7 @@ For LAN connectivity, check host bind address, proxy and firewall. For HTTPS log
 
 ## Optional online monster imports
 
-Local JSON imports and normal application use remain offline. To search the online Bestiary, the user's browser must reach `https://dnd5e.lamagra.link`. Choose **Bestiary → Import monsters**; the catalogue connects automatically and shows **Catalogue connected** when ready; no server service, token or updater configuration is required. The downloaded monsters are saved as local campaign records. Keep local-file imports available when the remote catalogue is unreachable.
+Local JSON imports and normal application use remain offline. To search the online Bestiary, the user's browser must reach `https://dnd5e.lamagra.link` (or `https://5e.tools`, which is searched when there is no match or dnd5e.lamagra.link is unreachable). Choose **Bestiary → Import monsters**; the catalogue connects automatically and shows **Catalogue connected** when ready; no server service, token or updater configuration is required. The downloaded monsters are saved as local campaign records. Keep local-file imports available when the remote catalogue is unreachable.
 
 ## v12 upgrades
 
