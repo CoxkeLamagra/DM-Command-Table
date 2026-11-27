@@ -1,8 +1,9 @@
 import { parseInput } from "../../../server/http/validation.ts";
 import { databaseUsage } from "@/server/security/storage-budget";
 import { z } from "zod";
-import { getDatabase } from "@/db/sqlite";
-import { rejectCrossOrigin } from "@/server/http/origin";
+import type { DatabaseSync } from "node:sqlite";
+import type { User } from "@/domain/types";
+import { withApiUser } from "@/server/http/api-handler";
 import {
   requireAdministrator,
   createManagedUser,
@@ -11,13 +12,11 @@ import {
   updateManagedUser,
 } from "@/server/identity/accounts";
 import {
-  getUser,
   registrationStatus,
   setRegistrationEnabled,
 } from "@/server/identity/auth";
 import { PublicApiError } from "@/server/http/errors";
-import { apiError, apiJson, jsonBody } from "@/server/http/http";
-import { enforceRateLimit } from "@/server/http/request-security";
+import { apiJson, jsonBody } from "@/server/http/http";
 import {
   getServerSettings,
   saveServerSettings,
@@ -27,12 +26,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function admin() {
-  const database = getDatabase();
-  const user = await getUser(database);
-  return { database, user };
-}
-function state(database: ReturnType<typeof getDatabase>) {
+function state(database: DatabaseSync) {
   return {
     storage: databaseUsage(database),
     users: listUsers(database),
@@ -41,85 +35,69 @@ function state(database: ReturnType<typeof getDatabase>) {
   };
 }
 
-export async function GET() {
-  const { database, user } = await admin();
-  return !user?.isAdmin
-    ? apiJson({ error: "Administrator access required." }, 403)
-    : apiJson(state(database));
-}
-export async function POST(request: Request) {
-  return mutate(request, "create");
-}
-export async function PATCH(request: Request) {
-  return mutate(request, "update");
-}
-export async function DELETE(request: Request) {
-  return mutate(request, "delete");
-}
+export const GET = withApiUser(({ database }) => apiJson(state(database)), {
+  admin: true,
+});
+export const POST = withApiUser(
+  ({ request, database, user }) => mutate(request, database, user, "create"),
+  { admin: true, rateLimit: "adminCreate" },
+);
+export const PATCH = withApiUser(
+  ({ request, database, user }) => mutate(request, database, user, "update"),
+  { admin: true, rateLimit: "adminUpdate" },
+);
+export const DELETE = withApiUser(
+  ({ request, database, user }) => mutate(request, database, user, "delete"),
+  { admin: true, rateLimit: "adminDelete" },
+);
 
 async function mutate(
   request: Request,
+  database: DatabaseSync,
+  user: User,
   operation: "create" | "update" | "delete",
 ) {
-  const origin = rejectCrossOrigin(request);
-  if (origin) return origin;
-  try {
-    const { database, user } = await admin();
-    if (!user?.isAdmin)
-      return apiJson({ error: "Administrator access required." }, 403);
-    const limited = enforceRateLimit(
-      database,
-      request,
-      `admin-${operation}`,
-      user.userId,
-      operation === "update" ? 30 : 20,
-      60 * 60 * 1000,
-    );
-    if (limited) return limited;
-    if (operation === "create") {
-      const input = parseInput(
-        z.object({
-          username: z.string(),
-          displayName: z.string(),
-          password: z.string(),
-        }),
-        await jsonBody(request),
-      );
-      await createManagedUser(database, input, user.userId);
-      return apiJson(state(database), 201);
-    }
-    if (operation === "delete") {
-      deleteManagedUser(
-        database,
-        new URL(request.url).searchParams.get("id") ?? "",
-        user.userId,
-      );
-      return apiJson(state(database));
-    }
+  if (operation === "create") {
     const input = parseInput(
       z.object({
-        action: z.enum(["update", "set-registration", "set-server-settings"]),
-        id: z.string().optional(),
-        username: z.string().optional(),
-        displayName: z.string().optional(),
-        password: z.string().optional(),
-        isAdmin: z.boolean().optional(),
-        registrationEnabled: z.boolean().optional(),
-        serverSettings: serverSettingsSchema.optional(),
+        username: z.string(),
+        displayName: z.string(),
+        password: z.string(),
       }),
       await jsonBody(request),
     );
-    requireAdministrator(database, user.userId);
-    if (input.action === "set-registration")
-      setRegistrationEnabled(database, Boolean(input.registrationEnabled));
-    else if (input.action === "set-server-settings")
-      saveServerSettings(database, input.serverSettings);
-    else {
-      if (!input.id) throw new PublicApiError("A user is required.");
-      await updateManagedUser(database, input.id, input, user.userId);
-    }
-    return apiJson(state(database));
-  } catch (error) {
-    return apiError(error);
+    await createManagedUser(database, input, user.userId);
+    return apiJson(state(database), 201);
   }
+  if (operation === "delete") {
+    deleteManagedUser(
+      database,
+      new URL(request.url).searchParams.get("id") ?? "",
+      user.userId,
+    );
+    return apiJson(state(database));
+  }
+  const input = parseInput(
+    z.object({
+      action: z.enum(["update", "set-registration", "set-server-settings"]),
+      id: z.string().optional(),
+      username: z.string().optional(),
+      displayName: z.string().optional(),
+      password: z.string().optional(),
+      isAdmin: z.boolean().optional(),
+      registrationEnabled: z.boolean().optional(),
+      serverSettings: serverSettingsSchema.optional(),
+    }),
+    await jsonBody(request),
+  );
+  requireAdministrator(database, user.userId);
+  if (input.action === "set-registration")
+    setRegistrationEnabled(database, Boolean(input.registrationEnabled));
+  else if (input.action === "set-server-settings")
+    saveServerSettings(database, input.serverSettings);
+  else {
+    if (!input.id) throw new PublicApiError("A user is required.");
+    await updateManagedUser(database, input.id, input, user.userId);
+  }
+  return apiJson(state(database));
 }
