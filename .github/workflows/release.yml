@@ -2,8 +2,23 @@ name: Publish release
 on:
   push:
     tags: ["v*"]
+  # Manual publication from the GitHub web UI (Actions > Publish release >
+  # Run workflow). Creates the annotated tag on main and publishes the release.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to create, matching package.json (for example v12.1.6)"
+        required: true
+        type: string
+      commit:
+        description: "Commit on main to tag (full or short SHA). Leave empty for the latest main commit."
+        required: false
+        type: string
 permissions:
   contents: write
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -11,10 +26,42 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          persist-credentials: false
+          persist-credentials: ${{ github.event_name == 'workflow_dispatch' }}
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && '0' || '1' }}
+      - name: Select and tag the release commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow from the main branch."; exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version must look like v12.1.6."; exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::Tag $VERSION already exists."; exit 1
+          fi
+          target="$(git rev-parse --verify "${COMMIT:-HEAD}^{commit}")"
+          if ! git merge-base --is-ancestor "$target" origin/main; then
+            echo "::error::Commit $target is not on main."; exit 1
+          fi
+          git checkout --detach "$target"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Validates the package version and dated changelog before tagging.
+          node scripts/release-notes.mjs "$VERSION" > /dev/null
+          git tag -a "$VERSION" -m "DM Command Table $VERSION" "$target"
+          git push origin "refs/tags/$VERSION"
+          echo "TAG=$VERSION" >> "$GITHUB_ENV"
+      - name: Use the pushed tag
+        if: github.event_name == 'push'
+        run: echo "TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
       - name: Prepare validated release notes
-        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+        run: node scripts/release-notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
       - name: Publish stable release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "DM Command Table $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+        run: gh release create "$TAG" --verify-tag --title "DM Command Table $TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
