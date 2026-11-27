@@ -2,6 +2,13 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.3.0 — 2026-11-27
+
+- Speed up saving and deleting records: schema migration 4 adds a lookup table for search entries, so each save replaces its own search entry instead of scanning the whole search index. The migration removes duplicate search entries and keeps search results the same.
+- The migration runs automatically on first start, including when the release is installed through Administration → Update application. The updater takes the pre-update backup with the previous release; if the new release fails its health check, the updater restores that schema-3 backup and switches back. Older releases cannot open a schema-4 database.
+- Route all campaign API requests through one route table that checks the campaign ID and read/edit/owner permission in one place, and share login, admin and rate-limit handling across the API routes. URLs, request and response formats, status codes and permissions are unchanged; a 940-case route matrix test locks them in.
+- Add updater tests that upgrade a schema-3 database through the GUI update path and roll back to the schema-3 backup after a failed health check.
+
 ## 12.1.6 — 2026-11-27
 
 - Enforce build-step deadlines in the automatic updater with a Node supervisor that runs each command in its own process group and kills the whole group at the deadline, when the command exits or when the updater is stopped. The updater no longer depends on `/usr/bin/timeout`, whose uutils coreutils variant on newer Ubuntu releases kills only the direct child and left descendant processes running.

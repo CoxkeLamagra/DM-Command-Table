@@ -14,11 +14,41 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
-import { runMigrations } from "../db/migrations.ts";
+import { migrations, runMigrations } from "../db/migrations.ts";
 
 // Execute the actual deployment shell logic in an isolated filesystem. Only
 // privileged identities, systemd and remote build prerequisites are simulated;
 // release links, health-version parsing, SQLite backup and restore are real.
+// A database as v12.1.x leaves it: schema 3 with a Player and its search entry.
+function createSchemaThreeData(db: DatabaseSync) {
+  db.function("dmct_sha256", { deterministic: true }, (value) => String(value));
+  for (const migration of migrations.slice(0, 3)) db.exec(migration.sql);
+  db.exec(
+    "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT,applied_at INTEGER)",
+  );
+  for (const migration of migrations.slice(0, 3))
+    db.prepare("INSERT INTO schema_migrations VALUES(?,?,1)").run(
+      migration.version,
+      migration.name,
+    );
+  db.exec(
+    "INSERT INTO users VALUES('dm','DM','dm','fixture-hash',0,1,1); INSERT INTO campaigns(id,owner_id,name,created_at,updated_at) VALUES('campaign','dm','Campaign',1,1); INSERT INTO players(id,campaign_id,name,kind,created_at,updated_at) VALUES('player','campaign','Shadowheart','player',1,1); INSERT INTO search_index(campaign_id,resource_type,resource_id,title,content) VALUES('campaign','player','player','Shadowheart','silver moon')",
+  );
+}
+
+function schemaVersion(file: string): number {
+  const db = new DatabaseSync(file, { readOnly: true });
+  try {
+    return (
+      db
+        .prepare("SELECT MAX(version) AS version FROM schema_migrations")
+        .get() as { version: number }
+    ).version;
+  } finally {
+    db.close();
+  }
+}
+
 function fixture(mode: string) {
   const root = mkdtempSync(path.join(tmpdir(), "dmct-deployment-"));
   for (const folder of [
@@ -43,7 +73,9 @@ function fixture(mode: string) {
   ])
     cpSync(path.join("scripts", file), path.join(old, "scripts", file));
   const db = new DatabaseSync(path.join(root, "data/live.sqlite"));
-  runMigrations(db);
+  const schemaUpgrade = mode.startsWith("schema-upgrade");
+  if (schemaUpgrade) createSchemaThreeData(db);
+  else runMigrations(db);
   db.exec(
     "INSERT INTO users VALUES('owner','Before update','owner','fixture-hash',1,1,1)",
   );
@@ -78,7 +110,14 @@ function fixture(mode: string) {
   );
   stub(
     "curl",
-    `const fs=require('node:fs');const root=process.env.DMCT_FIXTURE_ROOT,current=fs.realpathSync(root+'/base/current');const v=JSON.parse(fs.readFileSync(current+'/runtime-manifest.json','utf8')).applicationVersion;console.log(JSON.stringify({status:'ready',version:process.env.DMCT_FIXTURE_MODE==='rollback'&&current!==root+'/base/releases/old'?'wrong-version':v}));`,
+    `const fs=require('node:fs');const root=process.env.DMCT_FIXTURE_ROOT,current=fs.realpathSync(root+'/base/current');const v=JSON.parse(fs.readFileSync(current+'/runtime-manifest.json','utf8')).applicationVersion;const candidate=current!==root+'/base/releases/old';if(process.env.DMCT_FIXTURE_MODE.startsWith('schema-upgrade')&&candidate){const r=require('node:child_process').spawnSync(process.execPath,['--experimental-strip-types','--no-warnings',root+'/lib/fixture-health.mjs',v],{env:process.env,encoding:'utf8'});process.stdout.write(r.stdout);process.exit(r.status??1);}console.log(JSON.stringify({status:'ready',version:process.env.DMCT_FIXTURE_MODE==='rollback'&&candidate?'wrong-version':v}));`,
+  );
+  // The candidate's first health request opens the live database through the
+  // same startup path as app/api/health (openDatabase runs pending migrations)
+  // and reports ready only when the schema matches the candidate's migrations.
+  writeFileSync(
+    path.join(root, "lib/fixture-health.mjs"),
+    `const repo=${JSON.stringify(path.resolve("."))};let status='unavailable';try{const {openDatabase,currentSchemaVersion,expectedSchemaVersion}=await import(repo+'/db/sqlite.ts');const db=openDatabase(process.env.DM_COMMAND_TABLE_DB_PATH);status=currentSchemaVersion(db)===expectedSchemaVersion()?'ready':'degraded';db.close();}catch(error){console.error(error);}console.log(JSON.stringify({status,version:process.env.DMCT_FIXTURE_MODE==='schema-upgrade-rollback'?'wrong-version':process.argv[2]}));`,
   );
   writeFileSync(
     path.join(root, "lib/runtime-integrity.mjs"),
@@ -158,6 +197,59 @@ test("wrong-version health restores the prior code and its stopped-service SQLit
       "Before update",
     );
     db.close();
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("the GUI update migrates a schema-3 database on first start and keeps a schema-3 backup", () => {
+  const f = fixture("schema-upgrade");
+  try {
+    assert.equal(f.result.status, 0, f.result.stderr);
+    assert.notEqual(realpathSync(path.join(f.root, "base/current")), f.old);
+    assert.match(f.result.stdout, /Application update completed/);
+    const live = path.join(f.root, "data/live.sqlite");
+    assert.equal(schemaVersion(live), migrations.at(-1)!.version);
+    const db = new DatabaseSync(live, { readOnly: true });
+    try {
+      assert.deepEqual(
+        db
+          .prepare(
+            "SELECT r.resource_id AS id, s.title FROM search_index_rows r JOIN search_index s ON s.rowid = r.search_rowid",
+          )
+          .all()
+          .map((row) => ({ ...row })),
+        [{ id: "player", title: "Shadowheart" }],
+      );
+      assert.equal(
+        db.prepare("SELECT display_name FROM users WHERE id='owner'").get()!
+          .display_name,
+        "Before update",
+      );
+    } finally {
+      db.close();
+    }
+    const backup = f.result.stdout.match(/Pre-update backup: (.+)$/m)![1];
+    const backupFile = path.join(backup, "dm-command-table.sqlite");
+    assert.equal(schemaVersion(backupFile), 3);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a failed update after migration restores the schema-3 backup for the prior release", () => {
+  const f = fixture("schema-upgrade-rollback");
+  try {
+    assert.notEqual(f.result.status, 0);
+    assert.equal(realpathSync(path.join(f.root, "base/current")), f.old);
+    assert.match(f.result.stdout, /@@DONE rollback/);
+    assert.equal(
+      schemaVersion(path.join(f.root, "data/live.sqlite")),
+      migrations.at(-1)!.version,
+    );
+    const config = readFileSync(path.join(f.root, "environment"), "utf8");
+    const restored = config.match(/^DM_COMMAND_TABLE_DB_PATH=(.+)$/m)![1];
+    assert.equal(schemaVersion(restored), 3);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }

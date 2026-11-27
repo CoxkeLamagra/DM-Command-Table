@@ -146,7 +146,7 @@ New imports retain alignment, armor/HP formula details, saving throws, skills, d
 
 Monster token icons appear at the upper right of visual stat blocks. Available tokens are downloaded from the catalogue during import and saved to the existing local image library; Bestiary and captured Combat blocks display these images offline. Reimport older monsters with replacement enabled to add tokens. Missing/unavailable token images do not block monster import. Token previews use temporary browser images. Both Bestiary and Combat stat blocks start expanded; click **Visual stat block** to collapse or expand them.
 
-The historical v11.7 refactor retained schema 2; v12.1 now applies migration 3 without adding dependencies. Install/update, local backups, media storage and rollback workflows remain the same. The optional catalogue remains the only allowed external runtime source; imported records and images are stored locally.
+The historical v11.7 refactor retained schema 2; v12.1 applied migration 3 and v12.3 applies migration 4 (search-index lookup) automatically on first start, without adding dependencies. Install/update, local backups, media storage and rollback workflows remain the same. The optional catalogue remains the only allowed external runtime source; imported records and images are stored locally.
 
 ## Refreshing updater helpers on a v12 host
 
