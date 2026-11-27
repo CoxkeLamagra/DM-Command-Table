@@ -2,6 +2,12 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.3.2 — 2026-11-27
+
+- Bestiary → Import monsters now falls back to 5e.tools. Searches still go to dnd5e.lamagra.link first; when it has no match, or it cannot be reached (network error, timeout or error status), the same search runs against `https://5e.tools`. If dnd5e.lamagra.link is down when the window opens, the status line shows "Catalogue connected via 5e.tools" and searching works as usual.
+- 5e.tools data is read from the same catalogue paths and checked with the same format and size limits. Its index is only downloaded when it is first needed, and monster tokens are downloaded from the site the monster was found on.
+- The browser now needs HTTPS access to `https://5e.tools` for the fallback; the Content-Security-Policy allows it. Reverse proxies that override the CSP must add it to `connect-src`. Local JSON imports are unchanged and still work offline.
+
 ## 12.3.1 — 2026-11-27
 
 - Fix Administration → Update application running out of disk space. The updater now downloads only the selected release commit instead of the full Git history, removes its temporary build folder when a build fails (the output stays in the update log), removes build folders left by earlier failed runs, and keeps three releases (the new one, the previous one for rollback and one older) instead of every release.
