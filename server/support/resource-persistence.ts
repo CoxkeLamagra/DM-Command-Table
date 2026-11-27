@@ -2,6 +2,7 @@ import { assertCampaignAccountBudget } from "../security/storage-budget.ts";
 import { statement } from "../../db/statements.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { recordAuditEvent } from "../support/audit.ts";
+import { removeSearchEntry, writeSearchEntry } from "./search-index.ts";
 import {
   ResourceNotFoundError,
   RevisionConflictError,
@@ -14,14 +15,7 @@ export function index(
   title: string,
   content: string,
 ) {
-  statement(
-    database,
-    "DELETE FROM search_index WHERE campaign_id=? AND resource_type=? AND resource_id=?",
-  ).run(campaignId, type, id);
-  statement(
-    database,
-    "INSERT INTO search_index (campaign_id,resource_type,resource_id,title,content) VALUES (?,?,?,?,?)",
-  ).run(campaignId, type, id, title, content);
+  writeSearchEntry(database, campaignId, type, id, title, content);
 }
 
 export function removeIndex(
@@ -30,10 +24,7 @@ export function removeIndex(
   type: string,
   id: string,
 ) {
-  statement(
-    database,
-    "DELETE FROM search_index WHERE campaign_id=? AND resource_type=? AND resource_id=?",
-  ).run(campaignId, type, id);
+  removeSearchEntry(database, campaignId, type, id);
 }
 
 export function assertUpdated(

@@ -44,6 +44,7 @@ test("current migrations create the normalized local-only schema", () => {
     "session_templates",
     "audit_events",
     "search_index",
+    "search_index_rows",
   ]) {
     assert.equal(tables.has(table), true, `missing ${table}`);
   }

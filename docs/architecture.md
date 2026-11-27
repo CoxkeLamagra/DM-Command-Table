@@ -1,6 +1,6 @@
 # v12 architecture
 
-The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 3, built on version 1 `offline-runtime-baseline`, migration 2 `monster-token-section` and migration 3 `shared-bestiary-definitions`. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
+The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn components and Node 24's built-in SQLite driver. One instance owns one data directory. The supported schema is version 4, built on version 1 `offline-runtime-baseline`, migration 2 `monster-token-section`, migration 3 `shared-bestiary-definitions` and migration 4 `search-index-rowid-lookup`. Identity is checked before initialization; unsupported storage is rejected without historical conversion.
 
 ## Source ownership
 
@@ -28,7 +28,7 @@ SQLite stores accounts, current-format password hashes, sessions, campaign owner
 
 WAL, foreign keys and bounded busy timeouts are enabled. A connection-scoped LRU holds up to 256 prepared statements; bindings, data and authorization are evaluated afresh. Immediate transactions and nested savepoints protect compound writes. Session/preparation saves, bulk deletion and auth budget charging are atomic. Expected revisions reject stale writes rather than silently overwriting.
 
-`server/content/persistence.ts` shares search indexing, campaign revision/audit updates and timestamps. Screenshot references change in the same transactions as content. Rich text is sanitized on writes, rendering and paste. Media access checks authorization even for conditional reads.
+`server/content/persistence.ts` shares search indexing, campaign revision/audit updates and timestamps. Search entries live in the FTS5 `search_index` table, whose campaign/type/record columns are unindexed; `search_index_rows` (migration 4) maps each record to its FTS rowid so `server/support/search-index.ts` replaces or removes one entry without scanning the whole index. Screenshot references change in the same transactions as content. Rich text is sanitized on writes, rendering and paste. Media access checks authorization even for conditional reads.
 
 ## Combat and preparation
 
