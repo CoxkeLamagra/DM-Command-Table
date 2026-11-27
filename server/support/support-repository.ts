@@ -1,6 +1,7 @@
 import { assertAccountBudget } from "../security/storage-budget.ts";
 import { runTransaction } from "../../db/transaction.ts";
 import { statement } from "../../db/statements.ts";
+import { removeSearchEntry, writeSearchEntry } from "./search-index.ts";
 import { sanitizeRichText } from "../security/sanitize-rich-text.ts";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -174,16 +175,14 @@ export function createSupportRepository(database: DatabaseSync) {
       title: string,
       content: string,
     ): void {
-      statement(
+      writeSearchEntry(
         database,
-        "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-      ).run(campaignId, resourceType, resourceId);
-      statement(
-        database,
-        `INSERT INTO search_index
-          (campaign_id, resource_type, resource_id, title, content)
-         VALUES (?, ?, ?, ?, ?)`,
-      ).run(campaignId, resourceType, resourceId, title, content);
+        campaignId,
+        resourceType,
+        resourceId,
+        title,
+        content,
+      );
     },
 
     removeFromIndex(
@@ -191,10 +190,7 @@ export function createSupportRepository(database: DatabaseSync) {
       resourceType: string,
       resourceId: string,
     ): void {
-      statement(
-        database,
-        "DELETE FROM search_index WHERE campaign_id = ? AND resource_type = ? AND resource_id = ?",
-      ).run(campaignId, resourceType, resourceId);
+      removeSearchEntry(database, campaignId, resourceType, resourceId);
     },
 
     search(

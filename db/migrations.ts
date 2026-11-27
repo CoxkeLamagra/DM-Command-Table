@@ -373,6 +373,24 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX idx_screenshots_content ON screenshots(uploaded_by,content_hash) WHERE staging=0;
 `,
   },
+  {
+    version: 4,
+    name: "search-index-rowid-lookup",
+    sql: `
+      DELETE FROM search_index WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM search_index GROUP BY campaign_id, resource_type, resource_id
+      );
+      CREATE TABLE search_index_rows (
+        campaign_id TEXT NOT NULL,
+        resource_type TEXT NOT NULL,
+        resource_id TEXT NOT NULL,
+        search_rowid INTEGER NOT NULL UNIQUE,
+        PRIMARY KEY (campaign_id, resource_type, resource_id)
+      ) WITHOUT ROWID;
+      INSERT INTO search_index_rows (campaign_id, resource_type, resource_id, search_rowid)
+        SELECT campaign_id, resource_type, resource_id, rowid FROM search_index;
+`,
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {
