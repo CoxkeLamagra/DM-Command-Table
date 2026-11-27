@@ -8,7 +8,9 @@ import {
   cpSync,
   symlinkSync,
   realpathSync,
+  readdirSync,
   rmSync,
+  utimesSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -49,7 +51,13 @@ function schemaVersion(file: string): number {
   }
 }
 
-function fixture(mode: string) {
+function fixture(
+  mode: string,
+  options: {
+    env?: Record<string, string>;
+    prepare?: (root: string) => void;
+  } = {},
+) {
   const root = mkdtempSync(path.join(tmpdir(), "dmct-deployment-"));
   for (const folder of [
     "bin",
@@ -142,12 +150,14 @@ function fixture(mode: string) {
     .replaceAll("/usr/bin/pnpm", root + "/bin/pnpm")
     .replaceAll("/usr/bin/chromium", root + "/bin/chromium");
   writeFileSync(path.join(root, "updater"), script);
+  options.prepare?.(root);
   const result = spawnSync("bash", [path.join(root, "updater")], {
     env: {
       ...process.env,
       PATH: root + "/bin:" + process.env.PATH,
       DMCT_FIXTURE_ROOT: root,
       DMCT_FIXTURE_MODE: mode,
+      ...options.env,
     },
     encoding: "utf8",
   });
@@ -160,6 +170,10 @@ test("automatic build failures preserve the active release and never stop the ap
     assert.notEqual(f.result.status, 0);
     assert.equal(realpathSync(path.join(f.root, "base/current")), f.old);
     assert.throws(() => readFileSync(path.join(f.root, "service.log")));
+    // The failed build folder is removed; its output is the diagnosis.
+    assert.deepEqual(readdirSync(path.join(f.root, "base/builds")), []);
+    assert.deepEqual(readdirSync(path.join(f.root, "base/releases")), ["old"]);
+    assert.match(f.result.stderr, /temporary build folder was removed/);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
@@ -167,7 +181,7 @@ test("automatic build failures preserve the active release and never stop the ap
 test("a successful automatic build backs up data and switches to a verified healthy version", () => {
   const f = fixture("success");
   try {
-    assert.equal(f.result.status, 0, f.result.stderr);
+    assert.equal(f.result.status, 0, f.result.stderr + f.result.stdout);
     assert.notEqual(realpathSync(path.join(f.root, "base/current")), f.old);
     assert.match(
       f.result.stdout,
@@ -205,7 +219,7 @@ test("wrong-version health restores the prior code and its stopped-service SQLit
 test("the GUI update migrates a schema-3 database on first start and keeps a schema-3 backup", () => {
   const f = fixture("schema-upgrade");
   try {
-    assert.equal(f.result.status, 0, f.result.stderr);
+    assert.equal(f.result.status, 0, f.result.stderr + f.result.stdout);
     assert.notEqual(realpathSync(path.join(f.root, "base/current")), f.old);
     assert.match(f.result.stdout, /Application update completed/);
     const live = path.join(f.root, "data/live.sqlite");
@@ -250,6 +264,68 @@ test("a failed update after migration restores the schema-3 backup for the prior
     const config = readFileSync(path.join(f.root, "environment"), "utf8");
     const restored = config.match(/^DM_COMMAND_TABLE_DB_PATH=(.+)$/m)![1];
     assert.equal(schemaVersion(restored), 3);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("an update stops with a clear message before stopping the application when disk space is short", () => {
+  const f = fixture("success", {
+    env: { DMCT_UPDATE_MIN_BUILD_FREE_MB: "999999999" },
+  });
+  try {
+    assert.notEqual(f.result.status, 0);
+    assert.match(
+      f.result.stderr,
+      /Not enough free disk space to build the update: \d+ MiB free on the disk holding .*base\/builds, at least 999999999 MiB needed/,
+    );
+    assert.match(f.result.stderr, /The running application was not changed/);
+    assert.equal(realpathSync(path.join(f.root, "base/current")), f.old);
+    assert.throws(() => readFileSync(path.join(f.root, "service.log")));
+    assert.deepEqual(readdirSync(path.join(f.root, "base/builds")), []);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a successful update removes leftover builds and keeps only the newest releases", () => {
+  const f = fixture("success", {
+    prepare(root) {
+      mkdirSync(path.join(root, "base/builds/update-leftover/source"), {
+        recursive: true,
+      });
+      writeFileSync(
+        path.join(root, "base/builds/update-leftover/source/big"),
+        "x",
+      );
+      // Older releases from earlier updates, oldest first.
+      ["release-oldest", "release-older", "release-recent"].forEach(
+        (name, index) => {
+          const folder = path.join(root, "base/releases", name);
+          mkdirSync(folder);
+          const time = new Date(Date.UTC(2026, 0, 1 + index));
+          utimesSync(folder, time, time);
+        },
+      );
+      // The current release is older than all of them but must be kept.
+      const old = new Date(Date.UTC(2025, 0, 1));
+      utimesSync(path.join(root, "base/releases/old"), old, old);
+    },
+  });
+  try {
+    assert.equal(f.result.status, 0, f.result.stderr + f.result.stdout);
+    assert.match(f.result.stdout, /Removing leftover build folder/);
+    assert.deepEqual(readdirSync(path.join(f.root, "base/builds")), []);
+    const current = path.basename(
+      realpathSync(path.join(f.root, "base/current")),
+    );
+    assert.deepEqual(
+      readdirSync(path.join(f.root, "base/releases")).sort(),
+      [current, "old", "release-recent"].sort(),
+    );
+    assert.match(f.result.stdout, /Kept the previous release .*releases\/old/);
+    // Backups are never removed by the updater.
+    assert.equal(readdirSync(path.join(f.root, "data/backups")).length, 1);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }

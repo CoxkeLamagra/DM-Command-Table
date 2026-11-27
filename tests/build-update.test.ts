@@ -47,11 +47,36 @@ test("automatic build clones the fixed repository, verifies frozen dependencies 
     },
   );
   assert.equal(runtime, "/tmp/dmct-build-fixture/runtime");
-  assert.deepEqual(commands.find((x) => x.args[0] === "clone")?.args, [
-    "clone",
-    "--no-checkout",
-    UPDATE_REPOSITORY,
+  assert.equal(
+    commands.some((x) => x.args[0] === "clone"),
+    false,
+  );
+  assert.deepEqual(commands.find((x) => x.args[0] === "init")?.args, [
+    "init",
+    "--quiet",
     "/tmp/dmct-build-fixture/source",
+  ]);
+  // Only the selected release commit is downloaded, without history.
+  assert.deepEqual(
+    commands.find((x) => x.args[0] === "fetch"),
+    {
+      command: "/usr/bin/git",
+      args: [
+        "fetch",
+        "--depth=1",
+        "--no-tags",
+        "--quiet",
+        UPDATE_REPOSITORY,
+        "+refs/tags/v12.2.0:refs/tags/v12.2.0",
+      ],
+      cwd: "/tmp/dmct-build-fixture/source",
+      capture: false,
+    },
+  );
+  assert.deepEqual(commands.find((x) => x.args[0] === "rev-parse")?.args, [
+    "rev-parse",
+    "--verify",
+    "v12.2.0^{commit}",
   ]);
   assert.deepEqual(commands.find((x) => x.args[0] === "checkout")?.args, [
     "checkout",
@@ -69,7 +94,36 @@ test("automatic build clones the fixed repository, verifies frozen dependencies 
   const names = commands.map((x) => x.args[0]);
   assert.ok(names.indexOf("test") < names.indexOf("build"));
   assert.ok(names.indexOf("test:browser") > names.indexOf("build"));
-  assert.equal(commands.at(-1)?.args[0], "scripts/package-runtime.mjs");
+  const packaged = names.indexOf("scripts/package-runtime.mjs");
+  assert.ok(packaged > names.indexOf("test:browser"));
+  // The pnpm cache is pruned only after packaging succeeded.
+  assert.deepEqual(commands.at(-1)?.args, ["store", "prune"]);
+  assert.equal(commands.length - 1, packaged + 1);
+});
+
+test("each update target fetches exactly one ref", async () => {
+  const { fetchRefspec } = await import("../deploy/debian-13/build-update.mjs");
+  assert.equal(fetchRefspec("v12.3.0"), "+refs/tags/v12.3.0:refs/tags/v12.3.0");
+  assert.equal(
+    fetchRefspec("origin/main"),
+    "+refs/heads/main:refs/remotes/origin/main",
+  );
+  assert.equal(fetchRefspec("d".repeat(40)), "d".repeat(40));
+  assert.throws(() => fetchRefspec("latest"), /Resolve latest/);
+  assert.throws(() => fetchRefspec("--upload-pack=x"));
+});
+
+test("a failed pnpm cache prune does not fail a packaged update", () => {
+  const runtime = buildUpdate(
+    "/tmp/dmct-prune-fixture",
+    "origin/main",
+    (_command: string, args: string[]) => {
+      if (args[0] === "rev-parse") return "e".repeat(40);
+      if (args[0] === "store") throw new Error("prune failed");
+      return "";
+    },
+  );
+  assert.equal(runtime, "/tmp/dmct-prune-fixture/runtime");
 });
 
 test("a failed source verification never reaches build or packaging", () => {

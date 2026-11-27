@@ -6,7 +6,7 @@ The default path builds the approved release inside the LXC. Initial OS/tool/dep
 
 ## Recommended: complete installation script
 
-For a **fresh, dedicated Debian 13 LXC**, open its console as **root**. The container must already have systemd as PID 1, an amd64/arm64 CPU, a LAN address, working DNS and Internet routing. Allocate at least 2 CPU cores, 4 GiB RAM and 12 GiB disk, with additional space for data, backups, retained builds and releases. The script does not configure the LXC host's networking or firewall.
+For a **fresh, dedicated Debian 13 LXC**, open its console as **root**. The container must already have systemd as PID 1, an amd64/arm64 CPU, a LAN address, working DNS and Internet routing. Allocate at least 2 CPU cores, 4 GiB RAM and 12 GiB disk, with additional space for data, backups and releases. An update needs about 2 GiB free while it builds; the updater checks this before it starts. The script does not configure the LXC host's networking or firewall.
 
 Run these commands in the console. The first two supply the download tool and trusted CA certificates missing from some bare templates:
 
@@ -15,12 +15,12 @@ set -euo pipefail
 apt-get update
 apt-get install -y ca-certificates curl
 curl --fail --show-error --silent --location \
-  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.3.0/deploy/debian-13/install-dm-command-table \
+  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.3.1/deploy/debian-13/install-dm-command-table \
   --output /root/install-dm-command-table
 bash /root/install-dm-command-table
 ```
 
-The [standalone installer](../deploy/debian-13/install-dm-command-table) defaults to the pinned v12.3.0 release. It installs signed Debian prerequisites and Chromium, signed NodeSource Node 24, pnpm 11.25.0, separate `dmct`/`dmct-build` accounts, fresh local storage, frozen application dependencies, the verified standalone runtime, Nginx, the daily backup timer and the automatic GUI updater. It runs audit/format/lint/type/unit/build/browser checks before deployment, then checks direct/proxy health, protected endpoint behavior and the updater socket **as the runtime account**, validates storage and takes an initial backup. No separate updater installation or manual build is needed. Keep the console open while these checks run; installation time depends on network/CPU resources.
+The [standalone installer](../deploy/debian-13/install-dm-command-table) defaults to the pinned v12.3.1 release. It installs signed Debian prerequisites and Chromium, signed NodeSource Node 24, pnpm 11.25.0, separate `dmct`/`dmct-build` accounts, fresh local storage, frozen application dependencies, the verified standalone runtime, Nginx, the daily backup timer and the automatic GUI updater. It runs audit/format/lint/type/unit/build/browser checks before deployment, then checks direct/proxy health, protected endpoint behavior and the updater socket **as the runtime account**, validates storage and takes an initial backup. No separate updater installation or manual build is needed. Keep the console open while these checks run; installation time depends on network/CPU resources.
 
 On success the console displays the installed version, LXC addresses and **Initial install token**. Open `http://<LXC-IP>/` in a LAN browser, choose **Register**, and enter that token in **Initial setup token** along with your username, display name and password. The first account becomes administrator and public registration closes automatically. The token is printed deliberately for the person installing the application; keep the console output private. It is also retained in root-only mode `0600` in `/etc/dm-command-table.env`. After registration the token cannot create another account. You can optionally clear it and restart:
 
@@ -40,7 +40,7 @@ For the reported failure at **Install locked application dependencies**, run as 
 ```bash
 set -euo pipefail
 curl --fail --show-error --silent --location \
-  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.3.0/deploy/debian-13/install-dm-command-table \
+  https://raw.githubusercontent.com/CoxkeLamagra/DM-Command-Table/v12.3.1/deploy/debian-13/install-dm-command-table \
   --output /root/install-dm-command-table
 bash /root/install-dm-command-table --resume
 ```
@@ -145,7 +145,7 @@ From the build directory, clone the source and select the release explicitly. A 
 cd /var/cache/dm-command-table-build
 runuser -u dmct-build -- git clone https://github.com/CoxkeLamagra/DM-Command-Table.git source
 cd /var/cache/dm-command-table-build/source
-runuser -u dmct-build -- git checkout --detach v12.3.0
+runuser -u dmct-build -- git checkout --detach v12.3.1
 runuser -u dmct-build -- git rev-parse HEAD
 runuser -u dmct-build -- /usr/bin/pnpm install --frozen-lockfile
 runuser -u dmct-build -- /usr/bin/pnpm verify
@@ -248,7 +248,7 @@ systemctl is-active nginx.service dm-command-table.service
 systemctl list-timers dm-command-table-backup.timer --no-pager
 ```
 
-Both health requests must return `status: ready` and version `12.3.0`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
+Both health requests must return `status: ready` and version `12.3.1`; unauthenticated campaign access must return 401. Startup retries allow time for Node to listen. The SQLite schema is created automatically by the first API request. Nginx serves port 80; Node's port 3000 remains loopback-only. Allow the selected HTTP/HTTPS port in the LXC host's firewall for the intended LAN clients; do not open port 3000 externally.
 
 Use `ip -brief address` to find the LAN address, then open `http://<container-LAN-IP>/` from your computer. Register the first administrator with the private bootstrap token. Keep self-registration disabled unless you intentionally enable it through Administration. Create a campaign/session, upload a screenshot, save and reload to verify the browser-facing installation.
 
@@ -275,7 +275,7 @@ journalctl -u dm-command-table-backup.service -n 30 --no-pager
 systemctl list-timers dm-command-table-backup.timer --no-pager
 ```
 
-The storage check must pass and the backup service must complete successfully. The daily timer also runs maintenance. Keep an additional offline copy and choose a retention policy; backups/releases are retained rather than automatically deleted. The recovery section below explains how to verify and restore a printed backup path.
+The storage check must pass and the backup service must complete successfully. The daily timer also runs maintenance. Keep an additional offline copy. The backup script keeps the newest 14 automatic backups by default (`DM_COMMAND_TABLE_BACKUP_KEEP`, `0` keeps all) and the updater keeps the newest three releases; see [Maintenance and retention](operations.md#maintenance-and-retention). The recovery section below explains how to verify and restore a printed backup path.
 
 ## Optional: locally provisioned HTTPS
 
@@ -327,24 +327,24 @@ Configure LAN DNS (or each client's hosts file) for this hostname, trust the cer
 
 To avoid retaining build tools/checkouts on the runtime LXC, provision Debian prerequisites and system-wide Node as above, then build on a trusted compatible Linux machine of the same architecture. That machine needs the same Node/pnpm/native build tools and browser prerequisites from sections 2–5. Do not use a Windows/macOS package or native dependencies from an incompatible Linux platform.
 
-On the build machine, use the section 5 commands to check out `v12.3.0`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
+On the build machine, use the section 5 commands to check out `v12.3.1`, install frozen dependencies, verify, run browser tests and produce `dist/runtime`. Copy the complete runtime, deployment templates and independent verifier to local media or through your trusted LAN. An example bundle, created from the source checkout, is:
 
 ```bash
 mkdir -p dist/lxc-bundle
 cp -a dist/runtime dist/lxc-bundle/runtime
 cp -a deploy/debian-13 dist/lxc-bundle/deploy
 cp scripts/runtime-integrity.mjs dist/lxc-bundle/runtime-integrity.mjs
-tar -C dist/lxc-bundle -czf dist/dm-command-table-v12.3.0-lxc.tar.gz .
-(cd dist; sha256sum dm-command-table-v12.3.0-lxc.tar.gz > dm-command-table-v12.3.0-lxc.tar.gz.sha256)
+tar -C dist/lxc-bundle -czf dist/dm-command-table-v12.3.1-lxc.tar.gz .
+(cd dist; sha256sum dm-command-table-v12.3.1-lxc.tar.gz > dm-command-table-v12.3.1-lxc.tar.gz.sha256)
 ```
 
 Transfer both files from the approved build. Verify the checksum from that trusted transfer before extracting into a new staging directory. Checksums alone do not establish who produced the bundle. On the runtime host:
 
 ```bash
 cd /path/to/transferred-files
-sha256sum --check dm-command-table-v12.3.0-lxc.tar.gz.sha256
+sha256sum --check dm-command-table-v12.3.1-lxc.tar.gz.sha256
 install -d -o root -g root -m 0700 /root/dmct-install
-tar -xzf dm-command-table-v12.3.0-lxc.tar.gz -C /root/dmct-install
+tar -xzf dm-command-table-v12.3.1-lxc.tar.gz -C /root/dmct-install
 cd /root/dmct-install
 ```
 
@@ -363,7 +363,7 @@ The complete installer already activates GUI updates. For manual setup or root-o
 ```bash
 cd /var/cache/dm-command-table-build/source
 runuser -u dmct-build -- git fetch --tags origin
-runuser -u dmct-build -- git checkout --detach v12.3.0
+runuser -u dmct-build -- git checkout --detach v12.3.1
 bash deploy/debian-13/install-gui-updater
 ```
 
@@ -377,7 +377,7 @@ Open **Administration → Application updates**, save open edits and confirm **U
 
 Progress includes prerequisites, fetch, install, verification, unit tests, production build, browser tests, packaging, backup, switch, readiness and cleanup/rollback. Browser closure and temporary application unavailability do not interrupt the independent broker. The page polls and reconnects; reload after success. Duplicate starts attach to the existing job. The final 64 KiB of output, administrator ID, timestamps, exit status and step results remain local.
 
-Source builds use a new isolated checkout owned by `dmct-build`; the updater never resets your installation checkout or builds as root. Application storage/settings/bootstrap credentials are excluded from build subprocesses. The root-owned verifier checks the copied immutable release before the old service stops. Runtime code is root-owned, while `dmct` only writes local application data. Successful temporary build directories are removed; failed builds, prior releases and backups are retained for diagnosis and host-managed retention.
+Source builds use a new isolated checkout owned by `dmct-build`; the updater never resets your installation checkout or builds as root. Application storage/settings/bootstrap credentials are excluded from build subprocesses. The root-owned verifier checks the copied immutable release before the old service stops. Runtime code is root-owned, while `dmct` only writes local application data. The source build fetches only the selected commit. Temporary build directories are removed after success or failure (the output stays in the update log), the newest three releases are kept, and free disk space is checked before the build, staging and backup steps; see [Disk space](operations.md#disk-space).
 
 The fixed repository is `CoxkeLamagra/DM-Command-Table`. Browser requests accept only start/status, never a repository, executable, path, branch or environment override. Root can select `latest` (default, stable v12 tags), `origin/main`, a stable release tag or full commit SHA with a service drop-in:
 
@@ -403,7 +403,7 @@ Root may set `DM_COMMAND_TABLE_UPDATE_TARGET=staged` for a deliberately staged-o
 
 ### Failure and rollback
 
-A dependency, audit, lint/type/unit/browser test or build failure occurs before stopping the application. Inspect its step/log rather than bypassing checks. The updater retains the failed build directory for diagnosis. After the old service stops, any backup/switch/startup/readiness failure triggers recovery. Candidate health must report both `ready` and the expected application version. A failed candidate restores its stopped-service backup to a separate directory, updates storage paths and switches back to the prior code. Original data and failed releases are retained.
+A dependency, audit, lint/type/unit/browser test or build failure occurs before stopping the application. Inspect its step/log rather than bypassing checks. The updater removes the failed build directory; the log in Administration keeps the output. After the old service stops, any backup/switch/startup/readiness failure triggers recovery. Candidate health must report both `ready` and the expected application version. A failed candidate restores its stopped-service backup to a separate directory, updates storage paths and switches back to the prior code. Original data is retained; the failed release folder is kept until the next successful update.
 
 The broker reports a recovered deployment as failed with a completed rollback. If the broker restarts mid-update, the job is interrupted; inspect health/current release/logs before retrying. Never replace installed helper files during a running update. An unexpected `current.next` path requires inspection instead of automatic deletion. Major baseline changes and privileged helper/service changes remain host configuration changes; routine application releases use the automatic workflow.
 

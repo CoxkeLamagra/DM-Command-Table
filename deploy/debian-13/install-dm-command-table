@@ -4,7 +4,7 @@ set +x
 set -euo pipefail
 umask 077
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-RELEASE=v12.3.0
+RELEASE=v12.3.1
 REPOSITORY=https://github.com/CoxkeLamagra/DM-Command-Table.git
 RESUME=false
 if [[ ${1:-} == --resume ]]; then RESUME=true; shift; fi
@@ -165,5 +165,9 @@ printf '\nInitial install token: %s\n\n' "$BOOTSTRAP_TOKEN"
 echo 'Enter this token in the initial setup token field. The first account becomes administrator and public registration closes.'
 echo 'The token is also retained in root-only /etc/dm-command-table.env. Keep console output private.'
 echo 'After registration the token cannot create another account. Optionally clear it in that file and restart dm-command-table.service.'
-echo "Build checkout retained at $SOURCE. For future application updates use Administration → Update application."
+# The installed release carries the updater helpers; the build checkout with its
+# dependencies is no longer needed and would use more than 1 GiB of disk.
+cd /
+rm -rf -- "$BUILD"
+echo 'For future application updates use Administration → Update application.'
 unset BOOTSTRAP_TOKEN

@@ -23,14 +23,59 @@ SERVICE=dm-command-table.service
 VERIFIER=/usr/local/lib/dm-command-table/runtime-integrity.mjs
 OLD=$(readlink -f "$CURRENT")
 [[ -d $OLD ]] || { echo 'Install an initial offline runtime first.' >&2; exit 1; }
+BUILD_CACHE=/var/cache/dm-command-table-build
+# Free space needed before an update starts. A source build needs about 1.3 GiB
+# (dependencies, package cache, production build and packaged runtime); the
+# margin covers dependency growth between releases.
+MIN_BUILD_FREE_MB=${DMCT_UPDATE_MIN_BUILD_FREE_MB:-2048}
+# Releases kept after a successful update: the new one, the previous one (the
+# rollback target) and one older release.
+KEEP_RELEASES=3
+available_mb() { df -Pm -- "$1" | awk 'NR == 2 { print $4 }'; }
+require_space() {
+  local folder=$1 needed=$2 purpose=$3 available
+  available=$(available_mb "$folder")
+  if [[ ! $available =~ ^[0-9]+$ ]] || (( available < needed )); then
+    printf 'Not enough free disk space to %s: %s MiB free on the disk holding %s, at least %s MiB needed.\n' "$purpose" "${available:-unknown}" "$folder" "$needed" >&2
+    echo 'The running application was not changed. Free disk space (see "Disk space" in docs/operations.md), then start the update again.' >&2
+    return 1
+  fi
+}
+# du reports missing files (such as an absent WAL file) but still totals the rest.
+size_mb() { { du -smc -- "$@" 2>/dev/null || true; } | awk 'END { print $1 + 0 }'; }
+BUILD=''
+RELEASE=''
+SWITCHED=false
+# Temporary build folders are always removed: the output above (also kept in the
+# Administration update log) is the diagnosis, and a kept folder only uses up
+# disk space. A new release folder is removed unless the update switched to it.
+remove_temporary() {
+  if [[ -n $BUILD ]]; then rm -rf -- "$BUILD"; fi
+  if [[ -n $RELEASE && $SWITCHED != true ]]; then rm -rf -- "$RELEASE"; fi
+}
+trap remove_temporary EXIT
 step current
 OLD_METADATA=$(/usr/bin/node "$VERIFIER" "$OLD" --trusted-staging)
 OLD_VERSION=$(printf '%s' "$OLD_METADATA" | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>console.log(JSON.parse(s).applicationVersion))')
 if [[ $TARGET != staged ]]; then
   install -d -o root -g root -m 0755 "$BASE/builds"
+  # This invocation holds the update lock, so any build folder left here is from
+  # an earlier interrupted or failed run and is no longer in use.
+  for stale in "$BASE"/builds/update-*; do
+    [[ -d $stale && ! -L $stale ]] || continue
+    echo "Removing leftover build folder $stale"
+    rm -rf -- "$stale"
+  done
+  require_space "$BASE/builds" "$MIN_BUILD_FREE_MB" 'build the update'
+  if [[ -d $BUILD_CACHE && $(stat -c %d -- "$BUILD_CACHE") != $(stat -c %d -- "$BASE/builds") ]]; then
+    require_space "$BUILD_CACHE" 1024 'download update dependencies'
+  fi
   BUILD=$(mktemp -d "$BASE/builds/update-XXXXXXXX")
   chown dmct-build:dmct-build "$BUILD"
-  runuser -u dmct-build -- /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/var/cache/dm-command-table-build LANG=C.UTF-8 CI=1 NEXT_TELEMETRY_DISABLED=1 /usr/bin/timeout --signal=KILL 3600 /usr/bin/node /usr/local/lib/dm-command-table/build-update.mjs "$BUILD" "$TARGET"
+  if ! runuser -u dmct-build -- /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=$BUILD_CACHE LANG=C.UTF-8 CI=1 NEXT_TELEMETRY_DISABLED=1 /usr/bin/timeout --signal=KILL 3600 /usr/bin/node /usr/local/lib/dm-command-table/build-update.mjs "$BUILD" "$TARGET"; then
+    echo 'Preparing the update failed; the running application was not changed and the temporary build folder was removed.' >&2
+    exit 1
+  fi
   CANDIDATE=$BUILD/runtime
 else
   [[ -d $CANDIDATE ]] || { echo 'No staged runtime exists. Use the default automatic update or stage a package for offline installation.' >&2; exit 1; }
@@ -38,6 +83,7 @@ else
 fi
 # Root owns releases and current; dmct only reads code and writes application data.
 install -d -o root -g root -m 0755 "$BASE/releases"
+require_space "$BASE/releases" $(( $(size_mb "$CANDIDATE") + 64 )) 'install the new release'
 RELEASE=$(mktemp -d "$BASE/releases/release-XXXXXXXX")
 step stage
 cp -a "$CANDIDATE/." "$RELEASE/"
@@ -49,6 +95,16 @@ NEW_VERSION=$(printf '%s' "$NEW_METADATA" | /usr/bin/node -e 'let s=""; process.
 set -a
 source /etc/dm-command-table.env
 set +a
+DATABASE_PATH=${DM_COMMAND_TABLE_DB_PATH:-/var/lib/dm-command-table/dm-command-table.sqlite}
+if [[ -f $DATABASE_PATH ]]; then
+  # The pre-update backup copies the database and images; check before the
+  # application stops so a full disk never interrupts a running service.
+  BACKUP_FOLDER=${DM_COMMAND_TABLE_BACKUP_PATH:-$(dirname -- "$DATABASE_PATH")/backups}
+  BACKUP_CHECK=$BACKUP_FOLDER
+  [[ -d $BACKUP_CHECK ]] || BACKUP_CHECK=$(dirname -- "$BACKUP_FOLDER")
+  DATA_MB=$(size_mb "$DATABASE_PATH" "$DATABASE_PATH-wal" "${DM_COMMAND_TABLE_UPLOAD_PATH:-$(dirname -- "$DATABASE_PATH")/uploads}")
+  require_space "$BACKUP_CHECK" $(( DATA_MB + 64 )) 'take the pre-update backup'
+fi
 health() {
   for attempt in {1..30}; do
     if curl --fail --silent --max-time 2 http://127.0.0.1:3000/api/health | /usr/bin/node -e 'let s=""; process.stdin.on("data", b=>s+=b).on("end",()=>{try {const v=JSON.parse(s); if(v.status!=="ready" || v.version!==process.argv[1]) process.exit(1);} catch {process.exit(1);}})' "$1"; then return 0; fi
@@ -62,7 +118,6 @@ switch_release() {
   mv -Tf "$BASE/current.next" "$CURRENT"
 }
 BACKUP=''
-SWITCHED=false
 recover() {
   trap - ERR
   step rollback
@@ -88,7 +143,7 @@ recover() {
 step backup
 trap recover ERR
 systemctl stop "$SERVICE"
-if [[ -f ${DM_COMMAND_TABLE_DB_PATH:-/var/lib/dm-command-table/dm-command-table.sqlite} ]]; then
+if [[ -f $DATABASE_PATH ]]; then
   BACKUP=$(runuser -u dmct --preserve-environment -- /usr/bin/node "$OLD/scripts/backup-local.mjs")
 fi
 step switch
@@ -100,9 +155,17 @@ health "$NEW_VERSION"
 trap - ERR
 echo "Running $RELEASE. Pre-update backup: ${BACKUP:-fresh installation}"
 step cleanup
-if [[ -n ${BUILD:-} ]]; then
-  # The build directory was uniquely created by this invocation; releases and
-  # backups remain available for rollback and host-managed retention.
-  rm -rf -- "$BUILD"
-fi
-echo 'Application update completed. Prior releases and backups retained.'
+remove_temporary
+BUILD=''
+# Keep the new release, the previous release (the rollback target for the
+# pre-update backup) and the next newest; remove older release folders.
+# Backups are never removed here.
+kept=0
+while IFS= read -r folder; do
+  folder=$(readlink -f -- "$folder")
+  if [[ $folder == "$RELEASE" || $folder == "$OLD" ]]; then continue; fi
+  if (( kept < KEEP_RELEASES - 2 )); then kept=$((kept + 1)); continue; fi
+  echo "Removing old release $folder"
+  rm -rf -- "$folder"
+done < <(find "$BASE/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | cut -d' ' -f2-)
+echo "Application update completed. Kept the previous release $OLD and the pre-update backup for rollback."

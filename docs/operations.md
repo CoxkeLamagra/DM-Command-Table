@@ -9,6 +9,7 @@ Keep one application instance and persistent local storage. Debian LXC is primar
 | `DM_COMMAND_TABLE_DB_PATH`                    | `data/dm-command-table.sqlite`       | SQLite file; use an absolute production path                                                                             |
 | `DM_COMMAND_TABLE_UPLOAD_PATH`                | `uploads` beside the database        | Local screenshot directory                                                                                               |
 | `DM_COMMAND_TABLE_BACKUP_PATH`                | `backups` beside the database        | Verified backup destination                                                                                              |
+| `DM_COMMAND_TABLE_BACKUP_KEEP`                | `14`                                 | Automatic backups kept by `backup-local.mjs`; older ones are removed after a new verified backup. `0` keeps every backup |
 | `DM_COMMAND_TABLE_BOOTSTRAP_TOKEN`            | empty                                | Required for initial administrator registration in production                                                            |
 | `DM_COMMAND_TABLE_TRUST_PROXY`                | `false`                              | Accept forwarded client address and HTTPS scheme from a trusted proxy                                                    |
 | `DM_COMMAND_TABLE_SECURE_COOKIES`             | `auto`                               | `true` always secure, `false` never secure, `auto` recognizes trusted forwarded HTTPS or a matching HTTPS browser Origin |
@@ -69,16 +70,41 @@ The timer performs backup followed by maintenance. Monitor failures, disk space 
 
 `node scripts/maintenance.mjs` uses the exported database/uploads paths. It deletes expired login sessions and rate-limit rows, and quarantines unreferenced media from removed accounts and abandoned imports older than 24 hours. It also quarantines unmatched WebP files older than 24 hours. Referenced campaign and undo images remain available. Quarantine is `media-quarantine` beside the uploads directory; files are moved, not permanently purged. If a filename already exists there, the new quarantined copy receives a UUID prefix so the earlier file is preserved. The command refuses a missing database instead of creating one. It keeps campaign/undo references protected and attempts to restore moved files after a database failure; incomplete rollback details appear in its error.
 
-Backups, media quarantine, failed releases and restored directories have no automatic retention policy. Inspect them before removing anything. Keep a verified backup and the corresponding release outside the host. Do not delete live data, a current release, or backups needed to recover retained releases.
+After each new verified backup, `backup-local.mjs` keeps the newest `DM_COMMAND_TABLE_BACKUP_KEEP` automatic backups (default 14) and removes older ones. It only removes folders with its own timestamp-and-UUID name and a manifest; restored copies and folders placed in the backup directory by hand are kept. Set the variable to `0` to keep every backup. Media quarantine and `restored-*` directories have no automatic retention. Keep a verified backup and the corresponding release outside the host.
 
-The LXC updater removes successful temporary build worktrees but retains releases and failed builds. Before pruning old folders:
+The LXC updater keeps disk use bounded:
+
+- It fetches only the selected release commit (no Git history).
+- It removes its temporary build folder whether the build succeeds or fails; the step output stays in the Administration update log. Leftover `update-*` build folders from interrupted runs are removed at the start of the next update.
+- After a successful update it keeps three releases (the new one, the previous one that matches the pre-update backup, and one older release) and removes older release folders. Release folders of failed deployments are removed the same way at the next successful update.
+- It prunes the build account's pnpm package cache down to the packages the new release uses.
+- It checks free space before it starts (2 GiB for the source build, the release size for staging, and the database plus images for the pre-update backup) and stops with a message before the application is touched when space is short.
+
+No repository cleanup command should touch `/var/lib/dm-command-table` or Docker's named volume.
+
+### Disk space
+
+These helpers are installed separately from the application, so a release containing them takes effect only after you reinstall the updater once (see [Refreshing updater helpers](#refreshing-updater-helpers-on-a-v12-host)). To see what uses space and free it by hand on an LXC host, run as root:
 
 ```sh
+df -h / /opt /var/lib/dm-command-table
+du -sh /opt/dm-command-table/builds /opt/dm-command-table/releases /var/cache/dm-command-table-build /var/lib/dm-command-table/backups 2>/dev/null
 readlink -f /opt/dm-command-table/current
-runuser -u dmct -- git -C /opt/dm-command-table/source worktree list
 ```
 
-Remove an obsolete build using `git worktree remove` as `dmct` after inspecting it. Keep the current release and a verified rollback release. Remove other release directories only after confirming they are neither current nor required for recovery. No repository cleanup command should touch `/var/lib/dm-command-table` or Docker's named volume.
+The following folders only hold build files. The command takes the update lock, so it refuses to run while an update is in progress:
+
+```sh
+flock -n /run/lock/dm-command-table-update.lock bash -c '
+  rm -rf /opt/dm-command-table/builds/update-*          # leftover failed update builds
+  rm -rf /var/cache/dm-command-table-build/install-*    # build checkout kept by older installers
+  rm -rf /var/cache/dm-command-table-build/.local/share/pnpm /var/cache/dm-command-table-build/.cache  # package cache
+' && echo 'Build files removed.' || echo 'An update is running; try again later.'
+```
+
+The next update downloads the packages it needs again.
+
+Old releases: list them with `ls -lt /opt/dm-command-table/releases`, keep the folder `current` points to and the newest older one, and remove the rest with `rm -rf /opt/dm-command-table/releases/<name>`. Old backups: list them with `ls /var/lib/dm-command-table/backups`, keep at least the newest few, and remove older ones with `rm -rf /var/lib/dm-command-table/backups/<name>`. Copy any backup you want to keep off the host first.
 
 ## Troubleshooting
 
@@ -122,7 +148,7 @@ Use `pnpm verify` and CI's Node 24 browser and Docker checks before accepting a 
 
 After the one-time [Debian updater installation](debian-13-lxc.md#updates-from-administration), the Admin button fetches, installs, verifies, builds, runs browser tests and packages the latest stable v12 release. Source preparation runs as a separate build account without application storage/settings/bootstrap variables; failures leave the active release running. The root-owned deployment helper verifies the immutable candidate, takes a stopped-service backup, switches and checks the exact expected health version, restoring code/data on failure.
 
-Automatic updates need GitHub/package-registry connectivity and preconfigured system tools, supplied by the one-time installer. The browser cannot select commands, sources or paths. Root can pin a target or deliberately choose `staged` for an offline package workflow. Manifests detect transfer corruption rather than establish publisher authenticity; automatic mode trusts the fixed project repository. Keep prior releases/backups and retain failed build output for diagnosis. Routine application updates need no manual build or staging; root-owned helper/service changes remain host maintenance.
+Automatic updates need GitHub/package-registry connectivity and preconfigured system tools, supplied by the one-time installer. The browser cannot select commands, sources or paths. Root can pin a target or deliberately choose `staged` for an offline package workflow. Manifests detect transfer corruption rather than establish publisher authenticity; automatic mode trusts the fixed project repository. The updater keeps the previous release and pre-update backup for rollback; failed build output stays in the update log. Routine application updates need no manual build or staging; root-owned helper/service changes remain host maintenance.
 
 ## Optional remote Bestiary catalogue
 

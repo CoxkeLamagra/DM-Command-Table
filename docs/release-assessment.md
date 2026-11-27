@@ -1,3 +1,11 @@
+# v12.3.1 updater disk usage — 2026-11-27
+
+This release fixes the Debian GUI updater running out of disk space. A user's update to v12.3.0 failed in `git clone` with "No space left on device". The clone itself was small (the full history is about 2 MiB); the disk was filled by what earlier runs left behind. Every failed build kept its folder (about 1.3 GiB with dependencies, pnpm cache and the Next build), every release was kept, the daily backup timer kept a full copy of the database and images every day, and the fresh installer kept its build checkout.
+
+The updater now fetches only the selected commit, removes failed and leftover build folders, keeps three releases, prunes the pnpm cache, and checks free space before the build, staging and backup steps. Backups keep the newest 14 by default (`DM_COMMAND_TABLE_BACKUP_KEEP`). The backup, health check and rollback steps are unchanged: the previous release and the pre-update backup are always kept. The root-owned helpers take effect after `install-gui-updater` is run once from the installed 12.3.1 release. Unit tests run the real updater script for a failed build, too little free space and release pruning; the shallow fetch was checked against GitHub for a tag, `origin/main` and a commit SHA. No live host was updated.
+
+---
+
 # v12.3.0 API route table and search-index migration — 2026-11-27
 
 This release adds schema migration 4 (`search-index-rowid-lookup`), which maps each search entry to its full-text row so record saves and deletes no longer scan the whole search index, and moves the campaign API onto one route table with shared permission, login and rate-limit handling. The version is a minor bump because of the schema change; the withdrawn v12.2.0 number is not reused. API URLs, request/response formats, status codes and permissions are unchanged, as checked by a 940-case route matrix test.
