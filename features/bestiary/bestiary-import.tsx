@@ -257,6 +257,10 @@ export function BestiaryImport({
                 onChange={async (event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
+                  // Reset the search before reading the file so a query typed
+                  // while the catalogue is parsed is kept.
+                  setSelected([]);
+                  setQuery("");
                   try {
                     if (file.size > 10 * 1024 * 1024)
                       throw new Error(
@@ -269,8 +273,6 @@ export function BestiaryImport({
                     setConnecting(false);
                     setSearching(false);
                     setLocalCatalogue(catalogue);
-                    setSelected([]);
-                    setQuery("");
                   } catch (error) {
                     toast.error(
                       error instanceof Error ? error.message : "Import failed",
