@@ -2,6 +2,14 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.3.1 — 2026-11-27
+
+- Fix Administration → Update application running out of disk space. The updater now downloads only the selected release commit instead of the full Git history, removes its temporary build folder when a build fails (the output stays in the update log), removes build folders left by earlier failed runs, and keeps three releases (the new one, the previous one for rollback and one older) instead of every release.
+- Check free disk space before an update starts: about 2 GiB for the source build, the release size before staging and the database plus images before the pre-update backup. When space is short the update stops with a message naming the folder and the space needed, before the application is stopped.
+- Keep the newest 14 automatic backups and remove older ones after each new verified backup. Set `DM_COMMAND_TABLE_BACKUP_KEEP` to change the number, or `0` to keep every backup. Only folders created by the backup script are removed.
+- Prune the build account's pnpm package cache to the packages the new release uses, and remove the build checkout at the end of a fresh installation.
+- The updater helpers are installed separately from the application, so run `bash /opt/dm-command-table/current/deploy/debian-13/install-gui-updater` once as root after updating to 12.3.1 to start using them. The backup retention takes effect with the update itself. See "Disk space" in docs/operations.md for commands to free space by hand.
+
 ## 12.3.0 — 2026-11-27
 
 - Speed up saving and deleting records: schema migration 4 adds a lookup table for search entries, so each save replaces its own search entry instead of scanning the whole search index. The migration removes duplicate search entries and keeps search results the same.

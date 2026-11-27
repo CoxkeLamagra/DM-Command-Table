@@ -28,6 +28,17 @@ export function latestRelease(output) {
   if (!tags.length) throw new Error("No stable v12 release is available.");
   return tags[0];
 }
+// Maps a validated target to the single ref fetched for it. Tags and main are
+// stored under their usual local names so `rev-parse` resolves them as before.
+export function fetchRefspec(target) {
+  validateTarget(target);
+  if (target === "latest")
+    throw new Error("Resolve latest to a release tag before fetching.");
+  if (target === "origin/main")
+    return "+refs/heads/main:refs/remotes/origin/main";
+  if (target.startsWith("v")) return `+refs/tags/${target}:refs/tags/${target}`;
+  return target;
+}
 // Runs one build command in its own process group and kills the whole group at
 // the deadline. This does not rely on /usr/bin/timeout, whose process-group
 // handling differs between GNU coreutils and the uutils coreutils shipped by
@@ -128,10 +139,20 @@ export function buildUpdate(directory, target = "latest", execute) {
           ),
         )
       : target;
+  // Fetch only the selected commit (no history, other branches or tags) so
+  // the checkout stays small on hosts with little free disk space.
+  run("/usr/bin/git", ["init", "--quiet", source], root);
   run(
     "/usr/bin/git",
-    ["clone", "--no-checkout", UPDATE_REPOSITORY, source],
-    root,
+    [
+      "fetch",
+      "--depth=1",
+      "--no-tags",
+      "--quiet",
+      UPDATE_REPOSITORY,
+      fetchRefspec(selected),
+    ],
+    source,
   );
   const revision = run(
     "/usr/bin/git",
@@ -167,6 +188,14 @@ export function buildUpdate(directory, target = "latest", execute) {
   run("/usr/bin/pnpm", ["test:browser"], source);
   step("package");
   run("/usr/bin/node", ["scripts/package-runtime.mjs", runtime], source);
+  // Drop cached packages that this release no longer uses, so the build
+  // account's pnpm store does not grow with every update. A failure here only
+  // leaves extra cache behind and never blocks the update.
+  try {
+    run("/usr/bin/pnpm", ["store", "prune"], source);
+  } catch {
+    console.log("Could not prune the pnpm package cache; continuing.");
+  }
   return runtime;
 }
 if (

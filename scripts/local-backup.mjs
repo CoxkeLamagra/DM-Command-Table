@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readFileSync,
   chmodSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -191,4 +192,51 @@ export function restoreLocalBackup(source, target) {
     throw error;
   }
   return result;
+}
+
+// Names written by backup-local.mjs: an ISO timestamp with ":" and "." replaced
+// by "-", then a UUID. Only folders with this name and a manifest are pruned, so
+// restored copies and anything placed here by hand are never touched.
+const BACKUP_NAME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Parses the number of automatic backups to keep. 0 keeps every backup.
+ * @param {string | undefined} value
+ */
+export function backupRetention(value) {
+  if (value === undefined || value === "") return 14;
+  if (!/^\d{1,6}$/.test(value))
+    throw new Error(
+      "DM_COMMAND_TABLE_BACKUP_KEEP must be a whole number (0 keeps every backup).",
+    );
+  return Number(value);
+}
+
+/**
+ * Removes the oldest automatic backups so that `keep` remain. The newest
+ * backup (normally the one just created) is always kept.
+ * @param {string} backupRoot
+ * @param {number} keep
+ * @returns {string[]} removed backup folders
+ */
+export function pruneLocalBackups(backupRoot, keep) {
+  if (!keep) return [];
+  const backups = readdirSync(backupRoot, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        BACKUP_NAME.test(entry.name) &&
+        existsSync(path.join(backupRoot, entry.name, "manifest.json")),
+    )
+    .map((entry) => entry.name)
+    .sort()
+    .reverse();
+  const removed = [];
+  for (const name of backups.slice(Math.max(keep, 1))) {
+    const folder = path.join(backupRoot, name);
+    rmSync(folder, { recursive: true, force: true });
+    removed.push(folder);
+  }
+  return removed;
 }

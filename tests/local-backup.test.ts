@@ -16,7 +16,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { runMigrations } from "../db/migrations.ts";
 import {
+  backupRetention,
   createLocalBackup,
+  pruneLocalBackups,
   verifyBackup,
   restoreLocalBackup,
 } from "../scripts/local-backup.mjs";
@@ -193,6 +195,43 @@ test("storage CLI reports foreign-key corruption even when SQLite quick_check pa
     );
     assert.equal(result.status, 1);
     assert.match(result.stderr, /SQLite foreign-key check failed/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("backup retention removes only the oldest automatic backups", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "dmct-backup-retention-"));
+  try {
+    const name = (day: number) =>
+      `2026-11-${String(day).padStart(2, "0")}T03-00-00-000Z-${crypto.randomUUID()}`;
+    const automatic = [1, 2, 3, 4, 5].map((day) => {
+      const folder = path.join(root, name(day));
+      mkdirSync(folder);
+      writeFileSync(path.join(folder, "manifest.json"), "{}");
+      return folder;
+    });
+    // Not removed: hand-made folders, folders without a manifest, and files.
+    mkdirSync(path.join(root, "before-migration"));
+    writeFileSync(path.join(root, "before-migration/manifest.json"), "{}");
+    mkdirSync(path.join(root, name(0)));
+    writeFileSync(path.join(root, "notes.txt"), "keep");
+
+    assert.deepEqual(pruneLocalBackups(root, 0), []);
+    assert.deepEqual(pruneLocalBackups(root, 3).sort(), automatic.slice(0, 2));
+    assert.deepEqual(
+      automatic.map((folder) => existsSync(folder)),
+      [false, false, true, true, true],
+    );
+    assert.ok(existsSync(path.join(root, "before-migration")));
+    assert.equal(fs.readdirSync(root).length, 6);
+
+    assert.equal(backupRetention(undefined), 14);
+    assert.equal(backupRetention(""), 14);
+    assert.equal(backupRetention("0"), 0);
+    assert.equal(backupRetention("30"), 30);
+    assert.throws(() => backupRetention("-1"), /whole number/);
+    assert.throws(() => backupRetention("ten"), /whole number/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
