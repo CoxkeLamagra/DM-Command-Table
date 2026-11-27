@@ -12,7 +12,7 @@ This is a source-backed engineering review with executed regressions recorded in
 
 ## Local trust boundaries
 
-Accounts, permissions, campaign records, search and history remain in local SQLite. Images, verified backups and runtime packages remain on host storage. Bundled libraries support offline runtime. Optional browser catalogue imports contact only the fixed dnd5e.lamagra.link origin without application cookies/referrers; local JSON imports remain available. Explicit GUI updates use the fixed project Git repository and package sources. Development/build telemetry remains disabled.
+Accounts, permissions, campaign records, search and history remain in local SQLite. Images, verified backups and runtime packages remain on host storage. Bundled libraries support offline runtime. Optional browser catalogue imports contact only the fixed dnd5e.lamagra.link origin and its fixed 5e.tools fallback without application cookies/referrers; local JSON imports remain available. Explicit GUI updates use the fixed project Git repository and package sources. Development/build telemetry remains disabled.
 
 Authorization is evaluated against current campaign membership on each operation. Owners control sharing/deletion; editors write content; viewers read. Browser and persistence sanitizers retain the supported rich text and authenticated local image references. Screenshot reads authorize cache validation and stream via one file handle. Package imports validate their exact image inventory before decoding and stage changes transactionally. Backup hashes use bounded chunks.
 

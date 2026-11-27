@@ -1,3 +1,9 @@
+# v12.3.2 bestiary import fallback — 2026-11-27
+
+This release adds 5e.tools as a fallback source for Bestiary → Import monsters. The import searches dnd5e.lamagra.link first and searches `https://5e.tools` only when there is no match or dnd5e.lamagra.link cannot be reached. Both sites are read through the same fixed-origin URL guard, schemas and size limits, without credentials or referrers, and the CSP `connect-src` adds `https://5e.tools`. Local JSON imports, the API and storage formats are unchanged. Unit and browser tests cover the no-match fallback, an unreachable primary site, both sites down and token origins. Neither site could be reached from the build environment, so the 5e.tools data format and CORS headers were not checked against the live site; if they differ, the fallback reports the catalogue as unavailable. No live host was updated.
+
+---
+
 # v12.3.1 updater disk usage — 2026-11-27
 
 This release fixes the Debian GUI updater running out of disk space. A user's update to v12.3.0 failed in `git clone` with "No space left on device". The clone itself was small (the full history is about 2 MiB); the disk was filled by what earlier runs left behind. Every failed build kept its folder (about 1.3 GiB with dependencies, pnpm cache and the Next build), every release was kept, the daily backup timer kept a full copy of the database and images every day, and the fresh installer kept its build checkout.

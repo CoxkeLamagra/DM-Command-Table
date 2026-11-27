@@ -1,9 +1,29 @@
 export const BESTIARY_BASE = "https://dnd5e.lamagra.link";
+/** Searched when the primary catalogue has no match or cannot be reached. */
+export const FALLBACK_BESTIARY_BASE = "https://5e.tools";
+export const CATALOGUE_BASES = [BESTIARY_BASE, FALLBACK_BESTIARY_BASE] as const;
+export type CatalogueBase = (typeof CATALOGUE_BASES)[number];
 
-export function catalogueUrl(path: string): string {
-  const url = new URL(path, BESTIARY_BASE);
+// Remembers which site a downloaded monster came from, so its token is
+// fetched from that same site.
+const monsterBases = new WeakMap<object, CatalogueBase>();
+export function rememberCatalogueBase(
+  monster: object,
+  base: CatalogueBase,
+): void {
+  monsterBases.set(monster, base);
+}
+export function catalogueBaseOf(monster: object): CatalogueBase {
+  return monsterBases.get(monster) ?? BESTIARY_BASE;
+}
+
+export function catalogueUrl(
+  path: string,
+  base: CatalogueBase = BESTIARY_BASE,
+): string {
+  const url = new URL(path, base);
   if (
-    url.origin !== BESTIARY_BASE ||
+    !(CATALOGUE_BASES as readonly string[]).includes(url.origin) ||
     url.username ||
     url.password ||
     !(
@@ -21,8 +41,9 @@ export function fetchCatalogue(
   path: string,
   timeoutMs: number,
   signal?: AbortSignal,
+  base: CatalogueBase = BESTIARY_BASE,
 ): Promise<Response> {
-  return fetch(catalogueUrl(path), {
+  return fetch(catalogueUrl(path, base), {
     signal: signal
       ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
       : AbortSignal.timeout(timeoutMs),
