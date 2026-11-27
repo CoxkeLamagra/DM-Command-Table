@@ -1,11 +1,10 @@
 import { parseInput } from "../../../server/http/validation.ts";
 import { z } from "zod";
-import { getDatabase } from "@/db/sqlite";
-import { rejectCrossOrigin } from "@/server/http/origin";
 import { changePassword, renameAccount } from "@/server/identity/accounts";
-import { createSession, getUser } from "@/server/identity/auth";
-import { apiError, apiJson, jsonBody } from "@/server/http/http";
-import { enforceRateLimit } from "@/server/http/request-security";
+import { createSession } from "@/server/identity/auth";
+import { apiJson, jsonBody } from "@/server/http/http";
+import { withApiUser } from "@/server/http/api-handler";
+import { rateLimited } from "@/server/http/request-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,36 +22,26 @@ const schema = z.discriminatedUnion("action", [
   }),
 ]);
 
-export async function PATCH(request: Request) {
-  const origin = rejectCrossOrigin(request);
-  if (origin) return origin;
-  try {
-    const database = getDatabase();
-    const user = await getUser(database);
-    if (!user) return apiJson({ error: "Authentication required." }, 401);
-    const input = parseInput(schema, await jsonBody(request, 8192));
-    const limited = enforceRateLimit(
+export const PATCH = withApiUser(async ({ request, database, user }) => {
+  const input = parseInput(schema, await jsonBody(request, 8192));
+  // The budget depends on the action, so it is charged after parsing.
+  const limited = rateLimited(
+    database,
+    request,
+    input.action === "change-password" ? "password" : "account",
+    user.userId,
+  );
+  if (limited) return limited;
+  if (input.action === "rename") {
+    renameAccount(database, user.userId, input.username, input.displayName);
+  } else {
+    const authenticated = await changePassword(
       database,
-      request,
-      input.action === "change-password" ? "password" : "account",
       user.userId,
-      input.action === "change-password" ? 10 : 60,
-      60 * 60 * 1000,
+      input.currentPassword,
+      input.newPassword,
     );
-    if (limited) return limited;
-    if (input.action === "rename") {
-      renameAccount(database, user.userId, input.username, input.displayName);
-    } else {
-      const authenticated = await changePassword(
-        database,
-        user.userId,
-        input.currentPassword,
-        input.newPassword,
-      );
-      await createSession(authenticated, database);
-    }
-    return apiJson({ changed: true });
-  } catch (error) {
-    return apiError(error);
+    await createSession(authenticated, database);
   }
-}
+  return apiJson({ changed: true });
+});

@@ -14,137 +14,150 @@ import {
   preparedEncounterFits,
   revisionSchema,
 } from "../http/schemas.ts";
-import type { RouteInput } from "./route-input.ts";
-export async function handleCombatRoutes(
-  input: RouteInput,
-): Promise<Response | null> {
-  const {
-    request,
-    database,
-    context,
-    campaignId,
-    resource,
-    resourceId,
-    method,
-  } = input;
+import type { RouteInput } from "./route-table.ts";
+export async function combatCommand({
+  request,
+  database,
+  context,
+  campaignId,
+}: RouteInput) {
+  const encounters = createEncounterRepository(database);
+  const { command, combat, zeroHpPolicy } = parseInput(
+    z.object({
+      command: z.enum([
+        "next-turn",
+        "reset-rounds",
+        "remove-monsters",
+        "clear",
+      ]),
+      combat: combatSchema,
+      zeroHpPolicy: z
+        .enum(["skip-all", "include-players", "include-all"])
+        .default("skip-all"),
+    }),
+    await jsonBody(request),
+  );
+  return apiJson({
+    combat: encounters.saveCombat(
+      campaignId,
+      context.userId,
+      combat.revision,
+      applyCombatAction(
+        { ...combat, id: "", campaignId, createdAt: "", updatedAt: "" },
+        command,
+        zeroHpPolicy,
+      ),
+      command,
+    ),
+  });
+}
+
+export async function loadPreparedEncounter({
+  request,
+  database,
+  context,
+  campaignId,
+}: RouteInput) {
   const content = createContentRepository(database);
   const bestiary = createBestiaryRepository(database);
   const encounters = createEncounterRepository(database);
-  if (resource === "combat") {
-    if (method === "POST" && resourceId === "command") {
-      const { command, combat, zeroHpPolicy } = parseInput(
-        z.object({
-          command: z.enum([
-            "next-turn",
-            "reset-rounds",
-            "remove-monsters",
-            "clear",
-          ]),
-          combat: combatSchema,
-          zeroHpPolicy: z
-            .enum(["skip-all", "include-players", "include-all"])
-            .default("skip-all"),
-        }),
-        await jsonBody(request),
-      );
-      return apiJson({
-        combat: encounters.saveCombat(
-          campaignId,
-          context.userId,
-          combat.revision,
-          applyCombatAction(
-            { ...combat, id: "", campaignId, createdAt: "", updatedAt: "" },
-            command,
-            zeroHpPolicy,
-          ),
-          command,
-        ),
-      });
-    }
-    if (method === "POST" && resourceId === "load-prepared") {
-      requireCampaignEdit(database, campaignId, context.userId);
-      const { revision, prepared, preservePlayersAndNpcs } = parseInput(
-        z.object({
+  requireCampaignEdit(database, campaignId, context.userId);
+  const { revision, prepared, preservePlayersAndNpcs } = parseInput(
+    z.object({
+      revision: revisionSchema,
+      preservePlayersAndNpcs: z.boolean().default(false),
+      prepared: preparedEncounterFields
+        .extend({
+          id: idSchema,
+          sessionId: idSchema,
           revision: revisionSchema,
-          preservePlayersAndNpcs: z.boolean().default(false),
-          prepared: preparedEncounterFields
-            .extend({
-              id: idSchema,
-              sessionId: idSchema,
-              revision: revisionSchema,
-              createdAt: z.string(),
-              updatedAt: z.string(),
-            })
-            .refine(
-              preparedEncounterFits,
-              "Prepared encounters support at most 10,000 combatants.",
-            ),
-        }),
-        await jsonBody(request),
-      );
-      const sessions = content.listSessions(campaignId, context.userId);
-      if (!sessions.some((session) => session.id === prepared.sessionId))
-        return apiJson({ error: "Session not found" }, 404);
-      const current = encounters.getCombat(campaignId, context.userId);
-      const quantities = new Map<string, number>();
-      for (const entry of prepared.monsters)
-        quantities.set(
-          entry.monsterId,
-          (quantities.get(entry.monsterId) ?? 0) + entry.quantity,
-        );
-      assertMonsterReadBudget(
-        database,
-        campaignId,
-        [...quantities.keys()],
-        quantities,
-      );
-      const next = loadPreparation(
-        current,
-        prepared,
-        bestiary.list(campaignId, context.userId, [...quantities.keys()]),
-        undefined,
-        preservePlayersAndNpcs,
-      );
-      return apiJson({
-        combat: encounters.saveCombat(
-          campaignId,
-          context.userId,
-          revision,
-          next,
-          "prepared_encounter_loaded",
+          createdAt: z.string(),
+          updatedAt: z.string(),
+        })
+        .refine(
+          preparedEncounterFits,
+          "Prepared encounters support at most 10,000 combatants.",
         ),
-      });
-    }
+    }),
+    await jsonBody(request),
+  );
+  const sessions = content.listSessions(campaignId, context.userId);
+  if (!sessions.some((session) => session.id === prepared.sessionId))
+    return apiJson({ error: "Session not found" }, 404);
+  const current = encounters.getCombat(campaignId, context.userId);
+  const quantities = new Map<string, number>();
+  for (const entry of prepared.monsters)
+    quantities.set(
+      entry.monsterId,
+      (quantities.get(entry.monsterId) ?? 0) + entry.quantity,
+    );
+  assertMonsterReadBudget(
+    database,
+    campaignId,
+    [...quantities.keys()],
+    quantities,
+  );
+  const next = loadPreparation(
+    current,
+    prepared,
+    bestiary.list(campaignId, context.userId, [...quantities.keys()]),
+    undefined,
+    preservePlayersAndNpcs,
+  );
+  return apiJson({
+    combat: encounters.saveCombat(
+      campaignId,
+      context.userId,
+      revision,
+      next,
+      "prepared_encounter_loaded",
+    ),
+  });
+}
 
-    if (method === "GET")
-      return apiJson({
-        combat: encounters.getCombat(campaignId, context.userId),
-      });
-    if (method === "PUT") {
-      const { revision, action, ...input } = parseInput(
-        combatSchema,
-        await jsonBody(request),
-      );
-      return apiJson({
-        combat: encounters.saveCombat(
-          campaignId,
-          context.userId,
-          revision,
-          input,
-          action,
-        ),
-      });
-    }
-    if (method === "POST" && resourceId === "undo") {
-      const { revision } = parseInput(
-        z.object({ revision: revisionSchema }),
-        await jsonBody(request),
-      );
-      return apiJson({
-        combat: encounters.undoCombat(campaignId, context.userId, revision),
-      });
-    }
-  }
+export function getCombat({ database, context, campaignId }: RouteInput) {
+  return apiJson({
+    combat: createEncounterRepository(database).getCombat(
+      campaignId,
+      context.userId,
+    ),
+  });
+}
 
-  return null;
+export async function saveCombat({
+  request,
+  database,
+  context,
+  campaignId,
+}: RouteInput) {
+  const encounters = createEncounterRepository(database);
+  const { revision, action, ...input } = parseInput(
+    combatSchema,
+    await jsonBody(request),
+  );
+  return apiJson({
+    combat: encounters.saveCombat(
+      campaignId,
+      context.userId,
+      revision,
+      input,
+      action,
+    ),
+  });
+}
+
+export async function undoCombat({
+  request,
+  database,
+  context,
+  campaignId,
+}: RouteInput) {
+  const encounters = createEncounterRepository(database);
+  const { revision } = parseInput(
+    z.object({ revision: revisionSchema }),
+    await jsonBody(request),
+  );
+  return apiJson({
+    combat: encounters.undoCombat(campaignId, context.userId, revision),
+  });
 }

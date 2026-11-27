@@ -1,47 +1,25 @@
 import { parseInput } from "../../../../server/http/validation.ts";
 import { z } from "zod";
-import { getDatabase } from "@/db/sqlite";
-import { getUser } from "@/server/identity/auth";
 import { requireAdministrator } from "@/server/identity/accounts";
-import { rejectCrossOrigin } from "@/server/http/origin";
-import { apiJson, apiError, jsonBody } from "@/server/http/http";
-import { enforceRateLimit } from "@/server/http/request-security";
+import { apiJson, jsonBody } from "@/server/http/http";
+import { withApiUser } from "@/server/http/api-handler";
 import { updateRequest } from "@/server/administration/updates";
 import { recordAuditEvent } from "@/server/support/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    const database = getDatabase();
-    const user = await getUser(database);
-    if (!user?.isAdmin)
-      return apiJson({ error: "Administrator access required." }, 403);
+export const GET = withApiUser(
+  async ({ database, user }) => {
     const result = await updateRequest("status");
     requireAdministrator(database, user.userId);
     return apiJson(result);
-  } catch (error) {
-    return apiError(error);
-  }
-}
-export async function POST(request: Request) {
-  const origin = rejectCrossOrigin(request);
-  if (origin) return origin;
-  try {
-    const database = getDatabase();
-    const user = await getUser(database);
-    if (!user?.isAdmin)
-      return apiJson({ error: "Administrator access required." }, 403);
-    const limited = enforceRateLimit(
-      database,
-      request,
-      "admin-update",
-      user.userId,
-      6,
-      60 * 60 * 1000,
-    );
-    if (limited) return limited;
+  },
+  { admin: true },
+);
+
+export const POST = withApiUser(
+  async ({ request, database, user }) => {
     parseInput(
       z.object({ action: z.literal("start") }).strict(),
       await jsonBody(request, 1024),
@@ -63,7 +41,6 @@ export async function POST(request: Request) {
         503,
       );
     }
-  } catch (error) {
-    return apiError(error);
-  }
-}
+  },
+  { admin: true, rateLimit: "applicationUpdate" },
+);
