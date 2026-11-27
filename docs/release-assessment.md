@@ -1,3 +1,11 @@
+# v12.1.6 updater deadline validation — 2026-11-27
+
+This release changes only how the automatic updater enforces build-step deadlines. `executeBuildCommand` no longer wraps commands in `/usr/bin/timeout`; a Node supervisor starts each command in its own process group and kills the whole group at the deadline, when the command exits or when the updater is stopped. GNU `timeout` killed descendants through its process group, but the uutils coreutils `timeout` on Ubuntu 26.04 kills only the direct child, which left grandchildren running and failed the descendant-deadline test on every CI run since v12.1.3. The visual interface, user/admin workflows, API/storage formats, dependencies and root-helper configuration remain unchanged.
+
+The full `pnpm verify` gate with **177 unit/integration tests** passed locally (GNU coreutils), and the pull-request CI on the Ubuntu 26.04 runner ran `pnpm verify` and the browser tests. No live host was updated.
+
+---
+
 # v12.1.5 operability validation — 2026-11-18
 
 This release reduces backup write-lock duration and scratch allocation, repairs updater socket decoding/deadlines, and improves maintenance rollback, quarantine preservation and storage diagnostics. The visual interface, user/admin workflows, API/storage formats and root-helper configuration remain unchanged. See [operability evidence](operability-refactor.md) for measurements and limitations.

@@ -2,6 +2,10 @@
 
 The supported DM Command Table release history starts at v11.
 
+## 12.1.6 — 2026-11-27
+
+- Enforce build-step deadlines in the automatic updater with a Node supervisor that runs each command in its own process group and kills the whole group at the deadline, when the command exits or when the updater is stopped. The updater no longer depends on `/usr/bin/timeout`, whose uutils coreutils variant on newer Ubuntu releases kills only the direct child and left descendant processes running.
+
 ## 12.1.5 — 2026-11-18
 
 - Release the backup database write lock after the complete SQLite/media copy, before hashing and verification; reuse a bounded checksum buffer instead of allocating one per file.
