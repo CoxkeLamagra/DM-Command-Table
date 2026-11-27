@@ -12,6 +12,16 @@ test("local catalogue search, preview, import and replacement work with external
     }
     return route.continue();
   });
+  // Slow down file reads so a search typed while the catalogue is parsing
+  // would be cleared if the upload reset the query after its file read.
+  await page.addInitScript(() => {
+    const read = Blob.prototype.text;
+    Blob.prototype.text = function (this: Blob) {
+      return new Promise((resolve) => setTimeout(resolve, 500)).then(() =>
+        read.call(this),
+      );
+    };
+  });
   const response = await page.goto("/");
   expect(response?.headers()["content-security-policy"]).toContain(
     "connect-src 'self' https://dnd5e.lamagra.link;",
