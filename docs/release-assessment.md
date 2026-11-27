@@ -1,3 +1,11 @@
+# v12.3.0 API route table and search-index migration — 2026-11-27
+
+This release adds schema migration 4 (`search-index-rowid-lookup`), which maps each search entry to its full-text row so record saves and deletes no longer scan the whole search index, and moves the campaign API onto one route table with shared permission, login and rate-limit handling. The version is a minor bump because of the schema change; the withdrawn v12.2.0 number is not reused. API URLs, request/response formats, status codes and permissions are unchanged, as checked by a 940-case route matrix test.
+
+The update path is covered by tests that run the Debian GUI updater against a schema-3 database: the new release migrates it to schema 4 on its first health check, the pre-update backup stays at schema 3, and a failed health check restores that backup for the previous release. The full `pnpm verify` gate and the browser tests passed locally and in pull-request CI. No live host was updated.
+
+---
+
 # v12.1.6 updater deadline validation — 2026-11-27
 
 This release changes how the automatic updater enforces build-step deadlines. `executeBuildCommand` no longer wraps commands in `/usr/bin/timeout`; a Node supervisor starts each command in its own process group and kills the whole group at the deadline, when the command exits or when the updater is stopped. GNU `timeout` killed descendants through its process group, but the uutils coreutils `timeout` on Ubuntu 26.04 kills only the direct child, which left grandchildren running and failed the descendant-deadline test on every CI run since v12.1.3. It also fixes a race in Bestiary local-catalogue import, where a search typed while the file was still being read was cleared once parsing finished; the browser test now slows file reads to cover it. Other user/admin workflows, API/storage formats, dependencies and root-helper configuration remain unchanged.
