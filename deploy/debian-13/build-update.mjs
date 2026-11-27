@@ -28,6 +28,42 @@ export function latestRelease(output) {
   if (!tags.length) throw new Error("No stable v12 release is available.");
   return tags[0];
 }
+// Runs one build command in its own process group and kills the whole group at
+// the deadline. This does not rely on /usr/bin/timeout, whose process-group
+// handling differs between GNU coreutils and the uutils coreutils shipped by
+// newer Ubuntu releases. Leftover group members are also removed when the
+// command exits, so no build helper outlives its step.
+const DEADLINE_SUPERVISOR = `
+const { spawn } = require("node:child_process");
+const { constants } = require("node:os");
+const [seconds, command, ...args] = process.argv.slice(1);
+const child = spawn(command, args, { stdio: "inherit", detached: true });
+let timedOut = false;
+const killGroup = () => {
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch {}
+};
+const timer = setTimeout(() => {
+  timedOut = true;
+  killGroup();
+}, Number(seconds) * 1000);
+for (const name of ["SIGTERM", "SIGINT", "SIGHUP"])
+  process.on(name, () => {
+    killGroup();
+    process.exit(128 + constants.signals[name]);
+  });
+child.on("error", () => {
+  clearTimeout(timer);
+  process.exit(127);
+});
+child.on("exit", (code, signal) => {
+  clearTimeout(timer);
+  killGroup();
+  if (timedOut) process.exit(124);
+  process.exit(code ?? 128 + (constants.signals[signal] ?? 0));
+});
+`;
 export function executeBuildCommand(
   command,
   args,
@@ -37,14 +73,17 @@ export function executeBuildCommand(
   timeoutSeconds = 1200,
 ) {
   const result = spawnSync(
-    "/usr/bin/timeout",
-    ["--signal=KILL", String(timeoutSeconds), command, ...args],
+    process.execPath,
+    ["-e", DEADLINE_SUPERVISOR, "--", String(timeoutSeconds), command, ...args],
     {
       cwd,
       env,
       encoding: "utf8",
       stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
       maxBuffer: 8 * 1024 * 1024,
+      // Backstop in case the supervisor itself stops responding.
+      timeout: (timeoutSeconds + 30) * 1000,
+      killSignal: "SIGKILL",
     },
   );
   if (result.error || result.status !== 0)
