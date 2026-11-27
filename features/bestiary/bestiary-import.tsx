@@ -27,9 +27,8 @@ import {
   catalogueIdentity,
 } from "./local-catalogue";
 import {
-  FALLBACK_BESTIARY_BASE,
   loadRemoteCatalogue,
-  searchRemoteCatalogues,
+  searchRemoteCatalogue,
   type RemoteMonsterRef,
 } from "./remote-catalogue";
 import { importMonster, updateMonster, getMonster } from "../shared/api";
@@ -49,11 +48,6 @@ export function BestiaryImport({
   const [remoteCatalogue, setRemoteCatalogue] = useState<RemoteMonsterRef[]>(
     [],
   );
-  // Monsters indexed on 5e.tools, once that fallback has been loaded.
-  const [fallbackCount, setFallbackCount] = useState<number | null>(null);
-  // dnd5e.lamagra.link was unreachable, so searches use 5e.tools only.
-  const [fallbackOnly, setFallbackOnly] = useState(false);
-  const fallback = useRef<Promise<RemoteMonsterRef[]> | null>(null);
   const [remoteResults, setRemoteResults] = useState<FiveEToolsMonster[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -69,38 +63,18 @@ export function BestiaryImport({
     [query, localCatalogue],
   );
   const results = source === "remote" ? remoteResults : localResults;
-  /** Load the 5e.tools index once per connection; a failed load can retry. */
-  function loadFallback(): Promise<RemoteMonsterRef[]> {
-    const signal = connection.current?.signal;
-    if (!fallback.current) {
-      const pending = loadRemoteCatalogue(signal, FALLBACK_BESTIARY_BASE);
-      fallback.current = pending;
-      pending.then(
-        (catalogue) => {
-          if (fallback.current === pending && !signal?.aborted)
-            setFallbackCount(catalogue.length);
-        },
-        () => {
-          if (fallback.current === pending) fallback.current = null;
-        },
-      );
-    }
-    return fallback.current;
-  }
   useEffect(() => {
     if (!open || source !== "remote") return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
       setSearching(false);
       setRemoteResults([]);
-      if ((!remoteCatalogue.length && !fallbackOnly) || query.trim().length < 2)
-        return;
+      if (!remoteCatalogue.length || query.trim().length < 2) return;
       setSearching(true);
       setRemoteError("");
-      void searchRemoteCatalogues(
+      void searchRemoteCatalogue(
         query,
         remoteCatalogue,
-        loadFallback,
         cache.current,
         controller.signal,
       )
@@ -121,7 +95,7 @@ export function BestiaryImport({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [open, source, query, remoteCatalogue, fallbackOnly]);
+  }, [open, source, query, remoteCatalogue]);
   useEffect(() => () => connection.current?.abort(), []);
   async function connect() {
     connection.current?.abort();
@@ -132,28 +106,18 @@ export function BestiaryImport({
     setRemoteResults([]);
     setQuery("");
     setRemoteCatalogue([]);
-    fallback.current = null;
-    setFallbackCount(null);
-    setFallbackOnly(false);
     setConnecting(true);
     setRemoteError("");
     try {
       const catalogue = await loadRemoteCatalogue(controller.signal);
       if (!controller.signal.aborted) setRemoteCatalogue(catalogue);
     } catch (error) {
-      if (controller.signal.aborted) return;
-      // dnd5e.lamagra.link is unreachable: fall back to 5e.tools.
-      try {
-        await loadFallback();
-        if (!controller.signal.aborted) setFallbackOnly(true);
-      } catch {
-        if (!controller.signal.aborted)
-          setRemoteError(
-            error instanceof Error
-              ? error.message
-              : "Remote catalogue could not be loaded.",
-          );
-      }
+      if (!controller.signal.aborted)
+        setRemoteError(
+          error instanceof Error
+            ? error.message
+            : "Remote catalogue could not be loaded.",
+        );
     } finally {
       if (!controller.signal.aborted) setConnecting(false);
     }
@@ -321,20 +285,14 @@ export function BestiaryImport({
               {connecting
                 ? "Connecting to remote catalogue…"
                 : remoteCatalogue.length > 0
-                  ? `Catalogue connected · ${remoteCatalogue.length} monsters indexed` +
-                    (fallbackCount !== null
-                      ? ` · 5e.tools fallback: ${fallbackCount} monsters`
-                      : "")
-                  : fallbackOnly
-                    ? `Catalogue connected via 5e.tools · ${fallbackCount ?? 0} monsters indexed (dnd5e.lamagra.link unreachable)`
-                    : "Remote catalogue unavailable"}
+                  ? `Catalogue connected · ${remoteCatalogue.length} monsters indexed`
+                  : "Remote catalogue unavailable"}
             </p>
             <p className="text-xs text-stone-400">
               The remote catalogue connects automatically when this window
-              opens. Searches contact dnd5e.lamagra.link from your browser, and
-              5e.tools when there is no match or dnd5e.lamagra.link cannot be
-              reached; only selected monsters are copied to this server. Account
-              and campaign data are not sent. Local files work offline.
+              opens. Searches contact dnd5e.lamagra.link from your browser; only
+              selected monsters are copied to this server. Account and campaign
+              data are not sent. Local files work offline.
             </p>
             {searching && (
               <p role="status" className="text-sm">

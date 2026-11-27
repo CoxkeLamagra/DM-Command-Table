@@ -24,7 +24,7 @@ test("local catalogue search, preview, import and replacement work with external
   });
   const response = await page.goto("/");
   expect(response?.headers()["content-security-policy"]).toContain(
-    "connect-src 'self' https://dnd5e.lamagra.link https://5e.tools;",
+    "connect-src 'self' https://dnd5e.lamagra.link;",
   );
   await page.getByLabel("Username", { exact: true }).fill("browser-offline");
   await page.getByLabel("Password", { exact: true }).fill("browser-test-pass");
@@ -89,8 +89,6 @@ test("local catalogue search, preview, import and replacement work with external
   ).toBeVisible();
   expect(external.length).toBeGreaterThan(0);
   expect(
-    external.every((origin) =>
-      ["https://dnd5e.lamagra.link", "https://5e.tools"].includes(origin),
-    ),
+    external.every((origin) => origin === "https://dnd5e.lamagra.link"),
   ).toBe(true);
 });
