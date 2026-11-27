@@ -2,7 +2,7 @@
 
 DM Command Table is a self-hosted workspace for preparing and running tabletop RPG campaigns. The current release is **12.3.2**. The repository and release history start at **v11**; the v11 SQLite baseline is the supported data format. Existing supported v11/v12 accounts and campaign data are retained; v12.3 applies schema migration 4 automatically on first start (v12.1 added migration 3), including during Administration → Update application. Back up before updating; downgrading requires the previous runtime and its matching pre-update backup.
 
-Accounts, campaigns, Players/NPCs, Bestiary records, Stories/Sessions, prepared encounters, combat, search, screenshots and backups live on your server. Bundled libraries support offline operation. Opening Import monsters connects automatically to `dnd5e.lamagra.link`, and searches fall back to `5e.tools` when there is no match or that site is unreachable; local JSON imports remain available offline. Debian GUI updates contact GitHub and package registries only when you start an update.
+Accounts, campaigns, Players/NPCs, Bestiary records, Stories/Sessions, prepared encounters, combat, search, screenshots and backups live on your server. Bundled libraries support offline operation. Opening Import monsters connects automatically to `dnd5e.lamagra.link`; local JSON imports remain available offline. Debian GUI updates contact GitHub and package registries only when you start an update.
 
 ## Fresh Debian 13 LXC
 

@@ -11,18 +11,8 @@ test("catalogue URLs reject other origins, credential URLs and unrelated paths",
     catalogueUrl("/data/bestiary/bestiary-mm.json"),
     "https://dnd5e.lamagra.link/data/bestiary/bestiary-mm.json",
   );
-  assert.equal(
-    catalogueUrl("/data/bestiary/index.json", "https://5e.tools"),
-    "https://5e.tools/data/bestiary/index.json",
-  );
-  assert.equal(
-    catalogueUrl("https://5e.tools/img/bestiary/tokens/MM/Goblin.webp"),
-    "https://5e.tools/img/bestiary/tokens/MM/Goblin.webp",
-  );
   for (const url of [
     "https://evil.example/img/x.webp",
-    "https://5e.tools.evil.example/img/x.webp",
-    "https://5e.tools/api/admin",
     "https://user:pass@dnd5e.lamagra.link/img/x.webp",
     "/api/admin",
     "/img/../../api/admin",
