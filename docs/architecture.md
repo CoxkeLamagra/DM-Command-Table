@@ -11,7 +11,7 @@ The application uses Next.js 16, React 19, TypeScript, Tailwind/shadcn component
 | `features/`            | Workspace, section screens, editors and local drafts                                                                                 |
 | `features/shared/api/` | Focused identity, campaign, content, preparation, Bestiary, combat, administration and media clients with shared transport/errors    |
 | `domain/`              | Record types, combat rules/resources, prepared preview, limits, drafts and planning                                                  |
-| `server/api/`          | Authorized resource routing and shared request context                                                                               |
+| `server/api/`          | Declarative route table (`routes.ts`), route matching and per-resource handlers                                                      |
 | `server/content/`      | Player, Session and Story repositories, composed through a small facade with shared indexing, audit, timestamps and revision helpers |
 | `server/`              | Campaign access/copies/packages, Bestiary, encounters, identity, administration, media and security                                  |
 | `db/`                  | Supported SQLite schema, connections, prepared statements and transactions                                                           |
@@ -84,7 +84,7 @@ Combat detail rendering composes `hit-point-controls.tsx`, `conditions-editor.ts
 
 Transactions read SQLite page usage before/after writes and fetch filesystem capacity only for growing transactions. Administration still obtains complete main/WAL/free-space metrics on request. Quota and reorder SQL use the per-connection statement cache. Prepared writes validate each distinct Bestiary reference once and sanitize notes once at persistence; routes validate shape without repeating sanitization.
 
-The catch-all API checks a shared method/path contract before dispatch; unknown nested paths cannot fall back to a parent create/delete/save operation. Prepared PATCH/DELETE checks the requested session relationship. Origin and secure-cookie selection share web-origin/Host validation; explicit browser cross-site mutations reject even without Origin. None of these checks caches campaign permissions.
+The catch-all API serves every route from one declarative table in `server/api/routes.ts`: each entry names its method, path pattern, required campaign role (`user`, `read`, `edit` or `owner`) and handler, and matching, the permission check and dispatch all read from it. A parameter never matches a literal segment of another route at the same position, so unknown nested paths and unsupported methods on literal paths (`players/bulk-delete`, `encounters/reorder`, `members/transfer`) return 404 and cannot fall back to a parent create/delete/save operation. Repositories keep their own permission checks. `tests/api-route-matrix.test.ts` locks the status code and response keys of every path, method and role. The other `app/api/*` route files share `withApiUser` (`server/http/api-handler.ts`) for origin checks, account lookup, named rate-limit budgets (`RATE_LIMITS` in `server/http/request-security.ts`) and JSON error mapping. Prepared PATCH/DELETE checks the requested session relationship. Origin and secure-cookie selection share web-origin/Host validation; explicit browser cross-site mutations reject even without Origin. None of these checks caches campaign permissions.
 
 ## Bestiary reuse and future sharing
 
